@@ -1,0 +1,368 @@
+
+@model List<EcommerceHue.Models.CartItem>
+
+@{
+    ViewData["Title"] = "Giỏ hàng của bạn";
+    var totalAmount   = Model.Sum(i => i.Total);
+    var totalItems    = Model.Sum(i => i.Quantity);
+}
+
+<!-- ============================================================
+     TIÊU ĐỀ TRANG GIỎ HÀNG
+     ============================================================ -->
+<div class="hue-cart-header d-flex align-items-center gap-3 mb-4">
+    <div class="hue-cart-icon-wrap">
+        <span class="hue-cart-icon">🛒</span>
+    </div>
+    <div>
+        <h1 class="h3 fw-bold mb-0">Giỏ hàng của bạn</h1>
+        <p class="text-muted small mb-0">
+            @if (Model.Any())
+            {
+                <span>@totalItems sản phẩm · Tổng: <strong class="text-danger">@totalAmount.ToString("N0") ₫</strong></span>
+            }
+            else
+            {
+                <span>Chưa có sản phẩm nào trong giỏ</span>
+            }
+        </p>
+    </div>
+    <div class="ms-auto">
+        <a asp-controller="Home" asp-action="Index" class="btn btn-outline-secondary rounded-pill btn-sm">
+            ← Tiếp tục mua sắm
+        </a>
+    </div>
+</div>
+
+<!-- ============================================================
+     THÔNG BÁO (TempData alerts)
+     ============================================================ -->
+@if (TempData["CartSuccess"] is string successMsg)
+{
+    <div class="alert alert-success alert-dismissible fade show rounded-3 border-0 shadow-sm mb-4" role="alert">
+        @successMsg
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+@if (TempData["CartWarning"] is string warningMsg)
+{
+    <div class="alert alert-warning alert-dismissible fade show rounded-3 border-0 shadow-sm mb-4" role="alert">
+        @warningMsg
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+@if (TempData["CartError"] is string errorMsg)
+{
+    <div class="alert alert-danger alert-dismissible fade show rounded-3 border-0 shadow-sm mb-4" role="alert">
+        @errorMsg
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@if (!Model.Any())
+{
+    <!-- Giỏ hàng trống -->
+    <div class="hue-cart-empty text-center py-5 rounded-4">
+        <div class="hue-empty-icon mb-3">🛍️</div>
+        <h3 class="text-muted fw-semibold">Giỏ hàng đang trống</h3>
+        <p class="text-muted mb-4">Hãy khám phá các đặc sản Huế và thêm vào giỏ hàng nhé!</p>
+        <a asp-controller="Home" asp-action="Index"
+           class="btn btn-warning btn-lg fw-semibold px-5 rounded-pill">
+            🏮 Khám phá đặc sản Huế
+        </a>
+    </div>
+}
+else
+{
+    <div class="row g-4">
+
+        <!-- ============================================================
+             CỘT TRÁI: BẢNG SẢN PHẨM GIỎ HÀNG
+             ============================================================ -->
+        <div class="col-lg-8">
+            <div class="hue-cart-table-wrap rounded-4 shadow-sm overflow-hidden">
+                <table class="table hue-cart-table mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-4" style="width:60px"></th>
+                            <th>Đặc sản</th>
+                            <th class="text-center" style="width:140px">Đơn giá</th>
+                            <th class="text-center" style="width:160px">Số lượng</th>
+                            <th class="text-end" style="width:130px">Thành tiền</th>
+                            <th style="width:50px"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            <tr class="hue-cart-row" id="cart-row-@item.ProductId">
+                                <!-- Ảnh thu nhỏ -->
+                                <td class="ps-4 py-3 align-middle">
+                                    <div class="hue-cart-thumb-wrap">
+                                        <img src="@(item.ImageUrl ?? "/images/placeholder.jpg")"
+                                             alt="@item.ProductName"
+                                             class="hue-cart-thumb rounded-3"
+                                             onerror="this.src='/images/placeholder.jpg'" />
+                                    </div>
+                                </td>
+
+                                <!-- Tên sản phẩm -->
+                                <td class="py-3 align-middle">
+                                    <div class="fw-semibold hue-cart-name">@item.ProductName</div>
+                                    <div class="small text-muted">Đặc sản Huế</div>
+                                </td>
+
+                                <!-- Đơn giá -->
+                                <td class="text-center align-middle">
+                                    <span class="text-danger fw-semibold">
+                                        @item.Price.ToString("N0") ₫
+                                    </span>
+                                </td>
+
+                                <!-- Ô nhập số lượng với nút tăng/giảm -->
+                                <td class="text-center align-middle">
+                                    <form asp-action="UpdateQuantity" method="post"
+                                          class="hue-qty-form d-flex align-items-center justify-content-center gap-1">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="productId" value="@item.ProductId" />
+
+                                        <button type="button"
+                                                class="btn hue-qty-btn btn-sm"
+                                                onclick="adjustQty(this, -1)"
+                                                title="Giảm">−</button>
+
+                                        <input type="number"
+                                               name="quantity"
+                                               value="@item.Quantity"
+                                               min="0"
+                                               class="form-control hue-qty-input text-center"
+                                               id="qty-@item.ProductId"
+                                               onchange="this.form.submit()" />
+
+                                        <button type="button"
+                                                class="btn hue-qty-btn btn-sm"
+                                                onclick="adjustQty(this, 1)"
+                                                title="Tăng">+</button>
+                                    </form>
+                                </td>
+
+                                <!-- Thành tiền -->
+                                <td class="text-end align-middle pe-3">
+                                    <span class="fw-bold text-dark fs-6">
+                                        @item.Total.ToString("N0") ₫
+                                    </span>
+                                </td>
+
+                                <!-- Nút xóa -->
+                                <td class="text-center align-middle">
+                                    <form asp-action="RemoveFromCart" method="post">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="productId" value="@item.ProductId" />
+                                        <button type="submit"
+                                                class="btn hue-delete-btn btn-sm"
+                                                title="Xóa khỏi giỏ"
+                                                onclick="return confirm('Xóa @item.ProductName khỏi giỏ hàng?')">
+                                            🗑️
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Nút xóa toàn bộ giỏ hàng -->
+            <div class="mt-3 text-end">
+                <form asp-action="Clear" method="post" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <button type="submit"
+                            class="btn btn-outline-danger btn-sm rounded-pill"
+                            onclick="return confirm('Bạn có chắc muốn xóa toàn bộ giỏ hàng?')">
+                        🗑️ Xóa toàn bộ giỏ
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- ============================================================
+             CỘT PHẢI: TÓM TẮT ĐƠN HÀNG & THANH TOÁN
+             ============================================================ -->
+        <div class="col-lg-4">
+            <div class="hue-order-summary rounded-4 shadow-sm p-4 sticky-top" style="top: 1.5rem;">
+
+                <h2 class="h5 fw-bold mb-4 pb-2 border-bottom">📋 Tóm tắt đơn hàng</h2>
+
+                <!-- Chi tiết tính tiền -->
+                <div class="hue-summary-row d-flex justify-content-between mb-2">
+                    <span class="text-muted">Tạm tính (@totalItems sản phẩm)</span>
+                    <span>@totalAmount.ToString("N0") ₫</span>
+                </div>
+                <div class="hue-summary-row d-flex justify-content-between mb-2">
+                    <span class="text-muted">Phí vận chuyển</span>
+                    <span class="text-success fw-semibold">Miễn phí</span>
+                </div>
+
+                <hr class="my-3" />
+
+                <!-- Tổng cộng -->
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <span class="fw-bold fs-6">Tổng thanh toán</span>
+                    <span class="fw-bold fs-5 text-danger">@totalAmount.ToString("N0") ₫</span>
+                </div>
+
+                <!-- Nút Tiến hành đặt hàng & Thanh toán VnPay -->
+                <!-- [Authorize] trên CartController.Checkout sẽ tự redirect Login nếu chưa đăng nhập -->
+                <a asp-controller="Cart" asp-action="Checkout"
+                   id="btn-checkout-vnpay"
+                   class="btn hue-btn-checkout w-100 fw-bold rounded-pill py-3 mb-3">
+                    <span class="me-2">💳</span>
+                    Tiến hành Đặt hàng &amp; Thanh toán VnPay
+                </a>
+
+                <!-- Tiếp tục mua sắm -->
+                <a asp-controller="Home" asp-action="Index"
+                   class="btn btn-outline-secondary w-100 rounded-pill">
+                    ← Tiếp tục mua sắm
+                </a>
+
+                <!-- Cam kết thanh toán an toàn -->
+                <div class="hue-secure-badge mt-4 text-center">
+                    <span class="text-muted small">🔒 Thanh toán bảo mật qua VnPay · SSL 256-bit</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+}
+
+<!-- ============================================================
+     STYLES RIÊNG CHO TRANG GIỎ HÀNG
+     ============================================================ -->
+@section Styles {
+<style>
+    /* --- Header --- */
+    .hue-cart-header { padding: .75rem 0; }
+    .hue-cart-icon-wrap {
+        width: 52px; height: 52px;
+        background: linear-gradient(135deg, #fff3cd, #ffe08a);
+        border-radius: 14px;
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 4px 12px rgba(255,193,7,.3);
+    }
+    .hue-cart-icon { font-size: 1.6rem; }
+
+    /* --- Empty state --- */
+    .hue-cart-empty {
+        background: #fff8f2;
+        border: 2px dashed #f0deca;
+    }
+    .hue-empty-icon { font-size: 4rem; }
+
+    /* --- Table --- */
+    .hue-cart-table-wrap { background: #fff; border: 1px solid #f0e6d8; }
+    .hue-cart-table thead tr {
+        background: linear-gradient(90deg, #7b2d00 0%, #b5451b 100%);
+        color: #fff;
+    }
+    .hue-cart-table thead th { border: none; font-weight: 600; padding: .9rem .75rem; }
+    .hue-cart-row { border-bottom: 1px solid #f7ede3; transition: background .2s; }
+    .hue-cart-row:last-child { border-bottom: none; }
+    .hue-cart-row:hover { background: #fdf5ef; }
+
+    /* --- Thumb --- */
+    .hue-cart-thumb-wrap { width: 56px; height: 56px; overflow: hidden; border-radius: 10px; }
+    .hue-cart-thumb { width: 100%; height: 100%; object-fit: cover; }
+
+    /* --- Product name --- */
+    .hue-cart-name { max-width: 200px; }
+
+    /* --- Quantity control --- */
+    .hue-qty-form { gap: 4px; }
+    .hue-qty-input {
+        width: 52px !important;
+        height: 32px;
+        padding: 0 4px;
+        border-color: #e8d5c4;
+        font-weight: 600;
+        font-size: .9rem;
+        -moz-appearance: textfield;
+    }
+    .hue-qty-input::-webkit-outer-spin-button,
+    .hue-qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .hue-qty-btn {
+        width: 28px; height: 32px;
+        background: #f0e6d8;
+        border: 1px solid #dfc9b0;
+        color: #7b2d00;
+        font-weight: 700;
+        font-size: 1rem;
+        padding: 0;
+        border-radius: 7px;
+        line-height: 1;
+        transition: background .15s;
+    }
+    .hue-qty-btn:hover { background: #e8c9a8; }
+
+    /* --- Delete button --- */
+    .hue-delete-btn {
+        background: none; border: none;
+        font-size: 1.1rem;
+        opacity: .65;
+        transition: opacity .15s, transform .15s;
+    }
+    .hue-delete-btn:hover { opacity: 1; transform: scale(1.2); }
+
+    /* --- Order summary panel --- */
+    .hue-order-summary {
+        background: #fff;
+        border: 1px solid #f0e6d8;
+    }
+    .hue-summary-row { font-size: .9rem; }
+
+    /* --- Checkout button --- */
+    .hue-btn-checkout {
+        background: linear-gradient(135deg, #006dcc 0%, #0050a3 100%);
+        color: #fff;
+        border: none;
+        letter-spacing: .3px;
+        box-shadow: 0 6px 20px rgba(0,109,204,.35);
+        transition: transform .15s, box-shadow .15s;
+        font-size: 1rem;
+    }
+    .hue-btn-checkout:hover {
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0,109,204,.45);
+    }
+    .hue-btn-checkout:active { transform: translateY(0); }
+
+    /* --- Secure badge --- */
+    .hue-secure-badge {
+        border-top: 1px dashed #e8d5c4;
+        padding-top: .75rem;
+    }
+</style>
+}
+
+<!-- ============================================================
+     SCRIPTS: Điều chỉnh số lượng bằng nút +/−
+     ============================================================ -->
+@section Scripts {
+<script>
+    /**
+     * Tăng/giảm giá trị ô input số lượng và tự submit form để cập nhật Session.
+     * @@param {HTMLElement} btn  - Nút được nhấn (+ hoặc −)
+     * @@param {number}      delta - +1 hoặc −1
+     */
+    function adjustQty(btn, delta) {
+        const form  = btn.closest('form');
+        const input = form.querySelector('input[name="quantity"]');
+        const newVal = parseInt(input.value, 10) + delta;
+
+        // Không cho phép số lượng âm (= 0 → form submit → backend sẽ xóa item)
+        input.value = Math.max(0, newVal);
+        form.submit();
+    }
+</script>
+}

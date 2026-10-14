@@ -1,0 +1,488 @@
+@model EcommerceHue.Models.ViewModels.HomeIndexViewModel
+
+@{
+    ViewData["Title"] = "Đặc sản Huế – Hương vị cung đình";
+    ViewData["Description"] = "Khám phá các món đặc sản trứ danh của xứ Huế: mè xửng, tôm chua, trà cung đình và nhiều hơn nữa.";
+}
+
+<!-- ============================================================
+     HERO BANNER
+     ============================================================ -->
+<section class="hue-hero text-white text-center py-5 mb-4 rounded-4 position-relative overflow-hidden">
+    <div class="container py-2 position-relative" style="z-index: 2;">
+        <span class="badge bg-warning text-dark fs-6 mb-3 px-3 py-2 rounded-pill shadow-sm">
+            🏮 Tinh hoa ẩm thực cố đô Huế
+        </span>
+        <h1 class="display-4 fw-bold mb-3">Đặc sản xứ Huế</h1>
+        <p class="lead mb-4 opacity-90 mx-auto" style="max-width: 650px;">
+            Mè xửng dẻo bùi, tôm chua đậm đà, trà cung đình thanh tao — chuẩn vị truyền thống triều Nguyễn giao tận nơi toàn quốc.
+        </p>
+
+        <!-- THANH TÌM KIẾM NỔI BẬT NẰM TRONG BANNER -->
+        <div class="row justify-content-center">
+            <div class="col-lg-8 col-md-10">
+                <form asp-controller="Home" asp-action="Index" method="get" class="hue-search-banner">
+                    @if (Model.SelectedCategoryId.HasValue)
+                    {
+                        <input type="hidden" name="categoryId" value="@Model.SelectedCategoryId" />
+                    }
+                    <div class="input-group input-group-lg shadow-lg rounded-pill overflow-hidden bg-white p-1">
+                        <span class="input-group-text bg-transparent border-0 ps-3 text-warning fs-5">
+                            🔍
+                        </span>
+                        <input type="text"
+                               name="searchString"
+                               value="@Model.SearchString"
+                               class="form-control border-0 shadow-none px-2 fs-6 text-dark"
+                               placeholder="Tìm mè xửng, tôm chua, trà cung đình..."
+                               aria-label="Tìm kiếm sản phẩm" />
+                        @if (!string.IsNullOrWhiteSpace(Model.SearchString))
+                        {
+                            <a asp-action="Index"
+                               asp-route-categoryId="@Model.SelectedCategoryId"
+                               class="btn bg-transparent border-0 text-muted d-flex align-items-center px-2"
+                               title="Xóa từ khóa">
+                                ✖
+                            </a>
+                        }
+                        <button class="btn btn-warning fw-bold px-4 rounded-pill hue-btn-search text-dark" type="submit">
+                            Tìm kiếm
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ============================================================
+     BỐ CỤC CHÍNH: SIDEBAR DANH MỤC (TRÁI) + LƯỚI SẢN PHẨM (PHẢI)
+     ============================================================ -->
+<div class="row g-4" id="san-pham">
+
+    <!-- CỘT 1: SIDEBAR DANH MỤC ĐẶC SẢN (Bootstrap List Group) -->
+    <aside class="col-lg-3 col-md-4">
+        <div class="hue-sidebar-card card rounded-4 shadow-sm border-0 sticky-top" style="top: 20px; z-index: 5;">
+            
+            <!-- Header Sidebar -->
+            <div class="card-header hue-sidebar-header py-3 rounded-top-4 border-0 d-flex align-items-center justify-content-between">
+                <h5 class="h6 fw-bold mb-0 text-white">
+                    🏮 DANH MỤC ĐẶC SẢN
+                </h5>
+                <span class="badge bg-light text-dark rounded-pill">
+                    @Model.Categories.Count()
+                </span>
+            </div>
+
+            <!-- List Group danh mục -->
+            <div class="list-group list-group-flush rounded-bottom-4">
+                
+                <!-- Mục: Tất cả đặc sản -->
+                <a asp-action="Index"
+                   asp-route-searchString="@Model.SearchString"
+                   class="list-group-item list-group-item-action d-flex align-items-center justify-content-between py-3 hue-category-item @(Model.SelectedCategoryId == null ? "active hue-category-active" : "")">
+                    <span class="d-flex align-items-center gap-2">
+                        <span>🍽️</span>
+                        <span>Tất cả đặc sản</span>
+                    </span>
+                    <span class="badge rounded-pill @(Model.SelectedCategoryId == null ? "bg-white text-dark" : "bg-light text-secondary border")">
+                        @Model.TotalAllProductsCount
+                    </span>
+                </a>
+
+                <!-- Duyệt qua từng danh mục từ CSDL -->
+                @foreach (var category in Model.Categories)
+                {
+                    var isSelected = Model.SelectedCategoryId == category.Id;
+                    var count = Model.CategoryProductCounts.GetValueOrDefault(category.Id, 0);
+                    var icon = category.Name.Contains("Mè xửng") ? "🍬"
+                             : category.Name.Contains("Tôm chua") ? "🦐"
+                             : category.Name.Contains("Trà") ? "🍵"
+                             : "🏮";
+
+                    <a asp-action="Index"
+                       asp-route-categoryId="@category.Id"
+                       asp-route-searchString="@Model.SearchString"
+                       class="list-group-item list-group-item-action d-flex align-items-center justify-content-between py-3 hue-category-item @(isSelected ? "active hue-category-active" : "")">
+                        <span class="d-flex align-items-center gap-2">
+                            <span>@icon</span>
+                            <span>@category.Name</span>
+                        </span>
+                        <span class="badge rounded-pill @(isSelected ? "bg-white text-dark" : "bg-light text-secondary border")">
+                            @count
+                        </span>
+                    </a>
+                }
+            </div>
+
+            <!-- Nút Reset bộ lọc khi đang tìm kiếm hoặc chọn danh mục -->
+            @if (Model.SelectedCategoryId.HasValue || !string.IsNullOrWhiteSpace(Model.SearchString))
+            {
+                <div class="card-footer bg-white border-0 text-center p-3">
+                    <a asp-action="Index" class="btn btn-sm btn-outline-danger rounded-pill w-100 fw-semibold">
+                        🔄 Bỏ lọc, xem tất cả
+                    </a>
+                </div>
+            }
+        </div>
+    </aside>
+
+    <!-- CỘT 2: LƯỚI SẢN PHẨM -->
+    <main class="col-lg-9 col-md-8">
+
+        <!-- Thanh thông tin trạng thái lọc và tiêu đề -->
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4 pb-2 border-bottom">
+            <div>
+                <h2 class="h4 fw-bold mb-1 text-dark">
+                    <span class="border-start border-warning border-4 ps-2">
+                        @(Model.SelectedCategoryName ?? "Tất cả đặc sản Huế")
+                    </span>
+                </h2>
+                @if (!string.IsNullOrWhiteSpace(Model.SearchString))
+                {
+                    <div class="small text-muted mt-1">
+                        Kết quả tìm kiếm cho từ khóa: <strong class="text-dark">"@Model.SearchString"</strong>
+                    </div>
+                }
+            </div>
+
+            <div class="text-muted small">
+                Tìm thấy <strong class="text-dark">@Model.Products.Count()</strong> sản phẩm
+            </div>
+        </div>
+
+        @if (!Model.Products.Any())
+        {
+            <!-- Trạng thái không tìm thấy sản phẩm -->
+            <div class="text-center py-5 bg-white rounded-4 border p-4 shadow-sm">
+                <div class="fs-1 mb-3">🔍</div>
+                <h3 class="h5 fw-bold text-dark mb-2">Không tìm thấy đặc sản phù hợp</h3>
+                <p class="text-muted mb-4">
+                    Không có sản phẩm nào khớp với từ khóa "@Model.SearchString" trong danh mục đang chọn.
+                </p>
+                <a asp-action="Index" class="btn btn-warning fw-semibold px-4 rounded-pill">
+                    Xem tất cả đặc sản Huế
+                </a>
+            </div>
+        }
+        else
+        {
+            <!-- Lưới danh sách sản phẩm -->
+            <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-3 g-4">
+                @foreach (var product in Model.Products)
+                {
+                    @* Trạng thái tồn kho *@
+                    var stockClass = product.StockQuantity > 20 ? "success"
+                                   : product.StockQuantity > 0  ? "warning"
+                                   : "danger";
+                    var stockLabel = product.StockQuantity > 20 ? "Còn hàng"
+                                   : product.StockQuantity > 0  ? $"Chỉ còn {product.StockQuantity}"
+                                   : "Hết hàng";
+
+                    @* Hạn sử dụng (ExpiryDate) *@
+                    var today       = DateOnly.FromDateTime(DateTime.Today);
+                    var daysLeft    = product.ExpiryDate.DayNumber - today.DayNumber;
+                    var expiryClass = daysLeft > 60 ? "success" : daysLeft > 14 ? "warning" : "danger";
+
+                    @* Kiểm tra giảm giá (OriginalPrice) *@
+                    var hasDiscount = product.OriginalPrice.HasValue && product.OriginalPrice.Value > product.Price;
+                    var discountPercent = hasDiscount
+                        ? (int)Math.Round((1 - (product.Price / product.OriginalPrice!.Value)) * 100)
+                        : 0;
+
+                    <div class="col">
+                        <div class="hue-product-card card h-100 rounded-4 overflow-hidden shadow-sm border-0">
+
+                            <!-- Ảnh sản phẩm & Badge -->
+                            <div class="hue-product-img-wrap position-relative">
+                                <img src="@(product.ImageUrl ?? "/images/placeholder.jpg")"
+                                     alt="@product.Name"
+                                     class="hue-product-img w-100"
+                                     onerror="this.src='/images/placeholder.jpg'" />
+
+                                <!-- Badge danh mục -->
+                                <span class="position-absolute top-0 start-0 m-2 badge bg-dark bg-opacity-75 rounded-pill px-2 py-1 small">
+                                    @product.Category?.Name
+                                </span>
+
+                                <!-- Badge tồn kho -->
+                                <span class="position-absolute top-0 end-0 m-2 badge bg-@stockClass rounded-pill px-2 py-1 small">
+                                    @stockLabel
+                                </span>
+
+                                <!-- Badge giảm giá (nếu có) -->
+                                @if (hasDiscount)
+                                {
+                                    <span class="position-absolute bottom-0 start-0 m-2 badge bg-danger rounded-pill px-2 py-1 small shadow-sm">
+                                        🔥 -@discountPercent%
+                                    </span>
+                                }
+                            </div>
+
+                            <!-- Nội dung card -->
+                            <div class="card-body d-flex flex-column p-3">
+
+                                <!-- Tên sản phẩm -->
+                                <h3 class="h6 fw-bold mb-1 hue-product-name" title="@product.Name">
+                                    @product.Name
+                                </h3>
+
+                                <!-- Mô tả ngắn -->
+                                @if (!string.IsNullOrEmpty(product.Description))
+                                {
+                                    <p class="small text-muted mb-2 hue-product-desc">
+                                        @(product.Description.Length > 75
+                                            ? product.Description[..75] + "…"
+                                            : product.Description)
+                                    </p>
+                                }
+
+                                <!-- HIỂN THỊ GIÁ: Gạch ngang giá gốc kèm giá mới màu đỏ -->
+                                <div class="mb-2">
+                                    @if (hasDiscount)
+                                    {
+                                        <div class="d-flex align-items-baseline gap-2 flex-wrap">
+                                            <!-- Giá mới màu đỏ nổi bật -->
+                                            <span class="fw-bold text-danger fs-5">
+                                                @product.Price.ToString("N0") <span class="fs-6 fw-normal">₫</span>
+                                            </span>
+                                            <!-- Giá gốc gạch ngang -->
+                                            <span class="text-muted text-decoration-line-through small">
+                                                @product.OriginalPrice!.Value.ToString("N0") ₫
+                                            </span>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <!-- Giá thường màu đỏ -->
+                                        <div class="fw-bold text-danger fs-5">
+                                            @product.Price.ToString("N0") <span class="fs-6 fw-normal">₫</span>
+                                        </div>
+                                    }
+                                </div>
+
+                                <!-- Hạn sử dụng (ExpiryDate) theo chuẩn 01-coding-style.md -->
+                                <div class="d-flex align-items-center gap-1 mb-3 small">
+                                    <span class="badge bg-@expiryClass-subtle text-@expiryClass-emphasis border border-@expiryClass-subtle rounded-pill px-2">
+                                        📅 HSD: @product.ExpiryDate.ToString("dd/MM/yyyy")
+                                    </span>
+                                </div>
+
+                                <!-- Nút hành động: Thêm vào giỏ (AJAX) + Mua ngay -->
+                                <div class="mt-auto d-flex flex-column gap-2">
+                                    @if (product.StockQuantity > 0)
+                                    {
+                                        <!-- Thêm vào giỏ hàng AJAX -->
+                                        <button type="button"
+                                                id="btn-add-cart-@product.Id"
+                                                data-product-id="@product.Id"
+                                                data-product-name="@product.Name"
+                                                class="btn btn-warning w-100 fw-semibold rounded-pill hue-btn-cart"
+                                                onclick="addToCart(this)">
+                                            <span class="btn-text">🛒 Thêm vào giỏ</span>
+                                            <span class="btn-spinner spinner-border spinner-border-sm d-none" role="status"></span>
+                                        </button>
+
+                                        <!-- Mua ngay -->
+                                        <form asp-controller="Cart" asp-action="AddToCart" method="post"
+                                              id="form-buy-now-@product.Id">
+                                            <input type="hidden" name="productId" value="@product.Id" />
+                                        </form>
+                                        <button type="button"
+                                                id="btn-buy-now-@product.Id"
+                                                data-product-id="@product.Id"
+                                                class="btn hue-btn-buy-now w-100 fw-semibold rounded-pill"
+                                                onclick="buyNow(@product.Id)">
+                                            ⚡ Mua ngay
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-secondary w-100 rounded-pill" disabled>
+                                            Hết hàng
+                                        </button>
+                                    }
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </main>
+</div>
+
+<!-- ============================================================
+     STYLES RIÊNG CHO TRANG CHỦ
+     ============================================================ -->
+@section Styles {
+<style>
+    /* --- Hero Banner & Search --- */
+    .hue-hero {
+        background: linear-gradient(135deg, #7b2d00 0%, #b5451b 45%, #e8722a 100%);
+        box-shadow: 0 8px 30px rgba(123,45,0,.22);
+    }
+    .hue-btn-search {
+        background-color: #ffc107;
+        border: none;
+        transition: transform .15s, background-color .15s;
+    }
+    .hue-btn-search:hover {
+        background-color: #ffb300;
+        transform: scale(1.02);
+    }
+
+    /* --- Sidebar Card & List Group --- */
+    .hue-sidebar-card {
+        border: 1px solid #f0e6d8 !important;
+        overflow: hidden;
+    }
+    .hue-sidebar-header {
+        background: linear-gradient(135deg, #7b2d00 0%, #b5451b 100%);
+    }
+    .hue-category-item {
+        border-color: #f7ede2;
+        color: #495057;
+        font-weight: 500;
+        transition: all .2s ease;
+    }
+    .hue-category-item:hover {
+        background-color: #fdf7f0;
+        color: #b5451b;
+        padding-left: 1.25rem !important;
+    }
+    .hue-category-active {
+        background: linear-gradient(135deg, #b5451b 0%, #e8722a 100%) !important;
+        border-color: #b5451b !important;
+        color: #fff !important;
+    }
+
+    /* --- Product Card --- */
+    .hue-product-card {
+        border: 1px solid #f0e6d8 !important;
+        background: #fff;
+        transition: transform .25s ease, box-shadow .25s ease;
+    }
+    .hue-product-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 12px 28px rgba(123,45,0,.14) !important;
+    }
+
+    /* --- Product Image --- */
+    .hue-product-img-wrap { height: 185px; background: #faf5f0; overflow: hidden; }
+    .hue-product-img      { height: 100%; object-fit: cover; transition: transform .35s ease; }
+    .hue-product-card:hover .hue-product-img { transform: scale(1.06); }
+
+    /* --- Text clamp --- */
+    .hue-product-name { 
+        display: -webkit-box; -webkit-line-clamp: 2; 
+        -webkit-box-orient: vertical; overflow: hidden;
+        min-height: 2.4rem;
+    }
+    .hue-product-desc { 
+        display: -webkit-box; -webkit-line-clamp: 2; 
+        -webkit-box-orient: vertical; overflow: hidden; 
+    }
+
+    /* --- Action Buttons --- */
+    .hue-btn-cart { transition: transform .15s, box-shadow .15s; }
+    .hue-btn-cart:hover { transform: scale(1.02); box-shadow: 0 4px 12px rgba(255,193,7,.45); }
+    .hue-btn-cart:active { transform: scale(.98); }
+    .hue-btn-cart:disabled { opacity: .7; cursor: not-allowed; transform: none; }
+
+    .hue-btn-buy-now {
+        background: linear-gradient(135deg, #7b2d00, #c0392b);
+        color: #fff;
+        border: none;
+        transition: transform .15s, box-shadow .15s;
+    }
+    .hue-btn-buy-now:hover {
+        color: #fff;
+        transform: scale(1.02);
+        box-shadow: 0 4px 14px rgba(123,45,0,.4);
+    }
+    .hue-btn-buy-now:active { transform: scale(.98); }
+</style>
+}
+
+<!-- ============================================================
+     SCRIPTS AJAX GIỎ HÀNG
+     ============================================================ -->
+@section Scripts {
+<script>
+// ============================================================================
+// TRANG CHỦ – Giỏ hàng AJAX
+// ============================================================================
+
+/**
+ * Gửi yêu cầu thêm sản phẩm vào giỏ qua Fetch API.
+ * Khi thành công: hiển thị Toast + cập nhật badge navbar.
+ * Không reload/redirect trang.
+ * @@param {HTMLElement} btn - Nút "Thêm vào giỏ" được nhấn
+ */
+async function addToCart(btn) {
+    const productId   = btn.dataset.productId;
+    const productName = btn.dataset.productName;
+
+    // Hiển thị trạng thái loading
+    const textEl    = btn.querySelector('.btn-text');
+    const spinnerEl = btn.querySelector('.btn-spinner');
+    btn.disabled  = true;
+    textEl.classList.add('d-none');
+    spinnerEl.classList.remove('d-none');
+
+    try {
+        const response = await fetch('/Cart/AddToCart', {
+            method : 'POST',
+            headers: {
+                'Content-Type'     : 'application/x-www-form-urlencoded',
+                'X-Requested-With' : 'XMLHttpRequest'
+            },
+            body: `productId=${productId}`
+        });
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast(data.message, 'success');
+            if (typeof updateCartBadge === 'function') {
+                updateCartBadge(data.cartCount);
+            }
+        } else {
+            showToast(data.message, 'warning');
+        }
+    } catch (err) {
+        showToast('Có lỗi xảy ra. Vui lòng thử lại.', 'error');
+        console.error('[addToCart] Error:', err);
+    } finally {
+        setTimeout(() => {
+            btn.disabled = false;
+            textEl.classList.remove('d-none');
+            spinnerEl.classList.add('d-none');
+        }, 500);
+    }
+}
+
+/**
+ * "Mua ngay": thêm vào giỏ qua AJAX rồi chuyển hướng đến trang giỏ hàng.
+ * @@param {number} productId - Id sản phẩm
+ */
+async function buyNow(productId) {
+    try {
+        await fetch('/Cart/AddToCart', {
+            method : 'POST',
+            headers: {
+                'Content-Type'     : 'application/x-www-form-urlencoded',
+                'X-Requested-With' : 'XMLHttpRequest'
+            },
+            body: `productId=${productId}`
+        });
+    } catch { /* Bỏ qua lỗi – chuyển hướng ngay */ }
+
+    window.location.href = '/Cart';
+}
+</script>
+}

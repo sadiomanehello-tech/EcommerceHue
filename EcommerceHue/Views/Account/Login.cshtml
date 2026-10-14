@@ -1,0 +1,175 @@
+@model EcommerceHue.Models.ViewModels.LoginViewModel
+
+@{
+    ViewData["Title"] = "Đăng nhập";
+}
+
+<!-- ============================================================
+     TRANG ĐĂNG NHẬP
+     ============================================================ -->
+<div class="row justify-content-center py-5">
+    <div class="col-lg-5 col-md-7">
+
+        <!-- Header -->
+        <div class="text-center mb-4">
+            <div class="hue-auth-icon mb-3">🏮</div>
+            <h1 class="h3 fw-bold">Đăng nhập</h1>
+            <p class="text-muted">Chào mừng bạn trở lại Đặc sản Huế</p>
+        </div>
+
+        <!-- Form đăng nhập -->
+        <div class="hue-auth-card rounded-4 shadow-sm p-4 p-md-5">
+
+            <!-- Hiển thị lỗi tổng quát -->
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3 border-0"></div>
+
+            <form asp-action="Login" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="ReturnUrl" />
+
+                <!-- Email hoặc Số điện thoại -->
+                <div class="mb-3">
+                    <label asp-for="EmailOrPhone" class="form-label fw-semibold"></label>
+                    <div class="input-group">
+                        <span class="input-group-text hue-input-icon">📱</span>
+                        <input asp-for="EmailOrPhone"
+                               class="form-control hue-input"
+                               placeholder="Nhập email hoặc số điện thoại của bạn"
+                               autocomplete="username"
+                               autofocus />
+                    </div>
+                    <span asp-validation-for="EmailOrPhone" class="text-danger small"></span>
+                </div>
+
+                <!-- Mật khẩu -->
+                <div class="mb-3">
+                    <label asp-for="Password" class="form-label fw-semibold"></label>
+                    <div class="input-group">
+                        <span class="input-group-text hue-input-icon">🔒</span>
+                        <input asp-for="Password"
+                               class="form-control hue-input"
+                               placeholder="Nhập mật khẩu"
+                               autocomplete="current-password" />
+                    </div>
+                    <span asp-validation-for="Password" class="text-danger small"></span>
+                </div>
+
+                <!-- Ghi nhớ đăng nhập -->
+                <div class="mb-4 d-flex align-items-center justify-content-between">
+                    <div class="form-check">
+                        <input asp-for="RememberMe" class="form-check-input" />
+                        <label asp-for="RememberMe" class="form-check-label small text-muted"></label>
+                    </div>
+                </div>
+
+                <!-- Nút đăng nhập -->
+                <button type="submit" class="btn hue-btn-auth w-100 fw-bold rounded-pill py-3 mb-3">
+                    🔑 Đăng nhập
+                </button>
+            </form>
+
+            <!-- Phân cách HOẶC -->
+            <div class="d-flex align-items-center my-3">
+                <hr class="flex-grow-1 border-secondary-subtle my-0" />
+                <span class="px-3 text-muted small fw-semibold">HOẶC</span>
+                <hr class="flex-grow-1 border-secondary-subtle my-0" />
+            </div>
+
+            <!-- Nút đăng nhập nhanh bằng Google -->
+            <a asp-action="GoogleLogin"
+               asp-route-returnUrl="@Model?.ReturnUrl"
+               class="btn w-100 fw-bold rounded-pill py-3 mb-4 d-flex align-items-center justify-content-center shadow-sm hue-btn-google">
+                <svg class="me-2" width="20" height="20" viewBox="0 0 48 48">
+                    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                    <path fill="none" d="M0 0h48v48H0z"/>
+                </svg>
+                <span>Đăng nhập nhanh bằng Google</span>
+            </a>
+
+            <!-- Link đăng ký -->
+            <div class="text-center">
+                <span class="text-muted">Chưa có tài khoản?</span>
+                <a asp-action="Register" class="fw-semibold hue-link">Đăng ký ngay</a>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ============================================================
+     STYLES
+     ============================================================ -->
+@section Styles {
+<style>
+    .hue-auth-icon { font-size: 3rem; }
+
+    .hue-auth-card {
+        background: #fff;
+        border: 1px solid #f0e6d8;
+    }
+
+    .hue-input-icon {
+        background: #faf5f0;
+        border-color: #e8d5c4;
+        font-size: .9rem;
+    }
+    .hue-input {
+        border-color: #e8d5c4;
+        transition: border-color .2s, box-shadow .2s;
+    }
+    .hue-input:focus {
+        border-color: #b5451b;
+        box-shadow: 0 0 0 .2rem rgba(181,69,27,.15);
+    }
+
+    .hue-btn-auth {
+        background: linear-gradient(135deg, #7b2d00 0%, #b5451b 45%, #e8722a 100%);
+        color: #fff;
+        border: none;
+        font-size: 1.05rem;
+        letter-spacing: .3px;
+        box-shadow: 0 6px 20px rgba(123,45,0,.3);
+        transition: transform .15s, box-shadow .15s;
+    }
+    .hue-btn-auth:hover {
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 26px rgba(123,45,0,.4);
+    }
+    .hue-btn-auth:active { transform: translateY(0); }
+
+    .hue-link {
+        color: #b5451b;
+        text-decoration: none;
+    }
+    .hue-link:hover {
+        color: #7b2d00;
+        text-decoration: underline;
+    }
+
+    .hue-btn-google {
+        background-color: #ffffff;
+        border: 1.5px solid #dadce0;
+        color: #3c4043;
+        font-size: 1rem;
+        transition: all .2s ease-in-out;
+    }
+    .hue-btn-google:hover {
+        background-color: #f8f9fa;
+        border-color: #d2e3fc;
+        color: #1a73e8;
+        box-shadow: 0 4px 14px rgba(66, 133, 244, 0.18) !important;
+        transform: translateY(-2px);
+    }
+    .hue-btn-google:active {
+        transform: translateY(0);
+    }
+</style>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

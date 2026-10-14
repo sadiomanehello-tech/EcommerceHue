@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="@ViewData["Description"]" />
+    <title>@ViewData["Title"] - Đặc sản Huế</title>
+    <script type="importmap"></script>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/EcommerceHue.styles.css" asp-append-version="true" />
+    @await RenderSectionAsync("Styles", required: false)
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-sm navbar-dark hue-navbar border-bottom shadow-sm mb-4">
+            <div class="container">
+                <!-- Logo / Brand -->
+                <a class="navbar-brand fw-bold hue-brand" asp-area="" asp-controller="Home" asp-action="Index">
+                    🏮 Đặc sản Huế
+                </a>
+
+                <!-- Toggle button (mobile) -->
+                <button class="navbar-toggler border-0" type="button"
+                        data-bs-toggle="collapse" data-bs-target=".navbar-collapse"
+                        aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Nav links -->
+                <div class="navbar-collapse collapse">
+                    <ul class="navbar-nav me-auto">
+                        <li class="nav-item">
+                            <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Index">🏠 Trang chủ</a>
+                        </li>
+                    </ul>
+
+                    <!-- Icon giỏ hàng bên phải navbar -->
+                    <ul class="navbar-nav align-items-center gap-2">
+                        <li class="nav-item">
+                            <a class="nav-link hue-cart-nav d-flex align-items-center gap-2"
+                               asp-controller="Cart" asp-action="Index"
+                               id="nav-cart-link">
+                                🛒 <span>Giỏ hàng</span>
+                                <!-- Badge số lượng sản phẩm trong giỏ (JS cập nhật động) -->
+                                <span id="cart-badge"
+                                      class="badge rounded-pill hue-cart-badge d-none"
+                                      aria-label="Số lượng sản phẩm trong giỏ">0</span>
+                            </a>
+                        </li>
+
+                        @if (User.Identity?.IsAuthenticated == true)
+                        {
+                            <!-- User đã đăng nhập: hiện tên + menu dropdown -->
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle hue-user-nav d-flex align-items-center gap-2"
+                                   href="#" role="button" data-bs-toggle="dropdown"
+                                   aria-expanded="false" id="nav-user-menu">
+                                    👤 <span class="hue-username">@(User.FindFirst("FullName")?.Value ?? User.Identity.Name)</span>
+                                </a>
+                                <ul class="dropdown-menu dropdown-menu-end hue-dropdown shadow-sm border-0">
+                                    <li>
+                                        <span class="dropdown-item-text small text-muted">
+                                            Xin chào, <strong>@(User.FindFirst("FullName")?.Value ?? User.Identity.Name)</strong>
+                                        </span>
+                                    </li>
+                                    <li><hr class="dropdown-divider m-1" /></li>
+                                    <li>
+                                        <a class="dropdown-item" asp-controller="Cart" asp-action="Checkout">
+                                            📦 Đặt hàng
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider m-1" /></li>
+                                    <li>
+                                        <!-- Đăng xuất dùng POST để bảo vệ CSRF -->
+                                        <form asp-controller="Account" asp-action="Logout" method="post" class="m-0">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="dropdown-item text-danger fw-semibold"
+                                                    id="btn-logout">
+                                                🚪 Đăng xuất
+                                            </button>
+                                        </form>
+                                    </li>
+                                </ul>
+                            </li>
+                        }
+                        else
+                        {
+                            <!-- User chưa đăng nhập: hiện nút Đăng ký + Đăng nhập -->
+                            <li class="nav-item">
+                                <a class="nav-link hue-auth-link"
+                                   asp-controller="Account" asp-action="Register"
+                                   id="nav-register-link">
+                                    📝 Đăng ký
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link hue-auth-btn-login"
+                                   asp-controller="Account" asp-action="Login"
+                                   id="nav-login-link">
+                                    🔑 Đăng nhập
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <div class="container">
+        <main role="main" class="pb-3">
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="hue-footer border-top mt-5 py-4 text-center text-muted">
+        <div class="container">
+            <p class="mb-1">🏮 <strong>Đặc sản Huế</strong> – Tinh hoa ẩm thực cố đô</p>
+            <p class="small mb-0">&copy; 2026 EcommerceHue · <a asp-area="" asp-controller="Home" asp-action="Privacy" class="text-muted">Chính sách</a></p>
+        </div>
+    </footer>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+
+    <!-- ================================================================
+         TOAST CONTAINER – hiển thị thông báo góc dưới phải toàn trang
+         ================================================================ -->
+    <div id="hue-toast-container"
+         class="toast-container position-fixed bottom-0 end-0 p-3"
+         style="z-index: 1080;"
+         aria-live="polite"
+         aria-atomic="true">
+    </div>
+
+    <script>
+    // ====================================================================
+    // HUE CART GLOBAL HELPERS
+    // Khai báo toàn cục để mọi View đều gọi được.
+    // ====================================================================
+
+    /**
+     * Hiển thị Toast thông báo góc dưới phải màn hình.
+     * @@param {string} message  - Nội dung thông báo
+     * @@param {'success'|'warning'|'error'} type - Loại thông báo
+     */
+    function showToast(message, type = 'success') {
+        const icons = { success: '✅', warning: '⚠️', error: '❌' };
+        const colors = {
+            success : 'linear-gradient(135deg,#2d6a4f,#52b788)',
+            warning : 'linear-gradient(135deg,#b5451b,#e8722a)',
+            error   : 'linear-gradient(135deg,#7b2d00,#c0392b)'
+        };
+
+        const toastId = 'toast-' + Date.now();
+        const html = `
+            <div id="${toastId}" class="toast hue-toast align-items-center border-0 show"
+                 role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex align-items-center gap-3 p-3" style="background:${colors[type]};border-radius:12px;">
+                    <span class="fs-5">${icons[type]}</span>
+                    <span class="text-white fw-semibold flex-grow-1 small">${message}</span>
+                    <button type="button" class="btn-close btn-close-white flex-shrink-0"
+                            onclick="document.getElementById('${toastId}').remove()"
+                            aria-label="Đóng"></button>
+                </div>
+            </div>`;
+
+        const container = document.getElementById('hue-toast-container');
+        container.insertAdjacentHTML('beforeend', html);
+
+        // Tự xóa sau 3.5 giây
+        setTimeout(() => {
+            const el = document.getElementById(toastId);
+            if (el) {
+                el.style.transition = 'opacity .4s';
+                el.style.opacity = '0';
+                setTimeout(() => el.remove(), 420);
+            }
+        }, 3500);
+    }
+
+    /**
+     * Lấy số lượng sản phẩm trong giỏ từ API và cập nhật badge trên navbar.
+     */
+    function fetchCartCount() {
+        fetch('/Cart/GetCartCount')
+            .then(r => r.json())
+            .then(data => updateCartBadge(data.count))
+            .catch(() => {}); // Lỗi mạng – bỏ qua, không phải tính năng quan trọng
+    }
+
+    /**
+     * Cập nhật badge giỏ hàng trên navbar.
+     * @@param {number} count - Tổng số lượng sản phẩm trong giỏ
+     */
+    function updateCartBadge(count) {
+        const badge = document.getElementById('cart-badge');
+        if (!badge) return;
+        if (count > 0) {
+            badge.textContent = count > 99 ? '99+' : count;
+            badge.classList.remove('d-none');
+
+            // Hiệu ứng bật nẩy nhỏ khi số thay đổi
+            badge.classList.add('hue-badge-bump');
+            setTimeout(() => badge.classList.remove('hue-badge-bump'), 350);
+        } else {
+            badge.classList.add('d-none');
+        }
+    }
+
+    // Khởi tạo: load số lượng giỏ hàng ngay khi trang được load
+    document.addEventListener('DOMContentLoaded', fetchCartCount);
+    </script>
+
+    <style>
+        /* Navbar màu nâu đỏ Huế */
+        .hue-navbar {
+            background: linear-gradient(90deg, #5a1f00 0%, #8b3012 100%);
+        }
+        .hue-brand { font-size: 1.2rem; letter-spacing: .5px; }
+        .hue-cart-nav {
+            background: rgba(255,255,255,.12);
+            border-radius: 20px;
+            padding: .4rem 1rem !important;
+            transition: background .2s;
+            position: relative;
+        }
+        .hue-cart-nav:hover { background: rgba(255,255,255,.22); }
+
+        /* --- Badge số lượng giỏ hàng --- */
+        .hue-cart-badge {
+            background: #ffd700;
+            color: #5a1f00;
+            font-size: .65rem;
+            font-weight: 800;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            line-height: 18px;
+            box-shadow: 0 2px 6px rgba(0,0,0,.25);
+        }
+        /* Hiệu ứng nẩy khi cập nhật số */
+        @@keyframes hueBadgeBump {
+            0%   { transform: scale(1); }
+            50%  { transform: scale(1.45); }
+            100% { transform: scale(1); }
+        }
+        .hue-badge-bump { animation: hueBadgeBump .35s ease; }
+
+        /* --- Toast thông báo --- */
+        .hue-toast {
+            min-width: 280px;
+            max-width: 360px;
+            border-radius: 12px !important;
+            box-shadow: 0 8px 24px rgba(0,0,0,.2) !important;
+            animation: hueTostSlide .3s ease;
+        }
+        @@keyframes hueTostSlide {
+            from { transform: translateY(20px); opacity: 0; }
+            to   { transform: translateY(0);    opacity: 1; }
+        }
+
+        /* Footer */
+        .hue-footer { background: #faf5f0; }
+
+        /* --- User Auth Navbar --- */
+        .hue-user-nav {
+            background: rgba(255,255,255,.12);
+            border-radius: 20px;
+            padding: .4rem 1rem !important;
+            transition: background .2s;
+            font-size: .9rem;
+        }
+        .hue-user-nav:hover,
+        .hue-user-nav.show { background: rgba(255,255,255,.22); }
+
+        .hue-username {
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: inline-block;
+        }
+
+        .hue-dropdown {
+            border-radius: 12px !important;
+            min-width: 200px;
+            background: #fff;
+            border: 1px solid #f0e6d8 !important;
+            animation: hueFadeIn .18s ease;
+        }
+        .hue-dropdown .dropdown-item { border-radius: 8px; margin: 2px 4px; }
+        .hue-dropdown .dropdown-item:hover { background: #faf5f0; }
+
+        /* Nút Đăng ký / Đăng nhập cho user chưa login */
+        .hue-auth-link {
+            font-size: .85rem;
+            color: rgba(255,255,255,.85) !important;
+            transition: color .2s;
+        }
+        .hue-auth-link:hover { color: #ffd700 !important; }
+
+        .hue-auth-btn-login {
+            background: rgba(255,215,0,.18);
+            border: 1px solid rgba(255,215,0,.45);
+            border-radius: 20px !important;
+            padding: .35rem .9rem !important;
+            font-size: .85rem;
+            color: #ffd700 !important;
+            font-weight: 600;
+            transition: background .2s, border-color .2s;
+        }
+        .hue-auth-btn-login:hover {
+            background: rgba(255,215,0,.3) !important;
+            color: #fff !important;
+        }
+
+        @@keyframes hueFadeIn {
+            from { opacity: 0; transform: translateY(-6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</body>
+</html>

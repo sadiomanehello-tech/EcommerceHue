@@ -1,0 +1,176 @@
+@model EcommerceHue.Models.ViewModels.RegisterViewModel
+
+@{
+    ViewData["Title"] = "Đăng ký tài khoản";
+}
+
+<!-- ============================================================
+     TRANG ĐĂNG KÝ TÀI KHOẢN
+     ============================================================ -->
+<div class="row justify-content-center py-4">
+    <div class="col-lg-7 col-md-9">
+
+        <!-- Header -->
+        <div class="text-center mb-4">
+            <div class="hue-auth-icon mb-3">🏮</div>
+            <h1 class="h3 fw-bold">Đăng ký tài khoản</h1>
+            <p class="text-muted">Tham gia Đặc sản Huế để mua sắm và nhận ưu đãi</p>
+        </div>
+
+        <!-- Form đăng ký -->
+        <div class="hue-auth-card rounded-4 shadow-sm p-4 p-md-5">
+
+            <!-- Hiển thị lỗi tổng quát (nếu có) -->
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3 border-0"></div>
+
+            <form asp-action="Register" method="post">
+                @Html.AntiForgeryToken()
+
+                <!-- Hàng 1: Họ và tên -->
+                <div class="mb-3">
+                    <label asp-for="FullName" class="form-label fw-semibold"></label>
+                    <div class="input-group">
+                        <span class="input-group-text hue-input-icon">📝</span>
+                        <input asp-for="FullName"
+                               class="form-control hue-input"
+                               placeholder="Nguyễn Văn A" />
+                    </div>
+                    <span asp-validation-for="FullName" class="text-danger small"></span>
+                </div>
+
+                <!-- Hàng 3: Email + Số điện thoại -->
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label asp-for="Email" class="form-label fw-semibold"></label>
+                        <div class="input-group">
+                            <span class="input-group-text hue-input-icon">📧</span>
+                            <input asp-for="Email"
+                                   class="form-control hue-input"
+                                   placeholder="email@example.com"
+                                   autocomplete="email" />
+                        </div>
+                        <span asp-validation-for="Email" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="PhoneNumber" class="form-label fw-semibold"></label>
+                        <div class="input-group">
+                            <span class="input-group-text hue-input-icon">📱</span>
+                            <input asp-for="PhoneNumber"
+                                   class="form-control hue-input"
+                                   placeholder="0901 234 567"
+                                   autocomplete="tel" />
+                        </div>
+                        <span asp-validation-for="PhoneNumber" class="text-danger small"></span>
+                    </div>
+                </div>
+
+                <!-- Hàng 4: Địa chỉ giao hàng -->
+                <div class="mb-3">
+                    <label asp-for="Address" class="form-label fw-semibold"></label>
+                    <div class="input-group">
+                        <span class="input-group-text hue-input-icon">🏠</span>
+                        <input asp-for="Address"
+                               class="form-control hue-input"
+                               placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố" />
+                    </div>
+                    <span asp-validation-for="Address" class="text-danger small"></span>
+                </div>
+
+                <!-- Hàng 5: Mật khẩu + Xác nhận -->
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label asp-for="Password" class="form-label fw-semibold"></label>
+                        <div class="input-group">
+                            <span class="input-group-text hue-input-icon">🔒</span>
+                            <input asp-for="Password"
+                                   class="form-control hue-input"
+                                   placeholder="Ít nhất 6 ký tự"
+                                   autocomplete="new-password" />
+                        </div>
+                        <span asp-validation-for="Password" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="ConfirmPassword" class="form-label fw-semibold"></label>
+                        <div class="input-group">
+                            <span class="input-group-text hue-input-icon">🔒</span>
+                            <input asp-for="ConfirmPassword"
+                                   class="form-control hue-input"
+                                   placeholder="Nhập lại mật khẩu"
+                                   autocomplete="new-password" />
+                        </div>
+                        <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
+                    </div>
+                </div>
+
+                <!-- Nút đăng ký -->
+                <button type="submit" class="btn hue-btn-auth w-100 fw-bold rounded-pill py-3 mb-3">
+                    🎉 Đăng ký tài khoản
+                </button>
+
+                <!-- Link đăng nhập -->
+                <div class="text-center">
+                    <span class="text-muted">Đã có tài khoản?</span>
+                    <a asp-action="Login" class="fw-semibold hue-link">Đăng nhập ngay</a>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</div>
+
+<!-- ============================================================
+     STYLES
+     ============================================================ -->
+@section Styles {
+<style>
+    .hue-auth-icon { font-size: 3rem; }
+
+    .hue-auth-card {
+        background: #fff;
+        border: 1px solid #f0e6d8;
+    }
+
+    .hue-input-icon {
+        background: #faf5f0;
+        border-color: #e8d5c4;
+        font-size: .9rem;
+    }
+    .hue-input {
+        border-color: #e8d5c4;
+        transition: border-color .2s, box-shadow .2s;
+    }
+    .hue-input:focus {
+        border-color: #b5451b;
+        box-shadow: 0 0 0 .2rem rgba(181,69,27,.15);
+    }
+
+    .hue-btn-auth {
+        background: linear-gradient(135deg, #7b2d00 0%, #b5451b 45%, #e8722a 100%);
+        color: #fff;
+        border: none;
+        font-size: 1.05rem;
+        letter-spacing: .3px;
+        box-shadow: 0 6px 20px rgba(123,45,0,.3);
+        transition: transform .15s, box-shadow .15s;
+    }
+    .hue-btn-auth:hover {
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 26px rgba(123,45,0,.4);
+    }
+    .hue-btn-auth:active { transform: translateY(0); }
+
+    .hue-link {
+        color: #b5451b;
+        text-decoration: none;
+    }
+    .hue-link:hover {
+        color: #7b2d00;
+        text-decoration: underline;
+    }
+</style>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
