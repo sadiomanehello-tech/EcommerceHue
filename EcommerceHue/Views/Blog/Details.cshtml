@@ -1,0 +1,149 @@
+@model EcommerceHue.Models.Post
+
+@{
+    ViewData["Title"] = Model.Title;
+    ViewData["Description"] = Model.Summary;
+    var recentPosts = ViewBag.RecentPosts as IEnumerable<EcommerceHue.Models.Post> ?? [];
+}
+
+<div class="container py-4">
+
+    <!-- BREADCRUMB ĐIỀU HƯỚNG -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb py-2 px-3 rounded-pill bg-light border small">
+            <li class="breadcrumb-item">
+                <a asp-controller="Home" asp-action="Index" class="text-decoration-none text-muted">Trang chủ</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a asp-controller="Blog" asp-action="Index" class="text-decoration-none text-muted">Cẩm nang ẩm thực</a>
+            </li>
+            <li class="breadcrumb-item active text-truncate" style="max-width: 350px;" aria-current="page">
+                @Model.Title
+            </li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <!-- KHỐI NỘI DUNG CHÍNH -->
+        <article class="col-lg-8 col-md-10">
+
+            <!-- TIÊU ĐỀ BÀI VIẾT -->
+            <header class="mb-4 text-center">
+                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-3 py-2 mb-3">
+                    🏮 Cẩm nang ẩm thực Huế
+                </span>
+                <h1 class="display-6 fw-bold text-dark mb-3 lh-sm">
+                    @Model.Title
+                </h1>
+                <div class="text-muted small d-flex align-items-center justify-content-center gap-3">
+                    <span>📅 Đăng ngày: @Model.CreatedDate.ToString("dd/MM/yyyy")</span>
+                    <span>•</span>
+                    <span>✍️ Tác giả: Đặc sản Huế</span>
+                </div>
+            </header>
+
+            <!-- TÓM TẮT DẪN NHẬP -->
+            <div class="p-3 mb-4 rounded-3 bg-light border-start border-warning border-4 text-secondary fst-italic lead fs-6">
+                @Model.Summary
+            </div>
+
+            <!-- ẢNH ĐẠI DIỆN CĂN GIỮA -->
+            @if (!string.IsNullOrWhiteSpace(Model.ImageUrl))
+            {
+                <div class="text-center my-4">
+                    <img src="@Model.ImageUrl"
+                         alt="@Model.Title"
+                         class="img-fluid rounded-4 shadow-sm w-100 hue-detail-img"
+                         style="max-height: 480px; object-fit: cover;"
+                         onerror="this.src='/images/placeholder.jpg'" />
+                </div>
+            }
+
+            <!-- NỘI DUNG BÀI VIẾT CHI TIẾT (Căn lề văn bản sạch sẽ, typography thoáng mắt) -->
+            <div class="hue-post-content lh-lg fs-6 text-dark my-4">
+                @Html.Raw(Model.Content)
+            </div>
+
+            <hr class="my-5" />
+
+            <!-- NÚT ĐIỀU HƯỚNG VÀ CHIA SẺ -->
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-5">
+                <a asp-action="Index" class="btn btn-outline-secondary rounded-pill px-4">
+                    &larr; Xem tất cả cẩm nang
+                </a>
+                <a asp-controller="Home" asp-action="Index" class="btn btn-warning rounded-pill px-4 fw-bold">
+                    🛒 Mua đặc sản Huế chuẩn vị
+                </a>
+            </div>
+
+            <!-- KHỐI GỢI Ý CÁC BÀI VIẾT LIÊN QUAN -->
+            @if (recentPosts.Any())
+            {
+                <div class="mt-5 pt-4 border-top">
+                    <h3 class="h5 fw-bold mb-4 text-dark">
+                        <span class="border-start border-warning border-4 ps-2">Có thể bạn quan tâm</span>
+                    </h3>
+                    <div class="row row-cols-1 row-cols-md-3 g-3">
+                        @foreach (var post in recentPosts)
+                        {
+                            <div class="col">
+                                <div class="card h-100 rounded-3 border shadow-sm overflow-hidden">
+                                    <a asp-action="Details" asp-route-slug="@post.Slug">
+                                        <img src="@(post.ImageUrl ?? "/images/placeholder.jpg")"
+                                             alt="@post.Title"
+                                             class="w-100"
+                                             style="height: 130px; object-fit: cover;"
+                                             onerror="this.src='/images/placeholder.jpg'" />
+                                    </a>
+                                    <div class="card-body p-3 d-flex flex-column">
+                                        <div class="text-muted small mb-1">📅 @post.CreatedDate.ToString("dd/MM/yyyy")</div>
+                                        <h4 class="h6 fw-bold mb-2">
+                                            <a asp-action="Details" asp-route-slug="@post.Slug" class="text-dark text-decoration-none">
+                                                @post.Title
+                                            </a>
+                                        </h4>
+                                        <a asp-action="Details" asp-route-slug="@post.Slug" class="mt-auto small text-warning fw-semibold text-decoration-none">
+                                            Đọc tiếp &rarr;
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+        </article>
+    </div>
+</div>
+
+@section Styles {
+<style>
+    .hue-detail-img {
+        transition: transform .3s ease;
+    }
+    .hue-post-content {
+        color: #2c3e50;
+        line-height: 1.85;
+    }
+    .hue-post-content p {
+        margin-bottom: 1.4rem;
+        text-align: justify;
+    }
+    .hue-post-content h2, 
+    .hue-post-content h3 {
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+        color: #7b2d00;
+        font-weight: 700;
+    }
+    .hue-post-content ul, 
+    .hue-post-content ol {
+        margin-bottom: 1.5rem;
+        padding-left: 1.5rem;
+    }
+    .hue-post-content li {
+        margin-bottom: .5rem;
+    }
+</style>
+}

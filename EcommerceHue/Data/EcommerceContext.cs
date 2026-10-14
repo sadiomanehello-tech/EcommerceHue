@@ -20,6 +20,7 @@ public sealed class EcommerceContext(DbContextOptions<EcommerceContext> options)
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderDetail> OrderDetails => Set<OrderDetail>();
     public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
+    public DbSet<Post> Posts => Set<Post>();
 
     // =========================================================================
     // Cấu hình Fluent API – mối quan hệ và ràng buộc
@@ -327,6 +328,47 @@ public sealed class EcommerceContext(DbContextOptions<EcommerceContext> options)
             entity.HasMany(c => c.Orders)
                   .WithOne()
                   .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // --------------------------------------------------------------------
+        // Post – bài viết cẩm nang ẩm thực Huế
+        // --------------------------------------------------------------------
+        modelBuilder.Entity<Post>(entity =>
+        {
+            entity.ToTable("Posts");
+
+            entity.HasKey(p => p.Id);
+
+            entity.Property(p => p.Title)
+                  .IsRequired()
+                  .HasMaxLength(250);
+
+            entity.Property(p => p.Slug)
+                  .IsRequired()
+                  .HasMaxLength(250);
+
+            entity.Property(p => p.Summary)
+                  .IsRequired()
+                  .HasMaxLength(500);
+
+            entity.Property(p => p.Content)
+                  .IsRequired();
+
+            entity.Property(p => p.ImageUrl)
+                  .HasMaxLength(500);
+
+            entity.Property(p => p.CreatedDate)
+                  .IsRequired()
+                  .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.Property(p => p.IsPublished)
+                  .IsRequired()
+                  .HasDefaultValue(true);
+
+            // Index slug bài viết để tăng tốc độ truy vấn chi tiết bài viết theo URL SEO
+            entity.HasIndex(p => p.Slug)
+                  .IsUnique()
+                  .HasDatabaseName("IX_Posts_Slug");
         });
     }
 }

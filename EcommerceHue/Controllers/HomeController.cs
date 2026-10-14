@@ -100,6 +100,40 @@ public class HomeController(EcommerceContext context) : Controller
         return View();
     }
 
+    // =========================================================================
+    // NEWSLETTER: Đăng ký nhận bản tin ẩm thực & ưu đãi – POST /Home/RegisterNewsletter
+    // =========================================================================
+
+    /// <summary>
+    /// Tiếp nhận email đăng ký nhận bản tin qua AJAX.
+    /// Kiểm tra định dạng hợp lệ và trả về thông báo JSON.
+    /// </summary>
+    /// <param name="email">Địa chỉ email người dùng nhập</param>
+    [HttpPost]
+    public IActionResult RegisterNewsletter(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return Json(new { success = false, message = "Vui lòng nhập địa chỉ email của bạn." });
+        }
+
+        var trimmedEmail = email.Trim();
+
+        // Kiểm tra tính hợp lệ của định dạng Email
+        var emailChecker = new System.ComponentModel.DataAnnotations.EmailAddressAttribute();
+        if (!emailChecker.IsValid(trimmedEmail) || !trimmedEmail.Contains('@') || !trimmedEmail.Contains('.'))
+        {
+            return Json(new { success = false, message = "Địa chỉ email không đúng định dạng. Vui lòng kiểm tra lại." });
+        }
+
+        // Tạm thời trả về thông báo thành công (chuẩn bị lưu bảng Newsletters hoặc gửi email marketing)
+        return Json(new
+        {
+            success = true,
+            message = "🎉 Đăng ký nhận bản tin thành công! Ưu đãi sẽ được gửi tới bạn sớm nhất."
+        });
+    }
+
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public IActionResult Error()
     {

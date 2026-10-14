@@ -33,6 +33,9 @@
                         <li class="nav-item">
                             <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Index">🏠 Trang chủ</a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link fw-semibold" asp-area="" asp-controller="Blog" asp-action="Index">📖 CẨM NANG / TIN TỨC</a>
+                        </li>
                     </ul>
 
                     <!-- Icon giỏ hàng bên phải navbar -->
@@ -114,10 +117,123 @@
         </main>
     </div>
 
-    <footer class="hue-footer border-top mt-5 py-4 text-center text-muted">
-        <div class="container">
-            <p class="mb-1">🏮 <strong>Đặc sản Huế</strong> – Tinh hoa ẩm thực cố đô</p>
-            <p class="small mb-0">&copy; 2026 EcommerceHue · <a asp-area="" asp-controller="Home" asp-action="Privacy" class="text-muted">Chính sách</a></p>
+    <!-- ================================================================
+         HỆ THỐNG FOOTER CHUYÊN NGHIỆP – 4 CỘT CHUẨN DACSANHUE.INFO
+         ================================================================ -->
+    <footer class="hue-main-footer border-top mt-5 pt-5 text-dark">
+        <div class="container pb-4">
+            <div class="row g-4">
+                
+                <!-- CỘT 1: GIỚI THIỆU THƯƠNG HIỆU -->
+                <div class="col-lg-3 col-md-6">
+                    <div class="hue-footer-brand d-flex align-items-center gap-2 mb-3">
+                        <span class="fs-3">🏮</span>
+                        <h4 class="h5 fw-bold text-dark mb-0 text-uppercase tracking-wider">Đặc Sản Xứ Huế</h4>
+                    </div>
+                    <p class="text-muted small leading-relaxed mb-3">
+                        Sứ mệnh gìn giữ và mang trọn hương vị ẩm thực cung đình, các món quà đặc sản Huế chính gốc (mè xửng, tôm chua, trà cung đình, tré...) tươi ngon, chuẩn vị truyền thống đến mọi miền đất nước.
+                    </p>
+                    <div class="d-flex align-items-center gap-2 text-warning small fw-semibold">
+                        <span>⭐ Chuẩn vị truyền thống</span>
+                        <span>•</span>
+                        <span>100% An toàn</span>
+                    </div>
+                </div>
+
+                <!-- CỘT 2: HƯỚNG DẪN & CHÍNH SÁCH -->
+                <div class="col-lg-3 col-md-6">
+                    <h5 class="h6 fw-bold text-dark text-uppercase mb-3 border-start border-warning border-3 ps-2">
+                        Hướng Dẫn & Chính Sách
+                    </h5>
+                    <ul class="list-unstyled hue-footer-links small mb-0">
+                        <li class="mb-2">
+                            <a href="#" class="text-muted text-decoration-none">📖 Hướng dẫn đặt hàng trực tuyến</a>
+                        </li>
+                        <li class="mb-2">
+                            <a href="#" class="text-muted text-decoration-none">💳 Hướng dẫn thanh toán (VnPay & COD)</a>
+                        </li>
+                        <li class="mb-2">
+                            <a asp-controller="Home" asp-action="Privacy" class="text-muted text-decoration-none">🔒 Chính sách bảo mật thông tin</a>
+                        </li>
+                        <li class="mb-2">
+                            <a href="#" class="text-muted text-decoration-none">🔄 Chính sách đổi trả & hoàn tiền</a>
+                        </li>
+                        <li class="mb-2">
+                            <a asp-controller="Blog" asp-action="Index" class="text-muted text-decoration-none">📰 Cẩm nang ẩm thực & văn hóa cố đô</a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- CỘT 3: THÔNG TIN LIÊN HỆ -->
+                <div class="col-lg-3 col-md-6">
+                    <h5 class="h6 fw-bold text-dark text-uppercase mb-3 border-start border-warning border-3 ps-2">
+                        Thông Tin Liên Hệ
+                    </h5>
+                    <ul class="list-unstyled hue-footer-contact small mb-0">
+                        <li class="mb-2 d-flex align-items-start gap-2">
+                            <span class="text-warning">📍</span>
+                            <span class="text-muted">Cổng chính Chợ Đông Ba, Đường Trần Hưng Đạo, TP. Huế</span>
+                        </li>
+                        <li class="mb-2 d-flex align-items-center gap-2">
+                            <span class="text-warning">📞</span>
+                            <span class="text-muted">Hotline: <strong class="text-dark">0901 234 567</strong> (07:00 - 21:00)</span>
+                        </li>
+                        <li class="mb-2 d-flex align-items-center gap-2">
+                            <span class="text-warning">✉️</span>
+                            <span class="text-muted">Email: <a href="mailto:lienhe@dacsanhue.com" class="text-muted text-decoration-none">lienhe@dacsanhue.com</a></span>
+                        </li>
+                        <li class="mb-2 d-flex align-items-center gap-2">
+                            <span class="text-warning">🚚</span>
+                            <span class="text-muted">Giao hàng toàn quốc - Đóng gói cẩn thận</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- CỘT 4: ĐĂNG KÝ NHẬN BẢN TIN (NEWSLETTER) -->
+                <div class="col-lg-3 col-md-6">
+                    <h5 class="h6 fw-bold text-dark text-uppercase mb-3 border-start border-warning border-3 ps-2">
+                        Đăng Ký Nhận Bản Tin
+                    </h5>
+                    <p class="text-muted small mb-3">
+                        Đăng ký ngay để nhận ưu đãi <strong>giảm 10%</strong> cho đơn hàng đầu tiên và tin tức ẩm thực Huế mới nhất.
+                    </p>
+                    <form id="newsletterForm" class="hue-newsletter-form mb-2">
+                        <div class="input-group mb-2">
+                            <input type="email"
+                                   id="newsletterEmail"
+                                   name="email"
+                                   class="form-control hue-newsletter-input"
+                                   placeholder="Nhập email của bạn..."
+                                   aria-label="Địa chỉ email nhận bản tin"
+                                   required />
+                            <button type="submit"
+                                    id="newsletterSubmitBtn"
+                                    class="btn btn-warning fw-bold px-3 hue-btn-newsletter text-dark">
+                                Đăng ký
+                            </button>
+                        </div>
+                    </form>
+                    <div class="small text-muted" style="font-size: 0.75rem;">
+                        🔒 Cam kết bảo mật, không gửi thư rác.
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- DẢI BẢN QUYỀN VÀ PHƯƠNG THỨC THANH TOÁN -->
+        <div class="hue-footer-bottom py-3 border-top bg-light">
+            <div class="container d-flex flex-wrap align-items-center justify-content-between gap-2 small text-muted">
+                <div>
+                    &copy; 2026 <strong>Đặc Sản Xứ Huế</strong> · Giữ trọn tinh hoa văn hóa ẩm thực Cố Đô.
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <span>Thanh toán an toàn:</span>
+                    <span class="badge bg-white text-primary border shadow-xs px-2 py-1">VnPay QR</span>
+                    <span class="badge bg-white text-danger border shadow-xs px-2 py-1">ATM / Visa</span>
+                    <span class="badge bg-white text-success border shadow-xs px-2 py-1">COD</span>
+                </div>
+            </div>
         </div>
     </footer>
 
@@ -213,6 +329,64 @@
 
     // Khởi tạo: load số lượng giỏ hàng ngay khi trang được load
     document.addEventListener('DOMContentLoaded', fetchCartCount);
+
+    // ====================================================================
+    // NEWSLETTER AJAX HANDLER – Đăng ký nhận bản tin mượt mà
+    // ====================================================================
+    document.addEventListener('DOMContentLoaded', function () {
+        const newsletterForm = document.getElementById('newsletterForm');
+        if (newsletterForm) {
+            newsletterForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                const emailInput = document.getElementById('newsletterEmail');
+                const submitBtn = document.getElementById('newsletterSubmitBtn');
+                const email = emailInput ? emailInput.value.trim() : '';
+
+                if (!email) {
+                    showToast('Vui lòng nhập địa chỉ email của bạn.', 'warning');
+                    emailInput?.focus();
+                    return;
+                }
+
+                // Hiệu ứng loading nút bấm
+                const originalText = submitBtn.innerHTML;
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Đang gửi...';
+
+                try {
+                    const formData = new URLSearchParams();
+                    formData.append('email', email);
+
+                    const response = await fetch('/Home/RegisterNewsletter', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: formData.toString()
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    if (result.success) {
+                        showToast(result.message, 'success');
+                        emailInput.value = '';
+                    } else {
+                        showToast(result.message, 'warning');
+                    }
+                } catch (err) {
+                    console.error('[Newsletter] Error:', err);
+                    showToast('Có lỗi xảy ra khi đăng ký. Vui lòng thử lại sau.', 'error');
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            });
+        }
+    });
     </script>
 
     <style>
@@ -263,8 +437,49 @@
             to   { transform: translateY(0);    opacity: 1; }
         }
 
-        /* Footer */
-        .hue-footer { background: #faf5f0; }
+        /* --- Hệ thống Footer chuyên nghiệp --- */
+        .hue-main-footer {
+            background-color: #faf5f0;
+            border-top: 2px solid #ecd8c6 !important;
+        }
+        .hue-footer-brand h4 {
+            letter-spacing: .5px;
+            color: #5a1f00;
+        }
+        .hue-footer-links a,
+        .hue-footer-contact a {
+            transition: color .2s, transform .2s;
+            display: inline-block;
+        }
+        .hue-footer-links a:hover,
+        .hue-footer-contact a:hover {
+            color: #b5451b !important;
+            transform: translateX(4px);
+        }
+        .hue-newsletter-input {
+            border: 1px solid #e8d5c4;
+            border-radius: 8px 0 0 8px;
+            font-size: .88rem;
+        }
+        .hue-newsletter-input:focus {
+            border-color: #b5451b;
+            box-shadow: 0 0 0 .2rem rgba(181,69,27,.15);
+        }
+        .hue-btn-newsletter {
+            border-radius: 0 8px 8px 0;
+            background-color: #ffc107;
+            border-color: #ffc107;
+            transition: background-color .2s, transform .15s;
+        }
+        .hue-btn-newsletter:hover {
+            background-color: #ffb300;
+            border-color: #ffb300;
+            transform: scale(1.02);
+        }
+        .hue-footer-bottom {
+            background-color: #f3ece4 !important;
+            border-color: #ebdcd0 !important;
+        }
 
         /* --- User Auth Navbar --- */
         .hue-user-nav {

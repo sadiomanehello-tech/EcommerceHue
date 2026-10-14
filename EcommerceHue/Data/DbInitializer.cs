@@ -63,7 +63,10 @@ public static class DbInitializer
         // Đảm bảo database tồn tại và migration mới nhất đã được áp dụng
         await context.Database.MigrateAsync();
 
-        // Nếu đã có dữ liệu → chỉ vá URL ảnh nội bộ, không chèn lại toàn bộ
+        // Khởi tạo bài viết Cẩm nang ẩm thực Huế (Blog Module)
+        await SeedPostsAsync(context);
+
+        // Nếu đã có dữ liệu danh mục & sản phẩm → chỉ vá URL ảnh nội bộ, không chèn lại toàn bộ
         if (await context.Categories.AnyAsync())
         {
             await PatchLocalImageUrlsAsync(context);
@@ -269,6 +272,77 @@ public static class DbInitializer
         if (hasChanges)
         {
             await context.SaveChangesAsync();
+        }
+    }
+
+    // =========================================================================
+    // KHỞI TẠO BÀI VIẾT CẨM NANG ẨM THỰC HUẾ (Blog Module)
+    // =========================================================================
+
+    /// <summary>
+    /// Khởi tạo bài viết cẩm nang ẩm thực Huế mẫu nếu bảng Posts chưa có dữ liệu.
+    /// </summary>
+    private static async Task SeedPostsAsync(EcommerceContext context)
+    {
+        try
+        {
+            if (await context.Posts.AnyAsync())
+                return;
+
+            var posts = new List<Post>
+            {
+                new()
+                {
+                    Title = "Top 5 quán bún bò Huế ngon thưởng thức quên lối về",
+                    Slug = "top-5-quan-bun-bo-hue-ngon-thuong-thuc-quen-loi-ve",
+                    Summary = "Khám phá những quán bún bò Huế gia truyền nức tiếng cố đô với nước dùng thanh ngọt thơm mùi sả, mắm ruốc cùng sợi bún to dai ngon khó cưỡng.",
+                    ImageUrl = "https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?w=800&h=500&fit=crop&q=80",
+                    CreatedDate = DateTime.UtcNow.AddDays(-5),
+                    IsPublished = true,
+                    Content = @"<p class=""lead text-muted"">Bún bò Huế từ lâu đã trở thành biểu tượng ẩm thực không thể thiếu khi nhắc về vùng đất cố đô cổ kính. Tô bún bò xứ Huế chuẩn vị luôn quyến rũ thực khách bởi làn khói nghi ngút, sắc đỏ óng ánh của sa tế ớt cay nồng, vị thơm thảo của củ sả tươi quyện cùng mắm ruốc truyền thống đậm đà khó quên.</p>
+<hr class=""my-4"" />
+<h3 class=""fw-bold text-dark mb-3"">1. Bún bò Mụ Rơi – Hương vị gia truyền hơn 30 năm</h3>
+<p>Nằm nép mình trên con đường Nguyễn Du yên ả, quán bún bò Mụ Rơi chinh phục thực khách bằng nồi nước dùng ninh xương ống bò thanh ngọt tự nhiên, không lạm dụng bột ngọt. Thịt bắp hoa bò được thái lát mỏng, gân bò hầm vừa độ giòn dai sần sật ăn kèm rau sống hoa chuối tươi rói.</p>
+
+<h3 class=""fw-bold text-dark mb-3"">2. Bún bò O Cương chú Điệp – Đậm chất phong vị Huế</h3>
+<p>Tọa lạc tại đường Trần Thúc Nhẫn, quán nổi tiếng với sợi bún to mềm mượt đúng điệu Huế. Chả cua ở đây được quết tay tỉ mỉ từ thịt cua đồng tươi, cắn ngập răng cảm nhận trọn vẹn vị ngọt bùi và độ xốp tự nhiên.</p>
+
+<h3 class=""fw-bold text-dark mb-3"">3. Bún bò Bà Tuyết – Quán ngon nức tiếng đường Nguyễn Công Trứ</h3>
+<p>Một điểm hẹn quen thuộc của cả người dân địa phương lẫn du khách thập phương. Tô bún đầy đặn với tiết luộc mướt mềm, chả bò thơm giòn và miếng giò heo béo ngậy được chế biến kỹ lưỡng không hề có mùi tanh.</p>
+
+<h3 class=""fw-bold text-dark mb-3"">4. Bún bò O Phượng – Điểm tâm sáng ấm lòng</h3>
+<p>Tô bún tại quán O Phượng luôn giữ được độ nóng sốt đặc trưng, nước lèo trong veo nhưng vị lại vô cùng đằm thắm. Thêm chút chanh tươi và ớt ngâm nước mắm ruốc Huế là đủ đánh thức mọi giác quan.</p>
+
+<h3 class=""fw-bold text-dark mb-3"">5. Bún bò Hẻm 17 Hùng Vương – Góc ẩm thực đêm khó quên</h3>
+<p>Dành riêng cho những tâm hồn thích dạo chơi đêm Huế. Quán mở cửa đến tận khuya, là nơi lý tưởng để thưởng thức tô bún bò nóng hổi xua tan cái se lạnh của buổi tối xứ sông Hương núi Ngự.</p>"
+                },
+                new()
+                {
+                    Title = "Tré Huế – Thơm ngon ngất ngây, gợi nhớ hồi ức",
+                    Slug = "tre-hue-thom-ngon-ngat-ngay-goi-nho-hoi-uc",
+                    Summary = "Tré Huế mang hương vị cay nồng của ớt, thơm ấm của củ riềng và độ giòn sần sật của tai heo, là món mồi nhắm và đặc sản biếu tặng trứ danh xứ cố đô.",
+                    ImageUrl = "https://images.unsplash.com/photo-1544025162-d76694265947?w=800&h=500&fit=crop&q=80",
+                    CreatedDate = DateTime.UtcNow.AddDays(-2),
+                    IsPublished = true,
+                    Content = @"<p class=""lead text-muted"">Cùng với nem chua và chả lụa, tré Huế là món ăn truyền thống đặc sắc luôn xuất hiện trang trọng trong các mâm cỗ tiệc, ngày Tết và những dịp sum họp gia đình của người dân xứ Huế.</p>
+<hr class=""my-4"" />
+<h3 class=""fw-bold text-dark mb-3"">Đặc trưng độc đáo của món Tré xứ Huế</h3>
+<p>Khác với tré miền Trung ở các vùng khác, tré Huế được làm chủ yếu từ thịt đầu heo, tai heo, mũi heo luộc chín vừa tới rồi thái chỉ thật mỏng để giữ độ giòn sần sật. Điểm làm nên linh hồn của tré chính là củ riềng thái sợi, mè rang vàng thơm phức, tỏi băm nhuyễn và bột thính gạo rang vàng óng ả.</p>
+
+<h3 class=""fw-bold text-dark mb-3"">Quy trình bọc rơm kỳ công lưu giữ hương vị</h3>
+<p>Sau khi trộn đều các nguyên liệu cùng nước mắm cốt cá cơm và tiêu sọ Phú Lộc, tré được gói chặt bằng lá ổi tươi để tạo hương thơm dịu nhẹ, bên ngoài bọc một lớp rơm nếp vàng óng được bó chặt hai đầu. Quá trình lên men tự nhiên trong 2-3 ngày giúp tré đạt vị chua thanh nhẹ, hòa quyện tuyệt vời với vị cay xè của ớt chỉ thiên.</p>
+
+<h3 class=""fw-bold text-dark mb-3"">Thưởng thức Tré đúng phong cách Cố Đô</h3>
+<p>Khi ăn, người Huế thường dùng đũa đánh tơi từng miếng tré, rắc thêm chút lá đinh lăng, tỏi củ thái lát mỏng và vài hạt đậu phộng rang. Nhâm nhi miếng tré giòn rụm bên chén rượu nồng đượm, bạn sẽ cảm nhận trọn vẹn sự tinh tế và chiều sâu của văn hóa ẩm thực cung đình Huế.</p>"
+                }
+            };
+
+            await context.Posts.AddRangeAsync(posts);
+            await context.SaveChangesAsync();
+        }
+        catch
+        {
+            // Bỏ qua nếu bảng chưa tồn tại trong CSDL khi chưa chạy migration
         }
     }
 }

@@ -1,0 +1,163 @@
+@model IEnumerable<EcommerceHue.Models.Post>
+
+@{
+    ViewData["Title"] = "Cẩm nang ẩm thực Huế – Tin tức & Khám phá cố đô";
+    ViewData["Description"] = "Cẩm nang ẩm thực, địa chỉ quán ngon và những câu chuyện văn hóa ẩm thực truyền thống xứ Huế mộng mơ.";
+}
+
+<!-- ============================================================
+     BANNER TIÊU ĐỀ CẨM NANG
+     ============================================================ -->
+<div class="hue-blog-hero text-white text-center py-5 mb-5 rounded-4 shadow-sm position-relative overflow-hidden">
+    <div class="container py-2 position-relative" style="z-index: 2;">
+        <span class="badge bg-warning text-dark fs-6 mb-3 px-3 py-2 rounded-pill shadow-sm">
+            🏮 Góc ẩm thực & Văn hóa cố đô
+        </span>
+        <h1 class="display-5 fw-bold mb-3">Cẩm Nang Ẩm Thực Huế</h1>
+        <p class="lead mb-0 opacity-90 mx-auto" style="max-width: 650px;">
+            Hành trình khám phá phong vị hoàng gia, các địa chỉ quán ngon trứ danh và nét đẹp ẩm thực xứ kinh kỳ.
+        </p>
+    </div>
+</div>
+
+<div class="container mb-5">
+    <!-- Tiêu đề phần danh sách -->
+    <div class="d-flex align-items-center justify-content-between mb-4 pb-2 border-bottom">
+        <h2 class="h4 fw-bold mb-0 text-dark">
+            <span class="border-start border-warning border-4 ps-2">Bài viết mới nhất</span>
+        </h2>
+        <span class="text-muted small">@Model.Count() bài viết</span>
+    </div>
+
+    @if (!Model.Any())
+    {
+        <!-- Trạng thái chưa có bài viết -->
+        <div class="text-center py-5 bg-white rounded-4 border p-5 shadow-sm">
+            <div class="fs-1 mb-3">📖</div>
+            <h3 class="h5 fw-bold text-dark">Chưa có bài viết nào</h3>
+            <p class="text-muted mb-4">Các câu chuyện ẩm thực Huế thú vị đang được chuẩn bị. Vui lòng quay lại sau.</p>
+            <a asp-controller="Home" asp-action="Index" class="btn btn-warning rounded-pill px-4 fw-semibold">
+                🛒 Khám phá đặc sản Huế
+            </a>
+        </div>
+    }
+    else
+    {
+        <!-- Danh sách bài viết (Bootstrap Grid Cards) -->
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+            @foreach (var post in Model)
+            {
+                <div class="col">
+                    <article class="card h-100 rounded-4 overflow-hidden shadow-sm border-0 hue-blog-card">
+                        
+                        <!-- Ảnh đại diện -->
+                        <div class="hue-blog-img-wrap position-relative">
+                            <a asp-action="Details" asp-route-slug="@post.Slug">
+                                <img src="@(post.ImageUrl ?? "/images/placeholder.jpg")"
+                                     alt="@post.Title"
+                                     class="hue-blog-img w-100"
+                                     onerror="this.src='/images/placeholder.jpg'" />
+                            </a>
+                            <!-- Badge ngày đăng -->
+                            <span class="position-absolute top-0 end-0 m-3 badge bg-dark bg-opacity-75 rounded-pill px-3 py-2 small shadow-sm">
+                                📅 @post.CreatedDate.ToString("dd/MM/yyyy")
+                            </span>
+                        </div>
+
+                        <!-- Nội dung tóm tắt -->
+                        <div class="card-body d-flex flex-column p-4">
+                            
+                            <!-- Tiêu đề bài viết -->
+                            <h3 class="h5 fw-bold mb-2">
+                                <a asp-action="Details" asp-route-slug="@post.Slug" class="text-dark text-decoration-none hue-blog-title">
+                                    @post.Title
+                                </a>
+                            </h3>
+
+                            <!-- Tóm tắt bài viết -->
+                            <p class="text-muted small mb-4 hue-blog-summary">
+                                @post.Summary
+                            </p>
+
+                            <!-- Nút Xem chi tiết -->
+                            <div class="mt-auto pt-2 border-top">
+                                <a asp-action="Details" asp-route-slug="@post.Slug" class="btn btn-outline-warning fw-semibold rounded-pill w-100 hue-btn-readmore">
+                                    Xem chi tiết &rarr;
+                                </a>
+                            </div>
+
+                        </div>
+                    </article>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@section Styles {
+<style>
+    /* Hero Banner */
+    .hue-blog-hero {
+        background: linear-gradient(135deg, #7b2d00 0%, #b5451b 45%, #e8722a 100%);
+        box-shadow: 0 8px 30px rgba(123,45,0,.22);
+    }
+
+    /* Blog Card */
+    .hue-blog-card {
+        border: 1px solid #f0e6d8 !important;
+        background: #fff;
+        transition: transform .25s ease, box-shadow .25s ease;
+    }
+    .hue-blog-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 12px 28px rgba(123,45,0,.15) !important;
+    }
+
+    /* Blog Image */
+    .hue-blog-img-wrap {
+        height: 220px;
+        background: #faf5f0;
+        overflow: hidden;
+    }
+    .hue-blog-img {
+        height: 100%;
+        object-fit: cover;
+        transition: transform .35s ease;
+    }
+    .hue-blog-card:hover .hue-blog-img {
+        transform: scale(1.06);
+    }
+
+    /* Tiêu đề & Tóm tắt clamp */
+    .hue-blog-title {
+        transition: color .2s;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        min-height: 2.8rem;
+    }
+    .hue-blog-title:hover {
+        color: #b5451b !important;
+    }
+    .hue-blog-summary {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        line-height: 1.5;
+    }
+
+    /* Nút xem chi tiết */
+    .hue-btn-readmore {
+        color: #b5451b;
+        border-color: #b5451b;
+        transition: all .2s ease;
+    }
+    .hue-btn-readmore:hover {
+        background-color: #b5451b;
+        border-color: #b5451b;
+        color: #fff;
+    }
+</style>
+}
