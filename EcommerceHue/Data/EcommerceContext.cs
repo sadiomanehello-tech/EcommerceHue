@@ -21,6 +21,7 @@ public sealed class EcommerceContext(DbContextOptions<EcommerceContext> options)
     public DbSet<OrderDetail> OrderDetails => Set<OrderDetail>();
     public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
     public DbSet<Post> Posts => Set<Post>();
+    public DbSet<Coupon> Coupons => Set<Coupon>();
 
     // =========================================================================
     // Cấu hình Fluent API – mối quan hệ và ràng buộc
@@ -369,6 +370,36 @@ public sealed class EcommerceContext(DbContextOptions<EcommerceContext> options)
             entity.HasIndex(p => p.Slug)
                   .IsUnique()
                   .HasDatabaseName("IX_Posts_Slug");
+        });
+
+        // --------------------------------------------------------------------
+        // Coupon – mã giảm giá cho đơn hàng đầu tiên / khuyến mãi
+        // --------------------------------------------------------------------
+        modelBuilder.Entity<Coupon>(entity =>
+        {
+            entity.ToTable("Coupons");
+
+            entity.HasKey(c => c.Id);
+
+            entity.Property(c => c.Code)
+                  .IsRequired()
+                  .HasMaxLength(50);
+
+            entity.Property(c => c.DiscountPercentage)
+                  .IsRequired();
+
+            entity.Property(c => c.IsActive)
+                  .IsRequired()
+                  .HasDefaultValue(true);
+
+            entity.Property(c => c.CreatedAt)
+                  .IsRequired()
+                  .HasDefaultValueSql("GETUTCDATE()");
+
+            // Đánh Index Unique cho Code để tra cứu nhanh và không trùng lặp mã
+            entity.HasIndex(c => c.Code)
+                  .IsUnique()
+                  .HasDatabaseName("IX_Coupons_Code");
         });
     }
 }

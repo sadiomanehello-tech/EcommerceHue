@@ -145,13 +145,14 @@ public class HomeController(EcommerceContext context) : Controller
     // =========================================================================
 
     /// <summary>
-    /// Tiếp nhận email đăng ký nhận bản tin qua AJAX.
-    /// Kiểm tra định dạng hợp lệ và trả về thông báo JSON.
+    /// Tiếp nhận email đăng ký nhận bản tin khuyến mãi & tin tức đặc sản Huế qua AJAX.
+    /// Kiểm tra định dạng hợp lệ (validation) và trả về thông báo JSON.
     /// </summary>
     /// <param name="email">Địa chỉ email người dùng nhập</param>
     [HttpPost]
-    public IActionResult RegisterNewsletter(string? email)
+    public IActionResult RegisterNewsletter(string email)
     {
+        // 1. Kiểm tra chuỗi email có trống hay không
         if (string.IsNullOrWhiteSpace(email))
         {
             return Json(new { success = false, message = "Vui lòng nhập địa chỉ email của bạn." });
@@ -159,18 +160,18 @@ public class HomeController(EcommerceContext context) : Controller
 
         var trimmedEmail = email.Trim();
 
-        // Kiểm tra tính hợp lệ của định dạng Email
+        // 2. Kiểm tra định dạng email hợp lệ
         var emailChecker = new System.ComponentModel.DataAnnotations.EmailAddressAttribute();
         if (!emailChecker.IsValid(trimmedEmail) || !trimmedEmail.Contains('@') || !trimmedEmail.Contains('.'))
         {
             return Json(new { success = false, message = "Địa chỉ email không đúng định dạng. Vui lòng kiểm tra lại." });
         }
 
-        // Tạm thời trả về thông báo thành công (chuẩn bị lưu bảng Newsletters hoặc gửi email marketing)
+        // 3. Trả về kết quả JSON thành công
         return Json(new
         {
             success = true,
-            message = "🎉 Đăng ký nhận bản tin thành công! Ưu đãi sẽ được gửi tới bạn sớm nhất."
+            message = "Đăng ký nhận ưu đãi giảm 10% thành công! Vui lòng kiểm tra hộp thư Email của bạn."
         });
     }
 

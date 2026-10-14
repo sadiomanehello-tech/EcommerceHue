@@ -1,0 +1,113 @@
+@model EcommerceHue.Models.Order
+
+@{
+    ViewData["Title"] = "Đặt hàng thành công";
+}
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <!-- Header thông báo thành công -->
+                <div class="p-4 text-center text-white" style="background: linear-gradient(135deg, #2d6a4f 0%, #1b4332 100%);">
+                    <div class="display-4 mb-2">🎉</div>
+                    <h1 class="h3 fw-bold mb-1">Đặt Hàng Thành Công!</h1>
+                    <p class="mb-0 text-white-50 small">Cảm ơn bạn đã lựa chọn đặc sản chính gốc Cố Đô Huế.</p>
+                </div>
+
+                <div class="card-body p-4 p-md-5">
+                    <!-- Mã đơn hàng nổi bật -->
+                    <div class="alert alert-success border-0 rounded-3 text-center py-3 mb-4">
+                        <div class="small text-muted mb-1">Mã đơn hàng của bạn:</div>
+                        <div class="h4 fw-bold text-success mb-0">@Model.OrderCode</div>
+                    </div>
+
+                    <div class="row g-4 mb-4">
+                        <!-- Thông tin người nhận -->
+                        <div class="col-md-6">
+                            <h2 class="h6 fw-bold text-uppercase text-dark mb-3 border-start border-warning border-3 ps-2">
+                                👤 Thông tin người nhận
+                            </h2>
+                            <ul class="list-unstyled small text-muted mb-0 lh-lg">
+                                <li>Họ và tên: <strong class="text-dark">@Model.CustomerName</strong></li>
+                                <li>Số điện thoại: <strong class="text-dark">@Model.CustomerPhone</strong></li>
+                                <li>Email: <span class="text-dark">@Model.CustomerEmail</span></li>
+                                <li>Địa chỉ nhận hàng: <span class="text-dark">@Model.ShippingAddress</span></li>
+                                @if (!string.IsNullOrWhiteSpace(Model.Note))
+                                {
+                                    <li>Ghi chú: <span class="text-dark fst-italic">@Model.Note</span></li>
+                                }
+                            </ul>
+                        </div>
+
+                        <!-- Trạng thái & Thanh toán -->
+                        <div class="col-md-6">
+                            <h2 class="h6 fw-bold text-uppercase text-dark mb-3 border-start border-warning border-3 ps-2">
+                                💳 Trạng thái đơn hàng
+                            </h2>
+                            <ul class="list-unstyled small text-muted mb-0 lh-lg">
+                                <li>Thời điểm đặt: <strong class="text-dark">@Model.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</strong></li>
+                                <li>
+                                    Trạng thái: 
+                                    @if (Model.Status == EcommerceHue.Models.OrderStatus.Paid)
+                                    {
+                                        <span class="badge bg-success text-white px-2 py-1">Đã thanh toán qua VnPay</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-warning text-dark px-2 py-1">Chờ thanh toán</span>
+                                    }
+                                </li>
+                                <li>
+                                    Phương thức: <strong class="text-success">Thanh toán trực tuyến VnPay thành công</strong>
+                                </li>
+                                <li>Phí giao hàng: <strong class="text-success">Miễn phí toàn quốc</strong></li>
+                                <li>Tổng thanh toán: <strong class="h5 text-danger fw-bold">@Model.TotalAmount.ToString("N0") ₫</strong></li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Danh sách món đã đặt -->
+                    <h2 class="h6 fw-bold text-uppercase text-dark mb-3 border-start border-warning border-3 ps-2">
+                        📦 Chi tiết sản phẩm
+                    </h2>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-bordered align-middle small mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>STT</th>
+                                    <th>Tên đặc sản</th>
+                                    <th class="text-center">Số lượng</th>
+                                    <th class="text-end">Đơn giá</th>
+                                    <th class="text-end">Thành tiền</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @{
+                                    var index = 1;
+                                }
+                                @foreach (var item in Model.OrderDetails)
+                                {
+                                    <tr>
+                                        <td class="text-center">@(index++)</td>
+                                        <td class="fw-semibold">@item.ProductName</td>
+                                        <td class="text-center">@item.Quantity</td>
+                                        <td class="text-end">@item.UnitPrice.ToString("N0") ₫</td>
+                                        <td class="text-end fw-bold text-danger">@((item.Quantity * item.UnitPrice).ToString("N0")) ₫</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Nút hành động -->
+                    <div class="d-flex flex-wrap gap-2 justify-content-center pt-2">
+                        <a asp-controller="Home" asp-action="Index" class="btn btn-warning fw-bold px-4 py-2 rounded-pill text-dark shadow-sm">
+                            🏮 Tiếp tục mua sắm đặc sản Huế
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -66,6 +66,9 @@ public static class DbInitializer
         // Khởi tạo bài viết Cẩm nang ẩm thực Huế (Blog Module)
         await SeedPostsAsync(context);
 
+        // Khởi tạo mã giảm giá mẫu (HUEWELCOME10)
+        await SeedCouponsAsync(context);
+
         // Nếu đã có dữ liệu danh mục & sản phẩm → chỉ vá URL ảnh nội bộ, không chèn lại toàn bộ
         if (await context.Categories.AnyAsync())
         {
@@ -339,6 +342,31 @@ public static class DbInitializer
 
             await context.Posts.AddRangeAsync(posts);
             await context.SaveChangesAsync();
+        }
+        catch
+        {
+            // Bỏ qua nếu bảng chưa tồn tại trong CSDL khi chưa chạy migration
+        }
+    }
+
+    /// <summary>
+    /// Khởi tạo mã giảm giá mẫu (HUEWELCOME10 - Giảm 10% cho đơn hàng đầu tiên) nếu chưa có.
+    /// </summary>
+    private static async Task SeedCouponsAsync(EcommerceContext context)
+    {
+        try
+        {
+            if (!await context.Coupons.AnyAsync(c => c.Code == "HUEWELCOME10"))
+            {
+                await context.Coupons.AddAsync(new Coupon
+                {
+                    Code = "HUEWELCOME10",
+                    DiscountPercentage = 10,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+                await context.SaveChangesAsync();
+            }
         }
         catch
         {

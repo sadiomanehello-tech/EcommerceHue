@@ -197,17 +197,17 @@
                     <p class="text-muted small mb-3">
                         Đăng ký ngay để nhận ưu đãi <strong>giảm 10%</strong> cho đơn hàng đầu tiên và tin tức ẩm thực Huế mới nhất.
                     </p>
-                    <form id="newsletterForm" class="hue-newsletter-form mb-2">
+                    <form id="newsletterForm" class="hue-newsletter-form mb-2" onsubmit="return false;">
                         <div class="input-group mb-2">
                             <input type="email"
-                                   id="newsletterEmail"
+                                   id="newsletter-email"
                                    name="email"
                                    class="form-control hue-newsletter-input"
                                    placeholder="Nhập email của bạn..."
                                    aria-label="Địa chỉ email nhận bản tin"
                                    required />
-                            <button type="submit"
-                                    id="newsletterSubmitBtn"
+                            <button type="button"
+                                    id="btn-newsletter"
                                     class="btn btn-warning fw-bold px-3 hue-btn-newsletter text-dark">
                                 Đăng ký
                             </button>
@@ -331,58 +331,78 @@
     document.addEventListener('DOMContentLoaded', fetchCartCount);
 
     // ====================================================================
-    // NEWSLETTER AJAX HANDLER – Đăng ký nhận bản tin mượt mà
+    // NEWSLETTER AJAX FETCH API – Bắt sự kiện click nút 'Đăng ký'
     // ====================================================================
     document.addEventListener('DOMContentLoaded', function () {
-        const newsletterForm = document.getElementById('newsletterForm');
-        if (newsletterForm) {
-            newsletterForm.addEventListener('submit', async function (e) {
-                e.preventDefault();
-                const emailInput = document.getElementById('newsletterEmail');
-                const submitBtn = document.getElementById('newsletterSubmitBtn');
-                const email = emailInput ? emailInput.value.trim() : '';
+        const btnNewsletter = document.getElementById('btn-newsletter');
+        const emailInput = document.getElementById('newsletter-email');
 
-                if (!email) {
-                    showToast('Vui lòng nhập địa chỉ email của bạn.', 'warning');
-                    emailInput?.focus();
-                    return;
+        async function handleNewsletterSubmit() {
+            if (!emailInput) return;
+            const email = emailInput.value.trim();
+
+            if (!email) {
+                showToast('Vui lòng nhập địa chỉ email của bạn.', 'warning');
+                emailInput.focus();
+                return;
+            }
+
+            // Hiệu ứng loading trên nút bấm
+            const originalHtml = btnNewsletter ? btnNewsletter.innerHTML : 'Đăng ký';
+            if (btnNewsletter) {
+                btnNewsletter.disabled = true;
+                btnNewsletter.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Đang gửi...';
+            }
+
+            try {
+                // Tạo dữ liệu form POST ngầm
+                const formData = new URLSearchParams();
+                formData.append('email', email);
+
+                const response = await fetch('/Home/RegisterNewsletter', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: formData.toString()
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Mã lỗi HTTP: ${response.status}`);
                 }
 
-                // Hiệu ứng loading nút bấm
-                const originalText = submitBtn.innerHTML;
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Đang gửi...';
+                const result = await response.json();
 
-                try {
-                    const formData = new URLSearchParams();
-                    formData.append('email', email);
+                if (result.success) {
+                    // Thông báo mượt mà bằng Toast và làm trống ô nhập
+                    showToast(result.message, 'success');
+                    emailInput.value = '';
+                } else {
+                    showToast(result.message, 'warning');
+                }
+            } catch (err) {
+                console.error('[Newsletter AJAX] Lỗi:', err);
+                showToast('Có lỗi xảy ra khi gửi đăng ký. Vui lòng thử lại sau!', 'error');
+            } finally {
+                if (btnNewsletter) {
+                    btnNewsletter.disabled = false;
+                    btnNewsletter.innerHTML = originalHtml;
+                }
+            }
+        }
 
-                    const response = await fetch('/Home/RegisterNewsletter', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                            'X-Requested-With': 'XMLHttpRequest'
-                        },
-                        body: formData.toString()
-                    });
+        // Bắt sự kiện click vào nút Đăng ký
+        if (btnNewsletter) {
+            btnNewsletter.addEventListener('click', handleNewsletterSubmit);
+        }
 
-                    if (!response.ok) {
-                        throw new Error(`HTTP error: ${response.status}`);
-                    }
-
-                    const result = await response.json();
-                    if (result.success) {
-                        showToast(result.message, 'success');
-                        emailInput.value = '';
-                    } else {
-                        showToast(result.message, 'warning');
-                    }
-                } catch (err) {
-                    console.error('[Newsletter] Error:', err);
-                    showToast('Có lỗi xảy ra khi đăng ký. Vui lòng thử lại sau.', 'error');
-                } finally {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalText;
+        // Hỗ trợ người dùng nhấn phím Enter ngay trong ô nhập email
+        if (emailInput) {
+            emailInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleNewsletterSubmit();
                 }
             });
         }
