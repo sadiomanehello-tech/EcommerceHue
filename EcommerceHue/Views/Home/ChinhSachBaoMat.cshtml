@@ -1,0 +1,97 @@
+@{
+    ViewData["Title"] = "Chính sách bảo mật thông tin khách hàng";
+    ViewData["Description"] = "Chính sách bảo mật thông tin cá nhân và dữ liệu thanh toán tại website Đặc sản Huế, tuân thủ các quy chuẩn bảo mật nghiêm ngặt.";
+}
+
+<div class="container py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb py-2 px-3 rounded-pill bg-light border small">
+            <li class="breadcrumb-item">
+                <a asp-controller="Home" asp-action="Index" class="text-decoration-none text-muted">Trang chủ</a>
+            </li>
+            <li class="breadcrumb-item active text-dark" aria-current="page">Chính sách bảo mật</li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <article class="col-lg-9 col-md-11">
+            <header class="text-center mb-5">
+                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-3 py-2 mb-2">
+                    🔒 An toàn & Bảo mật
+                </span>
+                <h1 class="display-6 fw-bold text-dark mb-3">Chính Sách Bảo Mật Thông Tin</h1>
+                <p class="text-muted lead fs-6 mx-auto" style="max-width: 650px;">
+                    Đặc sản Xứ Huế cam kết bảo mật tuyệt đối thông tin cá nhân và giao dịch của khách hàng theo các tiêu chuẩn kỹ thuật an ninh hiện đại nhất.
+                </p>
+            </header>
+
+            <div class="card rounded-4 border shadow-sm p-4 p-md-5 mb-5 bg-white">
+                
+                <!-- MỤC 1 -->
+                <section class="mb-4 pb-3 border-bottom">
+                    <h2 class="h5 fw-bold text-dark mb-3">1. Mục đích thu thập thông tin</h2>
+                    <p class="text-muted">
+                        Hệ thống chỉ thu thập các thông tin tối thiểu cần thiết để phục vụ trải nghiệm mua sắm và giao nhận đơn hàng:
+                    </p>
+                    <ul class="text-muted small ps-3">
+                        <li class="mb-1"><strong>Họ tên và Số điện thoại:</strong> Dùng để liên hệ xác nhận đơn hàng và điều phối nhân viên bưu tá giao hàng.</li>
+                        <li class="mb-1"><strong>Địa chỉ nhận hàng:</strong> Phục vụ công tác đóng gói và vận chuyển bưu phẩm đến đúng địa chỉ.</li>
+                        <li class="mb-1"><strong>Email:</strong> Dùng để gửi hóa đơn điện tử, thông báo trạng thái đơn hàng và gửi ưu đãi khuyến mãi (khi bạn đăng ký nhận bản tin).</li>
+                    </ul>
+                </section>
+
+                <!-- MỤC 2 -->
+                <section class="mb-4 pb-3 border-bottom">
+                    <h2 class="h5 fw-bold text-dark mb-3">2. Tiêu chuẩn mã hóa và bảo mật tài khoản</h2>
+                    <p class="text-muted">
+                        Hệ thống áp dụng các công nghệ mã hóa an toàn bậc nhất hiện nay:
+                    </p>
+                    <ul class="text-muted small ps-3">
+                        <li class="mb-2">
+                            <strong>Mật khẩu người dùng:</strong> Toàn bộ mật khẩu đăng ký đều được băm bằng thuật toán mật mã <strong>BCrypt</strong> với salt ngẫu nhiên trước khi lưu vào CSDL. Ban quản trị và lập trình viên hoàn toàn không thể xem được mật khẩu gốc dưới dạng văn bản (plaintext).
+                        </li>
+                        <li class="mb-2">
+                            <strong>Đăng nhập Google OAuth 2.0:</strong> Xác thực qua kênh bảo mật của Google, không chia sẻ mật khẩu tài khoản Google với hệ thống.
+                        </li>
+                        <li class="mb-2">
+                            <strong>Bảo mật Cookie:</strong> Phiên đăng nhập được lưu trữ dưới dạng Cookie mã hóa với cờ <code>HttpOnly</code> và <code>SameSite</code>, ngăn ngừa hoàn toàn các cuộc tấn công đánh cắp phiên (XSS) và giả mạo yêu cầu (CSRF).
+                        </li>
+                    </ul>
+                </section>
+
+                <!-- MỤC 3 -->
+                <section class="mb-4 pb-3 border-bottom">
+                    <h2 class="h5 fw-bold text-dark mb-3">3. Bảo mật thanh toán trực tuyến (VnPay)</h2>
+                    <p class="text-muted small">
+                        - Khi chọn thanh toán qua VnPay, dữ liệu giao dịch được tạo chuỗi chữ ký điện tử bằng thuật toán băm mật mã <strong>HMACSHA512</strong> với Secret Key riêng biệt được bảo vệ nghiêm ngặt.<br />
+                        - Khi nhận phản hồi từ cổng thanh toán, hệ thống thực hiện kiểm định chữ ký (Checksum Validation) trước khi cập nhật trạng thái đơn hàng nhằm triệt tiêu hoàn toàn nguy cơ giả mạo dữ liệu giao dịch.<br />
+                        - Chúng tôi tuyệt đối không lưu trữ số thẻ ngân hàng, mã PIN hay mã bảo mật CVV của khách hàng.
+                    </p>
+                </section>
+
+                <!-- MỤC 4 -->
+                <section class="mb-4 pb-3 border-bottom">
+                    <h2 class="h5 fw-bold text-dark mb-3">4. Cam kết không chia sẻ dữ liệu</h2>
+                    <p class="text-muted small">
+                        Đặc sản Xứ Huế cam kết:
+                    </p>
+                    <ul class="text-muted small ps-3 mb-0">
+                        <li>Không bán, cho thuê hoặc chia sẻ dữ liệu cá nhân của khách hàng cho bất kỳ bên thứ ba nào vì mục đích thương mại.</li>
+                        <li>Chỉ cung cấp thông tin người nhận (Họ tên, SĐT, địa chỉ) cho đơn vị vận chuyển đối tác để thực hiện việc giao nhận hàng hóa.</li>
+                        <li>Chỉ cung cấp dữ liệu cho cơ quan pháp luật có thẩm quyền trong các trường hợp bắt buộc theo quy định của pháp luật Việt Nam.</li>
+                    </ul>
+                </section>
+
+                <!-- MỤC 5 -->
+                <section>
+                    <h2 class="h5 fw-bold text-dark mb-3">5. Quyền của khách hàng đối với thông tin cá nhân</h2>
+                    <p class="text-muted small mb-0">
+                        Khách hàng có toàn quyền kiểm tra, cập nhật hoặc yêu cầu xóa bỏ thông tin tài khoản của mình bất cứ lúc nào bằng cách liên hệ với bộ phận chăm sóc khách hàng qua email: <a href="mailto:lienhe@dacsanhue.com" class="text-decoration-none">lienhe@dacsanhue.com</a>.
+                    </p>
+                </section>
+
+            </div>
+        </article>
+    </div>
+</div>

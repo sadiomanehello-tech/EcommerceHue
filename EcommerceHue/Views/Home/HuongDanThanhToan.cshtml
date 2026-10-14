@@ -1,0 +1,98 @@
+@{
+    ViewData["Title"] = "Hướng dẫn thanh toán – Cổng VnPay & Ship COD";
+    ViewData["Description"] = "Hướng dẫn chi tiết các hình thức thanh toán an toàn tại Đặc sản Huế: Cổng thanh toán VnPay QR và Thanh toán khi nhận hàng (COD).";
+}
+
+<div class="container py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb py-2 px-3 rounded-pill bg-light border small">
+            <li class="breadcrumb-item">
+                <a asp-controller="Home" asp-action="Index" class="text-decoration-none text-muted">Trang chủ</a>
+            </li>
+            <li class="breadcrumb-item active text-dark" aria-current="page">Hướng dẫn thanh toán</li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <article class="col-lg-9 col-md-11">
+            <header class="text-center mb-5">
+                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-3 py-2 mb-2">
+                    💳 Thanh toán an toàn
+                </span>
+                <h1 class="display-6 fw-bold text-dark mb-3">Hướng Dẫn Thanh Toán Đơn Hàng</h1>
+                <p class="text-muted lead fs-6 mx-auto" style="max-width: 650px;">
+                    Chúng tôi hỗ trợ đa dạng phương thức thanh toán linh hoạt, tiện lợi với công nghệ bảo mật giao dịch tiên tiến.
+                </p>
+            </header>
+
+            <!-- HÌNH THỨC 1: VNPAY -->
+            <div class="card rounded-4 border shadow-sm p-4 p-md-5 mb-4 bg-white">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <span class="fs-2">🏧</span>
+                    <div>
+                        <h2 class="h5 fw-bold text-dark mb-0">1. Thanh toán trực tuyến qua cổng VnPay (Khuyên dùng)</h2>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill small">Nhanh chóng & Không tốn phí</span>
+                    </div>
+                </div>
+
+                <p class="text-muted mb-3">
+                    Cổng thanh toán VnPay liên kết với hơn 40 ngân hàng tại Việt Nam cùng các ví điện tử phổ biến. Toàn bộ thông tin giao dịch được mã hóa chuẩn bảo mật quốc tế <strong>HMACSHA512</strong>, bảo vệ tuyệt đối dữ liệu tài khoản của bạn.
+                </p>
+
+                <h3 class="h6 fw-bold text-dark mb-2">Các bước thanh toán bằng VnPay:</h3>
+                <ol class="text-muted small mb-4 ps-3">
+                    <li class="mb-2">Tại bước Đặt hàng & Thanh toán, chọn phương thức <strong>"Cổng thanh toán VnPay"</strong> rồi nhấn <strong>"Thanh toán ngay"</strong>.</li>
+                    <li class="mb-2">Hệ thống sẽ chuyển hướng bạn sang cổng thanh toán chính thức của VnPay.</li>
+                    <li class="mb-2">
+                        Bạn có thể chọn một trong các hình thức:
+                        <ul>
+                            <li><strong>VnPay QR:</strong> Mở ứng dụng Mobile Banking của ngân hàng bất kỳ, quét mã QR hiển thị trên màn hình.</li>
+                            <li><strong>Thẻ ATM & Tài khoản ngân hàng nội địa:</strong> Nhập số thẻ/tài khoản và xác thực mã OTP gửi về điện thoại.</li>
+                            <li><strong>Thẻ quốc tế:</strong> Visa, MasterCard, JCB.</li>
+                        </ul>
+                    </li>
+                    <li class="mb-0">Sau khi hoàn tất, hệ thống tự động xác nhận đơn hàng sang trạng thái <strong>"Đã thanh toán (Paid)"</strong> và gửi thông báo thành công.</li>
+                </ol>
+
+                <div class="p-3 bg-light rounded-3 border-start border-success border-4 small text-secondary">
+                    🔒 <strong>Cam kết bảo mật:</strong> Hệ thống không lưu trữ bất kỳ thông tin số thẻ hay mật khẩu ngân hàng của khách hàng. Mọi giao dịch được thực hiện trực tiếp trên cổng VnPay.
+                </div>
+            </div>
+
+            <!-- HÌNH THỨC 2: COD -->
+            <div class="card rounded-4 border shadow-sm p-4 p-md-5 mb-5 bg-white">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <span class="fs-2">💵</span>
+                    <div>
+                        <h2 class="h5 fw-bold text-dark mb-0">2. Thanh toán khi nhận hàng (Ship COD)</h2>
+                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill small">Tiện lợi & An tâm</span>
+                    </div>
+                </div>
+
+                <p class="text-muted mb-3">
+                    Dành cho quý khách muốn kiểm tra bưu phẩm trước khi thanh toán.
+                </p>
+
+                <h3 class="h6 fw-bold text-dark mb-2">Quy trình giao nhận COD:</h3>
+                <ul class="text-muted small mb-3 ps-3">
+                    <li class="mb-2">Nhân viên bưu tá sẽ liên hệ với bạn trước khi giao hàng tận nơi.</li>
+                    <li class="mb-2">Quý khách đồng kiểm bên ngoài kiện hàng (đúng tem niêm phong Đặc sản Huế, thông tin người gửi/nhận).</li>
+                    <li class="mb-0">Thanh toán trực tiếp số tiền đúng theo hóa đơn cho bưu tá và ký nhận bưu phẩm.</li>
+                </ul>
+
+                <div class="p-3 bg-light rounded-3 border-start border-warning border-4 small text-secondary">
+                    ⚠️ <em>Lưu ý: Đối với các món tươi sống như tôm chua hoặc tré, quý khách vui lòng nghe máy shipper để nhận hàng sớm nhất nhằm bảo quản chất lượng món ăn được tốt nhất.</em>
+                </div>
+            </div>
+
+            <!-- Hỗ trợ -->
+            <div class="text-center">
+                <p class="text-muted small mb-2">Cần hỗ trợ về thanh toán? Gọi ngay Hotline:</p>
+                <a href="tel:0901234567" class="btn btn-outline-danger rounded-pill px-4 fw-bold">
+                    📞 0901 234 567 (Hỗ trợ 24/7)
+                </a>
+            </div>
+        </article>
+    </div>
+</div>

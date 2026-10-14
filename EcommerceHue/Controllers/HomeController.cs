@@ -101,6 +101,46 @@ public class HomeController(EcommerceContext context) : Controller
     }
 
     // =========================================================================
+    // HƯỚNG DẪN & CHÍNH SÁCH (CÁC TRANG TĨNH CHÂN TRANG)
+    // =========================================================================
+
+    /// <summary>
+    /// Hướng dẫn quy trình đặt mua đặc sản Huế trực tuyến.
+    /// </summary>
+    [HttpGet]
+    public IActionResult HuongDanDatHang()
+    {
+        return View();
+    }
+
+    /// <summary>
+    /// Hướng dẫn các hình thức thanh toán: cổng VnPay và COD khi nhận hàng.
+    /// </summary>
+    [HttpGet]
+    public IActionResult HuongDanThanhToan()
+    {
+        return View();
+    }
+
+    /// <summary>
+    /// Chính sách bảo mật thông tin cá nhân và giao dịch của khách hàng.
+    /// </summary>
+    [HttpGet]
+    public IActionResult ChinhSachBaoMat()
+    {
+        return View();
+    }
+
+    /// <summary>
+    /// Chính sách và quy định đổi trả, hoàn tiền đối với các mặt hàng đặc sản, thực phẩm Huế.
+    /// </summary>
+    [HttpGet]
+    public IActionResult ChinhSachDoiTra()
+    {
+        return View();
+    }
+
+    // =========================================================================
     // NEWSLETTER: Đăng ký nhận bản tin ẩm thực & ưu đãi – POST /Home/RegisterNewsletter
     // =========================================================================
 

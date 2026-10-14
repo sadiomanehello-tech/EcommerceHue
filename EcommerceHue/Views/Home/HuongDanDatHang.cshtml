@@ -1,0 +1,124 @@
+@{
+    ViewData["Title"] = "Hướng dẫn đặt hàng đặc sản Huế trực tuyến";
+    ViewData["Description"] = "Hướng dẫn chi tiết các bước đặt mua đặc sản Huế online nhanh chóng, tiện lợi và an toàn.";
+}
+
+<div class="container py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb py-2 px-3 rounded-pill bg-light border small">
+            <li class="breadcrumb-item">
+                <a asp-controller="Home" asp-action="Index" class="text-decoration-none text-muted">Trang chủ</a>
+            </li>
+            <li class="breadcrumb-item active text-dark" aria-current="page">Hướng dẫn đặt hàng</li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <article class="col-lg-9 col-md-11">
+            <header class="text-center mb-5">
+                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-3 py-2 mb-2">
+                    🏮 Hỗ trợ khách hàng
+                </span>
+                <h1 class="display-6 fw-bold text-dark mb-3">Hướng Dẫn Đặt Mua Đặc Sản Huế Online</h1>
+                <p class="text-muted lead fs-6 mx-auto" style="max-width: 650px;">
+                    Chỉ với 4 bước đơn giản, bạn có thể dễ dàng mang trọn hương vị truyền thống cố đô Huế về đến tận bàn ăn gia đình.
+                </p>
+            </header>
+
+            <div class="card rounded-4 border shadow-sm p-4 p-md-5 mb-5 bg-white">
+                
+                <!-- BƯỚC 1 -->
+                <div class="d-flex gap-3 mb-4 pb-3 border-bottom">
+                    <div class="flex-shrink-0">
+                        <span class="badge bg-warning text-dark fs-5 rounded-circle d-flex align-items-center justify-content-center" style="width: 45px; height: 45px;">
+                            1
+                        </span>
+                    </div>
+                    <div>
+                        <h2 class="h5 fw-bold text-dark mb-2">Tìm kiếm và lựa chọn đặc sản</h2>
+                        <p class="text-muted mb-2">
+                            Bạn có thể dạo xem danh mục sản phẩm tại trang chủ (Mè xửng, Tôm chua, Trà cung đình...) hoặc gõ tên món đặc sản vào thanh tìm kiếm nổi bật phía trên cùng.
+                        </p>
+                        <p class="small text-secondary mb-0">
+                            💡 <em>Mẹo: Mỗi sản phẩm đều ghi rõ hạn sử dụng (HSD) và số lượng tồn kho thực tế để bạn an tâm chọn lựa.</em>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- BƯỚC 2 -->
+                <div class="d-flex gap-3 mb-4 pb-3 border-bottom">
+                    <div class="flex-shrink-0">
+                        <span class="badge bg-warning text-dark fs-5 rounded-circle d-flex align-items-center justify-content-center" style="width: 45px; height: 45px;">
+                            2
+                        </span>
+                    </div>
+                    <div>
+                        <h2 class="h5 fw-bold text-dark mb-2">Thêm vào giỏ hàng hoặc chọn Mua ngay</h2>
+                        <p class="text-muted mb-2">
+                            - Nhấn <strong>"🛒 Thêm vào giỏ"</strong> nếu bạn muốn tiếp tục chọn thêm các món ngon khác mà không bị gián đoạn lướt web.<br />
+                            - Nhấn <strong>"⚡ Mua ngay"</strong> để chuyển thẳng vào giỏ hàng và tiến hành đặt hàng ngay lập tức.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- BƯỚC 3 -->
+                <div class="d-flex gap-3 mb-4 pb-3 border-bottom">
+                    <div class="flex-shrink-0">
+                        <span class="badge bg-warning text-dark fs-5 rounded-circle d-flex align-items-center justify-content-center" style="width: 45px; height: 45px;">
+                            3
+                        </span>
+                    </div>
+                    <div>
+                        <h2 class="h5 fw-bold text-dark mb-2">Kiểm tra giỏ hàng và điền thông tin nhận hàng</h2>
+                        <p class="text-muted mb-2">
+                            Tại trang Giỏ hàng, bạn có thể tăng giảm số lượng sản phẩm. Sau đó nhấn <strong>"Tiến hành đặt hàng"</strong>:
+                        </p>
+                        <ul class="text-muted small mb-0 ps-3">
+                            <li>Điền họ tên người nhận, số điện thoại liên hệ và địa chỉ giao hàng cụ thể.</li>
+                            <li>Nếu đã đăng nhập (bằng tài khoản hoặc Google), hệ thống sẽ tự động điền sẵn thông tin này cho bạn.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- BƯỚC 4 -->
+                <div class="d-flex gap-3">
+                    <div class="flex-shrink-0">
+                        <span class="badge bg-warning text-dark fs-5 rounded-circle d-flex align-items-center justify-content-center" style="width: 45px; height: 45px;">
+                            4
+                        </span>
+                    </div>
+                    <div>
+                        <h2 class="h5 fw-bold text-dark mb-2">Chọn phương thức thanh toán và Hoàn tất</h2>
+                        <p class="text-muted mb-2">
+                            Chọn hình thức thanh toán thuận tiện nhất với bạn:
+                        </p>
+                        <div class="row g-2 mb-3">
+                            <div class="col-sm-6">
+                                <div class="p-2 border rounded-3 bg-light small">
+                                    💳 <strong>Cổng VnPay:</strong> Quét mã QR qua app ngân hàng hoặc thẻ ATM/Visa nội địa an toàn tuyệt đối.
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="p-2 border rounded-3 bg-light small">
+                                    💵 <strong>Thanh toán khi nhận (COD):</strong> Nhận hàng tận tay, kiểm tra gói hàng rồi mới thanh toán tiền mặt.
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-muted small mb-0">
+                            Sau khi đặt hàng thành công, bạn sẽ nhận được mã đơn hàng kèm thông báo xác nhận. Đội ngũ cửa hàng sẽ liên hệ xác nhận và tiến hành đóng gói cẩn thận gửi đến bạn.
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Nút kêu gọi hành động -->
+            <div class="text-center">
+                <a asp-controller="Home" asp-action="Index" class="btn btn-warning rounded-pill px-5 py-3 fw-bold shadow-sm">
+                    🛒 Bắt đầu mua sắm đặc sản Huế ngay
+                </a>
+            </div>
+        </article>
+    </div>
+</div>
