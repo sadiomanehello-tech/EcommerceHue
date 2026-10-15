@@ -365,8 +365,20 @@ public static class DbInitializer
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow
                 });
-                await context.SaveChangesAsync();
             }
+
+            if (!await context.Coupons.AnyAsync(c => c.Code == "HUEDACSAN10"))
+            {
+                await context.Coupons.AddAsync(new Coupon
+                {
+                    Code = "HUEDACSAN10",
+                    DiscountPercentage = 10,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+
+            await context.SaveChangesAsync();
         }
         catch
         {

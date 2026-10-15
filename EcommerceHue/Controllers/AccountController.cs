@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
@@ -8,6 +9,7 @@ using EcommerceHue.Data;
 using EcommerceHue.Extensions;
 using EcommerceHue.Models;
 using EcommerceHue.Models.ViewModels;
+using EcommerceHue.Services;
 
 namespace EcommerceHue.Controllers;
 
@@ -15,8 +17,13 @@ namespace EcommerceHue.Controllers;
 /// Xử lý luồng xác thực thành viên: Đăng ký, Đăng nhập, Đăng xuất.
 /// Mật khẩu luôn được băm bằng BCrypt trước khi lưu (quy tắc 02-security-vnpay.md).
 /// </summary>
-public class AccountController(EcommerceContext context, ILogger<AccountController> logger) : Controller
+public class AccountController(
+    EcommerceContext context,
+    ILogger<AccountController> logger,
+    IEmailService emailService) : Controller
 {
+    private readonly IEmailService _emailService = emailService;
+
     // =========================================================================
     // ĐĂNG KÝ – GET /Account/Register
     // =========================================================================
@@ -371,4 +378,140 @@ public class AccountController(EcommerceContext context, ILogger<AccountControll
                     : null
             });
     }
+
+    // =========================================================================
+    // NEWSLETTER: Đăng ký nhận bản tin & Gửi mã giảm giá – POST /Account/SubscribeNewsletter
+    // =========================================================================
+
+    /// <summary>
+    /// Tiếp nhận email đăng ký nhận bản tin, gửi email quà tặng chào mừng kèm mã giảm giá 10% (HUEDACSAN10).
+    /// </summary>
+    /// <param name="email">Địa chỉ email của khách hàng</param>
+    [HttpPost]
+    [AllowAnonymous]
+    [IgnoreAntiforgeryToken]
+    public async Task<IActionResult> SubscribeNewsletter(string email)
+    {
+        // 1. Kiểm tra nếu chuỗi email rỗng hoặc sai định dạng
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return Json(new { success = false, message = "Vui lòng nhập địa chỉ email của bạn." });
+        }
+
+        var cleanEmail = email.Trim();
+        var emailChecker = new System.ComponentModel.DataAnnotations.EmailAddressAttribute();
+        if (!emailChecker.IsValid(cleanEmail) || !cleanEmail.Contains('@') || !cleanEmail.Contains('.'))
+        {
+            return Json(new { success = false, message = "Địa chỉ email không đúng định dạng. Vui lòng kiểm tra lại." });
+        }
+
+        // 2. Định nghĩa mã giảm giá cố định dành riêng cho đơn đầu tiên
+        string couponCode = "HUEDACSAN10";
+
+        // Tự động đảm bảo mã coupon tồn tại trong CSDL và đang hoạt động
+        try
+        {
+            var existingCoupon = await context.Coupons.FirstOrDefaultAsync(c => c.Code == couponCode);
+            if (existingCoupon == null)
+            {
+                await context.Coupons.AddAsync(new Coupon
+                {
+                    Code = couponCode,
+                    DiscountPercentage = 10,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+                await context.SaveChangesAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "[Newsletter] Không thể kiểm tra hoặc tạo coupon {CouponCode} trong CSDL", couponCode);
+        }
+
+        // 3. Biên soạn mẫu thư HTML cực kỳ trang trọng và ấm áp
+        string subject = "[EcommerceHue] Quà tặng chào mừng - Nhận ngay mã giảm giá 10% cho đơn hàng đầu tiên";
+        string htmlContent = $"""
+        <!DOCTYPE html>
+        <html lang="vi">
+        <head>
+            <meta charset="UTF-8">
+            <title>{subject}</title>
+        </head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f7f5f0; margin: 0; padding: 25px; color: #333; line-height: 1.6;">
+            <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 18px rgba(0,0,0,0.08); border: 1px solid #ebdccb;">
+                
+                <!-- HEADER PHONG CÁCH CỐ ĐÔ HUẾ -->
+                <div style="background: linear-gradient(135deg, #6b200c 0%, #9e2a2b 100%); padding: 32px 25px; text-align: center; color: #ffffff;">
+                    <div style="font-size: 38px; margin-bottom: 8px;">🏮</div>
+                    <h1 style="margin: 0; font-size: 22px; font-weight: bold; letter-spacing: 0.5px; text-transform: uppercase;">Quà Tặng Tri Ân Đăng Ký Bản Tin</h1>
+                    <p style="margin: 8px 0 0 0; font-size: 14px; color: #f5d6ba;">Đặc Sản Cố Đô Huế - EcommerceHue</p>
+                </div>
+
+                <!-- NỘI DUNG CHÍNH -->
+                <div style="padding: 30px 28px;">
+                    <h2 style="color: #6b200c; font-size: 18px; margin-top: 0; margin-bottom: 14px;">Kính chào Quý khách,</h2>
+                    
+                    <p style="margin: 0 0 16px 0; font-size: 15px; color: #444;">
+                        Chào mừng Quý khách đã đăng ký nhận bản tin tinh hoa ẩm thực xứ Huế từ <strong>EcommerceHue</strong>. Chúng tôi rất vinh hạnh được đồng hành cùng Quý khách trên hành trình khám phá những hương vị truyền thống đậm đà bản sắc Cố Đô.
+                    </p>
+
+                    <p style="margin: 0 0 20px 0; font-size: 15px; color: #444;">
+                        Như một lời chào mừng nồng ấm, chúng tôi trân trọng gửi tặng riêng Quý khách mã ưu đãi đặc quyền cho đơn hàng đầu tiên:
+                    </p>
+
+                    <!-- HỘP HIỂN THỊ MÃ GIẢM GIÁ -->
+                    <div style="background: linear-gradient(135deg, #fff8f0 0%, #fef3e2 100%); border: 2px dashed #d97706; border-radius: 10px; padding: 22px; text-align: center; margin: 25px 0;">
+                        <div style="font-size: 13px; text-transform: uppercase; color: #92400e; font-weight: 600; letter-spacing: 1px;">Mã giảm giá ưu đãi dành riêng cho Quý khách</div>
+                        <div style="font-size: 34px; font-weight: 800; color: #b45309; letter-spacing: 3px; margin: 12px 0; font-family: monospace;">
+                            {couponCode}
+                        </div>
+                        <div style="font-size: 14px; color: #78350f; font-weight: 600;">
+                            🎉 Giảm ngay <strong>10%</strong> tổng giá trị hóa đơn khi đặt mua bất kỳ đặc sản Huế nào!
+                        </div>
+                    </div>
+
+                    <!-- HƯỚNG DẪN NHẬP MÃ -->
+                    <div style="background-color: #fdfbf7; border-left: 4px solid #b45309; border-radius: 6px; padding: 16px 18px; margin-bottom: 24px;">
+                        <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #78350f; font-weight: 700;">📌 Hướng dẫn sử dụng mã tại giỏ hàng:</h3>
+                        <ol style="margin: 0; padding-left: 20px; font-size: 14px; color: #555; line-height: 1.8;">
+                            <li>Lựa chọn các thức quà tinh hoa xứ Huế: <em>kẹo Mè xửng giòn/dẻo, Tôm chua truyền thống, Trà sen Cung đình, Hạt sen tươi, Nem tré Đông Ba...</em></li>
+                            <li>Bấm vào trang <strong>Giỏ hàng</strong> hoặc <strong>Đặt hàng & Thanh toán</strong>.</li>
+                            <li>Nhấp vào ô <em>"Bạn có mã giảm giá?"</em>, nhập chính xác mã: <strong style="color: #b45309;">{couponCode}</strong> và chọn <strong>Áp dụng</strong>.</li>
+                            <li>Số tiền giảm 10% sẽ được khấu trừ ngay lập tức vào tổng thanh toán của Quý khách.</li>
+                        </ol>
+                    </div>
+
+                    <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">
+                        Kính chúc Quý khách có những trải nghiệm ẩm thực Cố Đô thật trọn vẹn và ngon miệng!
+                    </p>
+                </div>
+
+                <!-- FOOTER -->
+                <div style="background-color: #f5f0e8; padding: 18px 25px; text-align: center; font-size: 13px; color: #777; border-top: 1px solid #ebdccb;">
+                    <div><strong>EcommerceHue - Tinh Hoa Đặc Sản Cố Đô</strong></div>
+                    <div style="margin-top: 4px;">Hotline: 0901 234 567 | Cổng chính Chợ Đông Ba, Đường Trần Hưng Đạo, TP. Huế</div>
+                </div>
+
+            </div>
+        </body>
+        </html>
+        """;
+
+        // 4. Gọi dịch vụ gửi thư bọc trong khối try-catch an toàn
+        try
+        {
+            await _emailService.SendOrderEmailAsync(cleanEmail, subject, htmlContent);
+            logger.LogInformation("[Newsletter] Đã gửi mã giảm giá {CouponCode} thành công tới {Email}", couponCode, cleanEmail);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("=== LỖI SMTP GỬI MAIL NEWSLETTER: " + ex.Message);
+            logger.LogError(ex, "[Newsletter] Lỗi khi gửi email bản tin tới {Email}", cleanEmail);
+        }
+
+        // 5. Trả về kết quả JSON thành công
+        return Json(new { success = true, message = "Đăng ký thành công! Vui lòng kiểm tra hộp thư Gmail để nhận mã giảm giá 10%." });
+    }
 }
+

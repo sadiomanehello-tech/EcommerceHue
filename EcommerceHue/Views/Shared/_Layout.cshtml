@@ -150,7 +150,7 @@
                             <a asp-controller="Home" asp-action="HuongDanDatHang" class="text-muted text-decoration-none">📖 Hướng dẫn đặt hàng trực tuyến</a>
                         </li>
                         <li class="mb-2">
-                            <a asp-controller="Home" asp-action="HuongDanThanhToan" class="text-muted text-decoration-none">💳 Hướng dẫn thanh toán (VnPay & COD)</a>
+                            <a asp-controller="Home" asp-action="HuongDanThanhToan" class="text-muted text-decoration-none">💳 Hướng dẫn thanh toán (Chuyển khoản VietQR & COD)</a>
                         </li>
                         <li class="mb-2">
                             <a asp-controller="Home" asp-action="ChinhSachBaoMat" class="text-muted text-decoration-none">🔒 Chính sách bảo mật thông tin</a>
@@ -200,7 +200,7 @@
                     <form id="newsletterForm" class="hue-newsletter-form mb-2" onsubmit="return false;">
                         <div class="input-group mb-2">
                             <input type="email"
-                                   id="newsletter-email"
+                                   id="newsletterEmail"
                                    name="email"
                                    class="form-control hue-newsletter-input"
                                    placeholder="Nhập email của bạn..."
@@ -227,11 +227,12 @@
                 <div>
                     &copy; 2026 <strong>Đặc Sản Xứ Huế</strong> · Giữ trọn tinh hoa văn hóa ẩm thực Cố Đô.
                 </div>
-                <div class="d-flex align-items-center gap-3">
-                    <span>Thanh toán an toàn:</span>
-                    <span class="badge bg-white text-primary border shadow-xs px-2 py-1">VnPay QR</span>
-                    <span class="badge bg-white text-danger border shadow-xs px-2 py-1">ATM / Visa</span>
-                    <span class="badge bg-white text-success border shadow-xs px-2 py-1">COD</span>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span class="fw-semibold">Thanh toán an toàn:</span>
+                    <span class="badge bg-white text-primary border shadow-xs px-2 py-1">payOS</span>
+                    <span class="badge bg-white text-info border shadow-xs px-2 py-1">Chuyển khoản VietQR</span>
+                    <span class="badge bg-white text-success border shadow-xs px-2 py-1">BIDV</span>
+                    <span class="badge bg-white text-secondary border shadow-xs px-2 py-1">COD</span>
                 </div>
             </div>
         </div>
@@ -335,7 +336,7 @@
     // ====================================================================
     document.addEventListener('DOMContentLoaded', function () {
         const btnNewsletter = document.getElementById('btn-newsletter');
-        const emailInput = document.getElementById('newsletter-email');
+        const emailInput = document.getElementById('newsletterEmail') || document.getElementById('newsletter-email');
 
         async function handleNewsletterSubmit() {
             if (!emailInput) return;
@@ -355,11 +356,11 @@
             }
 
             try {
-                // Tạo dữ liệu form POST ngầm
+                // Gửi dữ liệu qua fetch API đến Action SubscribeNewsletter
                 const formData = new URLSearchParams();
                 formData.append('email', email);
 
-                const response = await fetch('/Home/RegisterNewsletter', {
+                const response = await fetch('/Account/SubscribeNewsletter', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
@@ -375,7 +376,7 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    // Thông báo mượt mà bằng Toast và làm trống ô nhập
+                    // Hiển thị thông báo Toast mượt mà và làm trống ô nhập
                     showToast(result.message, 'success');
                     emailInput.value = '';
                 } else {

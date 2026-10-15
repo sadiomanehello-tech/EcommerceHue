@@ -1,6 +1,6 @@
 @{
-    ViewData["Title"] = "Hướng dẫn thanh toán – Cổng VnPay & Ship COD";
-    ViewData["Description"] = "Hướng dẫn chi tiết các hình thức thanh toán an toàn tại Đặc sản Huế: Cổng thanh toán VnPay QR và Thanh toán khi nhận hàng (COD).";
+    ViewData["Title"] = "Hướng dẫn thanh toán – Chuyển khoản VietQR & Ship COD";
+    ViewData["Description"] = "Hướng dẫn chi tiết các hình thức thanh toán an toàn tại Đặc sản Huế: Quét mã VietQR Open Banking (payOS) và Thanh toán khi nhận hàng (COD).";
 }
 
 <div class="container py-4">
@@ -22,41 +22,34 @@
                 </span>
                 <h1 class="display-6 fw-bold text-dark mb-3">Hướng Dẫn Thanh Toán Đơn Hàng</h1>
                 <p class="text-muted lead fs-6 mx-auto" style="max-width: 650px;">
-                    Chúng tôi hỗ trợ đa dạng phương thức thanh toán linh hoạt, tiện lợi với công nghệ bảo mật giao dịch tiên tiến.
+                    Chúng tôi hỗ trợ đa dạng phương thức thanh toán linh hoạt, tiện lợi với công nghệ bảo mật giao dịch tiên tiến: <strong>Chuyển khoản VietQR</strong> và <strong>Thanh toán khi nhận hàng (COD)</strong>.
                 </p>
             </header>
 
-            <!-- HÌNH THỨC 1: VNPAY -->
+            <!-- HÌNH THỨC 1: VIETQR & PAYOS -->
             <div class="card rounded-4 border shadow-sm p-4 p-md-5 mb-4 bg-white">
                 <div class="d-flex align-items-center gap-3 mb-3">
-                    <span class="fs-2">🏧</span>
+                    <span class="fs-2">📱</span>
                     <div>
-                        <h2 class="h5 fw-bold text-dark mb-0">1. Thanh toán trực tuyến qua cổng VnPay (Khuyên dùng)</h2>
-                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill small">Nhanh chóng & Không tốn phí</span>
+                        <h2 class="h5 fw-bold text-dark mb-0">1. Chuyển khoản ngân hàng quét mã VietQR tự động (Khuyên dùng)</h2>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill small">Nhanh chóng · Chuẩn xác · Không tốn phí</span>
                     </div>
                 </div>
 
                 <p class="text-muted mb-3">
-                    Cổng thanh toán VnPay liên kết với hơn 40 ngân hàng tại Việt Nam cùng các ví điện tử phổ biến. Toàn bộ thông tin giao dịch được mã hóa chuẩn bảo mật quốc tế <strong>HMACSHA512</strong>, bảo vệ tuyệt đối dữ liệu tài khoản của bạn.
+                    Hệ thống tích hợp cổng Open Banking payOS và VietQR liên kết với toàn bộ ngân hàng tại Việt Nam (BIDV, Vietcombank, MBBank, Techcombank...). Bạn chỉ cần dùng ứng dụng Mobile Banking quét mã QR được tạo tự động với số tiền và nội dung chuyển khoản chính xác 100%.
                 </p>
 
-                <h3 class="h6 fw-bold text-dark mb-2">Các bước thanh toán bằng VnPay:</h3>
+                <h3 class="h6 fw-bold text-dark mb-2">Các bước thanh toán bằng VietQR:</h3>
                 <ol class="text-muted small mb-4 ps-3">
-                    <li class="mb-2">Tại bước Đặt hàng & Thanh toán, chọn phương thức <strong>"Cổng thanh toán VnPay"</strong> rồi nhấn <strong>"Thanh toán ngay"</strong>.</li>
-                    <li class="mb-2">Hệ thống sẽ chuyển hướng bạn sang cổng thanh toán chính thức của VnPay.</li>
-                    <li class="mb-2">
-                        Bạn có thể chọn một trong các hình thức:
-                        <ul>
-                            <li><strong>VnPay QR:</strong> Mở ứng dụng Mobile Banking của ngân hàng bất kỳ, quét mã QR hiển thị trên màn hình.</li>
-                            <li><strong>Thẻ ATM & Tài khoản ngân hàng nội địa:</strong> Nhập số thẻ/tài khoản và xác thực mã OTP gửi về điện thoại.</li>
-                            <li><strong>Thẻ quốc tế:</strong> Visa, MasterCard, JCB.</li>
-                        </ul>
-                    </li>
-                    <li class="mb-0">Sau khi hoàn tất, hệ thống tự động xác nhận đơn hàng sang trạng thái <strong>"Đã thanh toán (Paid)"</strong> và gửi thông báo thành công.</li>
+                    <li class="mb-2">Tại bước Đặt hàng & Thanh toán, chọn phương thức <strong>"Chuyển khoản ngân hàng (Mã QR BIDV - VietQR)"</strong> rồi nhấn <strong>"Đặt hàng & Thanh toán"</strong>.</li>
+                    <li class="mb-2">Hệ thống hiển thị màn hình hóa đơn kèm <strong>Mã VietQR động</strong> chứa đầy đủ thông tin: Ngân hàng BIDV, Số tài khoản nhận tiền và mã đơn hàng.</li>
+                    <li class="mb-2">Mở ứng dụng Mobile Banking của ngân hàng bất kỳ, chọn tính năng <strong>Quét QR</strong> và tiến hành thanh toán.</li>
+                    <li class="mb-0">Sau khi hoàn tất, hệ thống tự động gạch nợ đơn hàng và gửi thư điện tử <strong>Xác nhận thanh toán thành công</strong> tới hộp thư Gmail của bạn.</li>
                 </ol>
 
                 <div class="p-3 bg-light rounded-3 border-start border-success border-4 small text-secondary">
-                    🔒 <strong>Cam kết bảo mật:</strong> Hệ thống không lưu trữ bất kỳ thông tin số thẻ hay mật khẩu ngân hàng của khách hàng. Mọi giao dịch được thực hiện trực tiếp trên cổng VnPay.
+                    🔒 <strong>Cam kết bảo mật:</strong> Giao dịch trực tiếp từ tài khoản ngân hàng của quý khách tới tài khoản thụ hưởng. Mọi dữ liệu xác thực giao dịch được bảo mật và đối soát an toàn tuyệt đối.
                 </div>
             </div>
 
