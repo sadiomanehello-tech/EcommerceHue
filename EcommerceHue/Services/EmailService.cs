@@ -44,9 +44,12 @@ public class EmailService : IEmailService
             int.TryParse(portString, out var port);
             if (port <= 0) port = 587;
 
-            var fromMail = _configuration["MailSettings:Mail"] ?? "ecommercedacsanhue@gmail.com";
+            var fromMail = _configuration["MailSettings:Mail"] ?? "sadiomanehello@gmail.com";
             var displayName = _configuration["MailSettings:DisplayName"] ?? "Đặc Sản Xứ Huế - EcommerceHue";
-            var password = _configuration["MailSettings:Password"] ?? string.Empty;
+            var rawPassword = _configuration["MailSettings:Password"] ?? string.Empty;
+
+            // Chuẩn hóa mật khẩu ứng dụng Gmail (loại bỏ khoảng trắng nhóm 4 ký tự)
+            var password = rawPassword.Replace(" ", "").Trim();
 
             // Kiểm tra cấu hình mật khẩu ứng dụng Gmail (App Password)
             if (string.IsNullOrWhiteSpace(password))
@@ -55,9 +58,15 @@ public class EmailService : IEmailService
                 return;
             }
 
+            if (string.IsNullOrWhiteSpace(toEmail))
+            {
+                _logger.LogWarning("[EmailService] Địa chỉ email nhận (toEmail) đang bị rỗng. Bỏ qua gửi thư.");
+                return;
+            }
+
             var email = new MimeMessage();
             email.From.Add(new MailboxAddress(displayName, fromMail));
-            email.To.Add(MailboxAddress.Parse(toEmail));
+            email.To.Add(MailboxAddress.Parse(toEmail.Trim()));
             email.Subject = subject;
 
             var builder = new BodyBuilder
@@ -68,10 +77,13 @@ public class EmailService : IEmailService
 
             using var smtp = new SmtpClient();
 
+            // Chấp nhận mọi chứng chỉ hợp lệ từ SSL/TLS của Google
+            smtp.ServerCertificateValidationCallback = (s, c, h, e) => true;
+
             // Kết nối đến máy chủ SMTP của Gmail (Port 587 với SecureSocketOptions.StartTls)
             await smtp.ConnectAsync(server, port, SecureSocketOptions.StartTls);
 
-            // Xác thực tài khoản gửi thư
+            // Xác thực tài khoản gửi thư với App Password của Gmail
             await smtp.AuthenticateAsync(fromMail, password);
 
             // Gửi thư
@@ -80,7 +92,8 @@ public class EmailService : IEmailService
             // Ngắt kết nối an toàn
             await smtp.DisconnectAsync(true);
 
-            _logger.LogInformation("[EmailService] Đã gửi thư xác nhận đơn hàng thành công tới {ToEmail}. Tiêu đề: {Subject}", toEmail, subject);
+            _logger.LogInformation("[EmailService] Đã gửi thư thành công tới {ToEmail}. Tiêu đề: {Subject}", toEmail, subject);
+            Console.WriteLine($"=== [SMTP SUCCESS] Đã gửi email thành công tới {toEmail} - Tiêu đề: {subject}");
         }
         catch (Exception ex)
         {

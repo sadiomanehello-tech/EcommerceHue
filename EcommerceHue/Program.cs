@@ -44,6 +44,16 @@ builder.Services.AddControllersWithViews();
 // --- Đăng ký Dịch vụ gửi Email (MailKit / Gmail SMTP) ---
 builder.Services.AddScoped<EcommerceHue.Services.IEmailService, EcommerceHue.Services.EmailService>();
 
+// --- Đăng ký PayOS SDK (Open Banking) ---
+builder.Services.AddSingleton(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var clientId = config["PayOS:ClientId"] ?? throw new InvalidOperationException("Chưa cấu hình PayOS:ClientId");
+    var apiKey = config["PayOS:ApiKey"] ?? throw new InvalidOperationException("Chưa cấu hình PayOS:ApiKey");
+    var checksumKey = config["PayOS:ChecksumKey"] ?? throw new InvalidOperationException("Chưa cấu hình PayOS:ChecksumKey");
+    return new Net.payOS.PayOS(clientId, apiKey, checksumKey);
+});
+
 // --- Cấu hình Cookie Authentication & Google OAuth (quy tắc 01-coding-style.md + 02-security-vnpay.md) ---
 // Mọi thông tin nhạy cảm đọc từ IConfiguration, không hardcode.
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

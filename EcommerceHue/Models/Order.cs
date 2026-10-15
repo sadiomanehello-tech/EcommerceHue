@@ -49,6 +49,14 @@ public sealed class Order
     [MaxLength(150)]
     public required string CustomerEmail { get; set; }
 
+    /// <summary>Thuộc tính alias trỏ về CustomerEmail</summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public string Email
+    {
+        get => CustomerEmail;
+        set => CustomerEmail = value;
+    }
+
     [Required(ErrorMessage = "Số điện thoại không được để trống.")]
     [Phone]
     [MaxLength(20)]
@@ -82,6 +90,10 @@ public sealed class Order
     /// <summary>Phương thức thanh toán đã chọn (VietQR, MoMo...)</summary>
     [System.ComponentModel.DataAnnotations.Schema.NotMapped]
     public string PaymentMethod { get; set; } = "Chuyển khoản VietQR tự động";
+
+    /// <summary>Trạng thái thanh toán chi tiết (Open Banking payOS / VnPay)</summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public string PaymentStatus { get; set; } = string.Empty;
 
     /// <summary>Thời điểm đặt hàng</summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

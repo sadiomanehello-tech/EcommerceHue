@@ -8,6 +8,8 @@ using EcommerceHue.Models.ViewModels;
 using VnPay.NET;
 using System.Security.Claims;
 using EcommerceHue.Services;
+using Net.payOS;
+using Net.payOS.Types;
 
 namespace EcommerceHue.Controllers;
 
@@ -19,7 +21,8 @@ public class CartController(
     EcommerceContext context,
     IConfiguration configuration,
     ILogger<CartController> logger,
-    IEmailService emailService) : Controller
+    IEmailService emailService,
+    PayOS payOS) : Controller
 {
     // Khóa Session duy nhất cho giỏ hàng
     private const string CartSessionKey = "ShoppingCart";
@@ -416,12 +419,16 @@ public class CartController(
         // 4. Sinh mã đơn hàng duy nhất theo định dạng HUE-yyyyMMddHHmmss-XXX
         var orderCode = $"HUE-{DateTime.UtcNow:yyyyMMddHHmmss}-{Random.Shared.Next(100, 999)}";
 
-        // 5. Khởi tạo đối tượng Order với trạng thái ban đầu là PendingPayment (Chờ thanh toán VnPay)
+        var customerEmail = !string.IsNullOrWhiteSpace(model.CustomerEmail)
+            ? model.CustomerEmail.Trim()
+            : (User.FindFirstValue(ClaimTypes.Email) ?? User.FindFirstValue("email") ?? User.Identity?.Name ?? string.Empty);
+
+        // 5. Khởi tạo đối tượng Order với trạng thái ban đầu là PendingPayment (Chờ thanh toán)
         var order = new Order
         {
             OrderCode       = orderCode,
             CustomerName    = model.CustomerName.Trim(),
-            CustomerEmail   = model.CustomerEmail.Trim(),
+            CustomerEmail   = customerEmail,
             CustomerPhone   = model.CustomerPhone.Trim(),
             ShippingAddress = model.ShippingAddress.Trim(),
             Note            = model.Note?.Trim(),
@@ -429,7 +436,8 @@ public class CartController(
             ShippingFee     = 0,
             TotalAmount     = totalAmount,
             Status          = OrderStatus.PendingPayment, // Chờ thanh toán
-            PaymentMethod   = "Chuyển khoản VietQR tự động",
+            PaymentMethod   = "Open Banking (payOS)",
+            PaymentStatus   = "Chờ thanh toán qua API Banking",
             CreatedAt       = DateTime.UtcNow,
             UpdatedAt       = DateTime.UtcNow,
             OrderDetails    = cart.Select(item => new OrderDetail
@@ -451,45 +459,62 @@ public class CartController(
         HttpContext.Session.Remove("DiscountAmount");
         HttpContext.Session.Remove("DiscountPercentage");
 
-        // 8. Sinh chuỗi link ảnh QR động theo chuẩn API VietQR công khai (BIDV - BIN 970418)
-        long amountToSend = (long)totalAmount;
-        string bankId = "970418";
-        string bankName = "BIDV (Ngân hàng TMCP Đầu tư và Phát triển Việt Nam)";
-        string accountNo = "8811843594";
-        string accountName = "HO ANH TAI";
+        // 8. Khởi tạo thông tin thanh toán Open Banking qua payOS
         string paymentContent = $"DH{order.Id}ECOMMERCEHUE";
-        string qrUrl = $"https://img.vietqr.io/image/{bankId}-{accountNo}-compact2.png?amount={amountToSend}&addInfo={paymentContent}&accountName=HO%20ANH%20TAI";
+        var items = cart.Select(item => new ItemData(
+            item.ProductName,
+            item.Quantity,
+            (int)item.Price
+        )).ToList();
 
-        // Lưu thông tin vào TempData cho trang OrderSuccess
-        TempData["QrUrl"] = qrUrl;
-        TempData["OrderId"] = order.Id;
-        TempData["OrderCode"] = order.OrderCode;
-        TempData["BankName"] = bankName;
-        TempData["AccountNo"] = accountNo;
-        TempData["AccountName"] = accountName;
-        TempData["PaymentContent"] = paymentContent;
-        TempData["TransferContent"] = paymentContent;
-        TempData["TotalAmount"] = totalAmount.ToString();
-        TempData["PaymentMethod"] = "Chuyển khoản VietQR tự động";
+        var baseUrl = $"{Request.Scheme}://{Request.Host}";
+        var returnUrl = $"{baseUrl}/Cart/OrderSuccess?orderCode={order.OrderCode}";
+        var cancelUrl = $"{baseUrl}/Cart/Checkout";
 
-        logger.LogInformation("[VietQR] Đặt hàng thành công đơn hàng #{OrderId} - {OrderCode}, Nội dung CK: {PaymentContent}, Link VietQR: {QrUrl}",
-            order.Id, order.OrderCode, paymentContent, qrUrl);
+        var paymentData = new PaymentData(
+            orderCode: (long)order.Id,
+            amount: (int)totalAmount,
+            description: paymentContent,
+            items: items,
+            cancelUrl: cancelUrl,
+            returnUrl: returnUrl,
+            buyerName: order.CustomerName,
+            buyerEmail: order.CustomerEmail,
+            buyerPhone: order.CustomerPhone,
+            buyerAddress: order.ShippingAddress
+        );
 
-        // 9. Gửi Email xác nhận đơn hàng tự động qua EmailService
+        logger.LogInformation("[payOS] Khởi tạo link thanh toán động đơn hàng #{OrderId} - {OrderCode}, Nội dung CK: {PaymentContent}, Số tiền: {Amount}",
+            order.Id, order.OrderCode, paymentContent, totalAmount);
+
+        // Gọi hàm sinh link thanh toán động từ SDK payOS
+        CreatePaymentResult result = await payOS.createPaymentLink(paymentData);
+
+        logger.LogInformation("[payOS] Sinh link thanh toán thành công: {CheckoutUrl}", result.checkoutUrl);
+
+        // 9. Tự động gửi Email xác nhận đặt hàng về hòm thư khách hàng
         try
         {
-            var emailSubject = $"[EcommerceHue] Xác nhận đặt hàng thành công đơn hàng #{order.Id}";
-            var emailHtml = BuildOrderConfirmationEmailHtml(order, paymentContent, qrUrl);
-            await emailService.SendOrderEmailAsync(order.CustomerEmail, emailSubject, emailHtml);
+            if (!string.IsNullOrWhiteSpace(order.CustomerEmail))
+            {
+                var emailSubject = $"[EcommerceHue] Xác nhận đặt hàng thành công đơn hàng #{order.Id}";
+                var emailHtml = BuildOrderConfirmationEmailHtml(order, paymentContent, result.checkoutUrl);
+                await emailService.SendOrderEmailAsync(order.CustomerEmail, emailSubject, emailHtml);
+                logger.LogInformation("[Email] Đã gửi thư xác nhận đặt hàng tới {Email} cho đơn hàng #{OrderId}", order.CustomerEmail, order.Id);
+            }
+            else
+            {
+                logger.LogWarning("[Email] Không tìm thấy địa chỉ email của khách hàng cho đơn #{OrderId}", order.Id);
+            }
         }
         catch (Exception ex)
         {
-            Console.WriteLine("=== LỖI SMTP GỬI MAIL: " + ex.Message);
-            logger.LogError(ex, "[CartController] Lỗi gửi email xác nhận cho đơn hàng #{OrderId}", order.Id);
+            Console.WriteLine("=== LỖI SMTP GỬI MAIL (Đặt hàng): " + ex.Message);
+            logger.LogError(ex, "[CartController] Lỗi gửi email xác nhận đặt hàng cho đơn #{OrderId}", order.Id);
         }
 
-        // 10. Chuyển hướng người dùng về trang thành công OrderSuccess
-        return RedirectToAction(nameof(OrderSuccess), new { orderCode = order.OrderCode });
+        // Thực hiện lệnh bẻ hướng đưa trình duyệt khách mua sang giao diện hóa đơn động bảo mật của payOS
+        return Redirect(result.checkoutUrl);
     }
 
     // =========================================================================
@@ -636,6 +661,55 @@ public class CartController(
     }
 
     // =========================================================================
+    // ACTION: Endpoint Webhook tự động đối soát tiền tệ payOS (Gạch nợ ngầm)
+    // POST /payos-webhook hoặc POST /Cart/payos-webhook
+    // =========================================================================
+
+    /// <summary>
+    /// Tiếp nhận webhook từ cổng payOS Open Banking khi tiền đổ về tài khoản BIDV Hồ Anh Tài.
+    /// </summary>
+    [HttpPost("payos-webhook")]
+    [IgnoreAntiforgeryToken]
+    [AllowAnonymous]
+    public async Task<IActionResult> PayOSWebhook([FromBody] WebhookType webhookBody)
+    {
+        // 1. Kiểm tra gói tin kiểm tra kết nối (Ping Test / Webhook Confirm) từ payOS
+        if (webhookBody == null || webhookBody.data == null || 
+            string.IsNullOrEmpty(webhookBody.data.description) || webhookBody.data.description == "confirm")
+        {
+            return Ok(new { message = "Webhook connected successfully" });
+        }
+
+        try
+        {
+            // 2. Xác thực tính toàn vẹn và chữ ký của webhook (Security Checksum Validation)
+            WebhookData webhookData = payOS.verifyPaymentWebhookData(webhookBody);
+            
+            // 3. Xử lý gạch nợ tự động trong Database
+            int orderId = (int)webhookData.orderCode;
+            var order = await context.Orders.FindAsync(orderId);
+            if (order != null && order.PaymentStatus != "Đã thanh toán thành công qua API Banking")
+            {
+                order.PaymentStatus = "Đã thanh toán thành công qua API Banking";
+                order.Status = OrderStatus.Paid;
+                
+                // 4. Bắn Email tự động thứ 2 xác nhận đã hoàn tất giao dịch
+                string subject = "[EcommerceHue] Xác nhận đã thanh toán thành công đơn hàng #" + order.Id;
+                string htmlPaidContent = "<h3>Cảm ơn bạn đã thanh toán thành công!</h3><p>Đơn hàng mã số #" + order.Id + " đã được chuyển sang trạng thái chờ giao nhận.</p>";
+                await emailService.SendOrderEmailAsync(order.Email, subject, htmlPaidContent);
+                
+                await context.SaveChangesAsync();
+            }
+            return Ok();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("=== LỖI XỬ LÝ WEBHOOK PAYOS: " + ex.Message);
+            return StatusCode(500);
+        }
+    }
+
+    // =========================================================================
     // ACTION: Đặt hàng thành công – GET /Cart/OrderSuccess
     // =========================================================================
 
@@ -720,6 +794,9 @@ public class CartController(
         }
 
         var orderDate = order.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm");
+        var statusHtml = order.Status == OrderStatus.Paid
+            ? "<span style=\"color: #2e7d32; font-weight: bold;\">Đã thanh toán thành công qua API Banking</span>"
+            : "<span style=\"color: #e65100; font-weight: bold;\">Chờ chuyển khoản VietQR</span>";
 
         return $"""
         <!DOCTYPE html>
@@ -749,7 +826,7 @@ public class CartController(
                     <div style="background-color: #fcf9f2; border-left: 4px solid #8b3012; padding: 14px 18px; border-radius: 4px; margin-bottom: 22px;">
                         <div style="font-size: 14px; margin-bottom: 4px;"><strong>Mã đơn hàng:</strong> <span style="color: #b71c1c; font-weight: bold;">#{order.Id}</span> ({order.OrderCode})</div>
                         <div style="font-size: 14px; margin-bottom: 4px;"><strong>Thời gian đặt:</strong> {orderDate}</div>
-                        <div style="font-size: 14px;"><strong>Trạng thái:</strong> <span style="color: #e65100; font-weight: bold;">Chờ chuyển khoản VietQR</span></div>
+                        <div style="font-size: 14px;"><strong>Trạng thái:</strong> {statusHtml}</div>
                     </div>
 
                     <!-- BẢNG CHI TIẾT SẢN PHẨM -->
