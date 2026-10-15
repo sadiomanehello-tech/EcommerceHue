@@ -79,6 +79,10 @@ public sealed class Order
     /// <summary>Trạng thái đơn hàng</summary>
     public OrderStatus Status { get; set; } = OrderStatus.PendingPayment;
 
+    /// <summary>Phương thức thanh toán đã chọn (VietQR, MoMo...)</summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public string PaymentMethod { get; set; } = "Chuyển khoản VietQR tự động";
+
     /// <summary>Thời điểm đặt hàng</summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

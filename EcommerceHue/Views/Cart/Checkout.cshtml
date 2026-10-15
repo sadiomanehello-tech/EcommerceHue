@@ -190,18 +190,20 @@
                     <!-- PHƯƠNG THỨC THANH TOÁN -->
                     <div class="my-3">
 
-                        <!-- 1. Chuyển khoản ngân hàng -->
+                        <!-- 1. Chuyển khoản ngân hàng qua VietQR (Mặc định) -->
                         <div class="form-check mb-2">
                             <input class="form-check-input"
                                    type="radio"
                                    name="PaymentMethod"
                                    id="payment-bank"
-                                   value="BankTransfer" />
-                            <label class="form-check-label fw-bold text-dark small" for="payment-bank">
-                                Chuyển khoản ngân hàng
+                                   value="BankTransfer"
+                                   checked />
+                            <label class="form-check-label fw-bold text-dark small d-flex align-items-center gap-2" for="payment-bank">
+                                <span>Chuyển khoản ngân hàng (Mã VietQR)</span>
+                                <span class="badge bg-danger text-white rounded-pill" style="font-size: 0.65rem;">VietQR 24/7</span>
                             </label>
                             <div class="hue-payment-desc p-3 mt-2 rounded bg-light small text-muted lh-base">
-                                Thực hiện thanh toán vào ngay tài khoản ngân hàng của chúng tôi. Vui lòng sử dụng Mã đơn hàng của bạn trong phần Nội dung thanh toán. Đơn hàng sẽ được giao sau khi tiền đã chuyển.
+                                Hệ thống sẽ tự động tạo mã QR động BIDV kèm đúng số tiền và cú pháp chuyển khoản sau khi bấm Đặt hàng. Bạn chỉ cần mở App ngân hàng quét mã để thanh toán tức thì.
                             </div>
                         </div>
 
@@ -215,20 +217,6 @@
                             <label class="form-check-label fw-bold text-dark small d-flex align-items-center gap-2" for="payment-momo">
                                 <span>Quét Mã MoMo</span>
                                 <span class="badge rounded-1 text-white" style="background-color: #a50064; font-size: 0.65rem; padding: 2px 6px;">mo mo</span>
-                            </label>
-                        </div>
-
-                        <!-- 3. Thanh toán VnPay (Mặc định chọn để thử nghiệm thanh toán Sandbox) -->
-                        <div class="form-check mb-3">
-                            <input class="form-check-input"
-                                   type="radio"
-                                   name="PaymentMethod"
-                                   id="payment-vnpay"
-                                   value="VnPay"
-                                   checked />
-                            <label class="form-check-label fw-bold text-dark small d-flex align-items-center gap-2" for="payment-vnpay">
-                                <span>Thanh toán VnPay (ATM / QR / Visa)</span>
-                                <span class="badge bg-primary text-white" style="font-size: 0.65rem;">VnPay QR</span>
                             </label>
                         </div>
 
@@ -484,14 +472,36 @@
         }
 
         // ====================================================================
-        // 2. BỘ CHỌN ĐỊA CHỈ PHƯỜNG/XÃ MỚI & TỰ ĐỘNG ĐIỀN (PRE-FILL)
+        // 2. BỘ CHỌN ĐỊA CHỈ PHƯỜNG/XÃ MỚI & TỰ ĐỘNG ĐIỀN (PRE-FILL) TUẦN TỰ
         // ====================================================================
         const provinceSelect = document.getElementById('Province');
         const districtSelect = document.getElementById('District');
         const detailInput = document.getElementById('DetailAddress');
         const shippingAddressHidden = document.getElementById('ShippingAddress');
 
-        // Hàm nạp 34 Tỉnh/Thành phố vào Dropdown 1
+        // Hàm so khớp Tỉnh/Thành phố thông minh (bỏ qua tiền tố "Tỉnh", "Thành phố", "TP")
+        function isProvinceMatch(nameA, nameB) {
+            if (!nameA || !nameB) return false;
+            const cleanA = nameA.trim().toLowerCase().replace(/^(tỉnh|thành phố|tp\.?)\s+/i, '');
+            const cleanB = nameB.trim().toLowerCase().replace(/^(tỉnh|thành phố|tp\.?)\s+/i, '');
+            return cleanA === cleanB || cleanA.includes(cleanB) || cleanB.includes(cleanA);
+        }
+
+        // Hàm so khớp Phường/Xã thông minh (bỏ qua tiền tố "Phường", "Xã", "Thị trấn")
+        function isWardMatch(nameA, nameB) {
+            if (!nameA || !nameB) return false;
+            const cleanA = nameA.trim().toLowerCase().replace(/^(phường|xã|thị trấn)\s+/i, '');
+            const cleanB = nameB.trim().toLowerCase().replace(/^(phường|xã|thị trấn)\s+/i, '');
+            return cleanA === cleanB || cleanA.includes(cleanB) || cleanB.includes(cleanA);
+        }
+
+        // Tìm đối tượng tỉnh trong mảng dữ liệu 34 tỉnh
+        function findProvinceData(provinceName) {
+            if (!provinceName) return null;
+            return VNEXPRESS_DATA_34.find(p => isProvinceMatch(p.province, provinceName)) || null;
+        }
+
+        // BƯỚC 1: Hàm nạp toàn bộ 34 Tỉnh/Thành phố vào Dropdown 1
         function renderProvinces() {
             if (!provinceSelect) return;
             provinceSelect.innerHTML = '<option value="">-- Chọn Tỉnh/Thành phố * --</option>';
@@ -503,42 +513,65 @@
             });
         }
 
-        // Hàm nạp Phường/Xã mới vào Dropdown 2 theo Tỉnh được chọn
+        // BƯỚC 2 & 3: Hàm xóa sạch options cũ và nạp Phường/Xã mới tuần tự vào Dropdown 2
         function renderWards(selectedProvinceName, preselectedWard = '') {
             if (!districtSelect) return;
-            districtSelect.innerHTML = '<option value="">-- Chọn Phường/Xã * --</option>';
 
-            if (!selectedProvinceName) {
+            // Xóa sạch hoàn toàn các thẻ <option> cũ trước khi nạp
+            while (districtSelect.firstChild) {
+                districtSelect.removeChild(districtSelect.firstChild);
+            }
+
+            // Đặt option mặc định ban đầu
+            const defaultOpt = document.createElement('option');
+            defaultOpt.value = '';
+            defaultOpt.textContent = '-- Chọn Phường/Xã * --';
+            districtSelect.appendChild(defaultOpt);
+
+            const cleanProv = selectedProvinceName ? selectedProvinceName.trim() : '';
+
+            // Nếu chưa chọn Tỉnh (hoặc chọn option rỗng), vô hiệu hóa Dropdown 2
+            if (!cleanProv) {
                 districtSelect.disabled = true;
+                districtSelect.value = '';
                 return;
             }
 
-            const item = VNEXPRESS_DATA_34.find(p => p.province === selectedProvinceName || selectedProvinceName.includes(p.province));
-            if (item && item.wards && item.wards.length > 0) {
+            const provData = findProvinceData(cleanProv);
+            if (provData && Array.isArray(provData.wards) && provData.wards.length > 0) {
                 districtSelect.disabled = false;
-                item.wards.forEach(wardName => {
+                let foundPreselected = false;
+
+                // Nạp danh sách các phường/xã mới sau sắp xếp một cách tuần tự
+                provData.wards.forEach(wardName => {
                     const opt = document.createElement('option');
                     opt.value = wardName;
                     opt.textContent = wardName;
-                    if (preselectedWard && (wardName === preselectedWard || preselectedWard.includes(wardName))) {
+
+                    if (preselectedWard && isWardMatch(wardName, preselectedWard)) {
                         opt.selected = true;
+                        foundPreselected = true;
                     }
                     districtSelect.appendChild(opt);
                 });
+
+                if (!foundPreselected && !preselectedWard) {
+                    districtSelect.value = '';
+                }
             } else {
                 districtSelect.disabled = true;
+                districtSelect.value = '';
             }
         }
 
-        // Hàm phân tích ngược chuỗi địa chỉ có sẵn từ Claims để Pre-fill chính xác theo danh sách mới
+        // Hàm phân tích chuỗi địa chỉ đầy đủ từ tài khoản
         function parseVnExpressAddress(rawAddress) {
             if (!rawAddress) return { detail: '', ward: '', province: '' };
             const clean = rawAddress.trim();
 
-            // Khớp Tỉnh/Thành trong danh sách 34 tỉnh mới
             let foundProvince = '';
             for (const item of VNEXPRESS_DATA_34) {
-                if (clean.endsWith(item.province) || clean.includes(item.province)) {
+                if (isProvinceMatch(clean, item.province)) {
                     foundProvince = item.province;
                     break;
                 }
@@ -548,22 +581,27 @@
             let detail = clean;
 
             if (foundProvince) {
+                const provData = findProvinceData(foundProvince);
                 const provIndex = clean.lastIndexOf(foundProvince);
-                let remaining = clean.substring(0, provIndex).replace(/,\s*$/, '').trim();
+                let remaining = provIndex !== -1 ? clean.substring(0, provIndex) : clean;
+                remaining = remaining.replace(/,\s*$/, '').trim();
 
-                const pItem = VNEXPRESS_DATA_34.find(p => p.province === foundProvince);
-                if (pItem && pItem.wards) {
-                    for (const w of pItem.wards) {
-                        if (remaining.endsWith(w) || remaining.includes(w)) {
+                if (provData && Array.isArray(provData.wards)) {
+                    for (const w of provData.wards) {
+                        if (isWardMatch(remaining, w)) {
                             foundWard = w;
                             const wardIndex = remaining.lastIndexOf(w);
-                            detail = remaining.substring(0, wardIndex).replace(/,\s*$/, '').trim();
+                            if (wardIndex !== -1) {
+                                detail = remaining.substring(0, wardIndex).replace(/,\s*$/, '').trim();
+                                // Loại bỏ triệt để từ 'Phường', 'Xã', 'Thị trấn' bị dính ở cuối ô số nhà/đường
+                                detail = detail.replace(/(,\s*)?(phường|xã|thị trấn)\s*$/i, '').replace(/,\s*$/, '').trim();
+                            }
                             break;
                         }
                     }
                 }
                 if (!foundWard) {
-                    detail = remaining;
+                    detail = remaining.replace(/(,\s*)?(phường|xã|thị trấn)\s*$/i, '').replace(/,\s*$/, '').trim();
                 }
             }
 
@@ -574,33 +612,80 @@
             };
         }
 
-        // Nạp danh sách 34 Tỉnh/Thành khởi tạo
-        renderProvinces();
+        // ====================================================================
+        // THỰC THI LOGIC PRE-FILL THEO ĐÚNG THỨ TỰ TUẦN TỰ 4 BƯỚC:
+        // 1. Nạp danh sách Tỉnh
+        // 2. Điền sẵn Tỉnh
+        // 3. Nạp danh sách Phường/Xã ứng với tỉnh đó
+        // 4. Sau cùng mới điền sẵn Phường/Xã từ tài khoản
+        // ====================================================================
+        function initAddressPreFill() {
+            // Bước 1: Nạp toàn bộ danh sách 34 Tỉnh/Thành vào Dropdown
+            renderProvinces();
 
-        // Đọc chuỗi địa chỉ có sẵn từ tài khoản đăng nhập (qua Claims)
-        const rawSavedAddress = shippingAddressHidden ? shippingAddressHidden.value.trim() : '';
-        const parsed = parseVnExpressAddress(rawSavedAddress);
+            const rawSavedAddress = shippingAddressHidden ? shippingAddressHidden.value.trim() : '';
+            const parsed = parseVnExpressAddress(rawSavedAddress);
 
-        // Pre-fill Tỉnh/Thành phố và Phường/Xã mới nếu khớp
-        if (parsed.province && provinceSelect) {
-            provinceSelect.value = parsed.province;
-            renderWards(parsed.province, parsed.ward);
+            // Xác định Tỉnh mục tiêu: ưu tiên từ tài khoản, nếu chưa có thì mặc định Thành phố Huế
+            let targetProvince = parsed.province || "Thành phố Huế";
+
+            // Bước 2: Điền sẵn Tỉnh vào Dropdown 1
+            if (provinceSelect) {
+                for (let i = 0; i < provinceSelect.options.length; i++) {
+                    const optVal = provinceSelect.options[i].value;
+                    if (optVal && isProvinceMatch(optVal, targetProvince)) {
+                        provinceSelect.value = optVal;
+                        targetProvince = optVal;
+                        break;
+                    }
+                }
+            }
+
+            // Bước 3: Nạp danh sách Phường/Xã ứng với Tỉnh đó
+            renderWards(targetProvince, parsed.ward);
+
+            // Bước 4: Sau cùng mới điền sẵn Phường/Xã từ tài khoản (nếu khớp)
+            if (parsed.ward && districtSelect && !districtSelect.disabled) {
+                for (let j = 0; j < districtSelect.options.length; j++) {
+                    const optVal = districtSelect.options[j].value;
+                    if (optVal && isWardMatch(optVal, parsed.ward)) {
+                        districtSelect.value = optVal;
+                        break;
+                    }
+                }
+            }
+
+            // Điền sẵn số nhà, tên đường cụ thể (loại bỏ từ 'phường' dính thừa)
+            if (detailInput) {
+                const cleanedDetail = (parsed.detail || (parsed.province ? '' : rawSavedAddress))
+                    .replace(/(,\s*)?(phường|xã|thị trấn)\s*$/i, '')
+                    .replace(/,\s*$/, '')
+                    .trim();
+                detailInput.value = cleanedDetail;
+            }
         }
 
-        // Pre-fill Số nhà, tên đường cụ thể
-        if (detailInput) {
-            detailInput.value = parsed.detail || rawSavedAddress;
-        }
+        // Chạy khởi tạo ngay khi tải trang
+        initAddressPreFill();
 
-        // Sự kiện .change(): Khi người mua nhấp chọn một Tỉnh mới ➡️ Xóa sạch options cũ ở Dropdown 2 và nạp Phường/Xã mới
+        // 1. SỰ KIỆN CHANGE CỦA Ô TỈNH/THÀNH PHỐ: Xóa sạch options cũ và nạp mới tuần tự
         if (provinceSelect) {
             provinceSelect.addEventListener('change', function () {
                 renderWards(this.value);
             });
         }
 
+        // Hỗ trợ chống chập chờn: Khi người dùng nhấp/focus vào Phường/Xã, nếu Tỉnh hợp lệ mà danh sách đang trống thì nạp ngay
+        if (districtSelect) {
+            districtSelect.addEventListener('focus', function () {
+                if (provinceSelect && provinceSelect.value && provinceSelect.value.trim() !== '' && this.options.length <= 1) {
+                    renderWards(provinceSelect.value, this.value);
+                }
+            });
+        }
+
         // ====================================================================
-        // 3. ĐÓNG GÓI CHUỖI ĐỊA CHỈ TRƯỚC KHI SUBMIT FORM ĐẶT HÀNG
+        // 3. ĐÓNG GÓI CHUỖI ĐỊA CHỈ TRƯỚC KHI SUBMIT FORM ĐẶT HÀNG & VALIDATION
         // ====================================================================
         const checkoutForm = document.getElementById('checkout-form');
         if (checkoutForm) {
@@ -609,7 +694,7 @@
                 const ward = districtSelect ? districtSelect.value.trim() : '';
                 const detail = detailInput ? detailInput.value.trim() : '';
 
-                // Kiểm tra bắt buộc chọn Tỉnh/Thành
+                // 2. NẾU Ô TỈNH/THÀNH PHỐ CÓ GIÁ TRỊ HỢP LỆ (KHÁC RỖNG), TUYỆT ĐỐI KHÔNG ALERT LỖI NÀY!
                 if (!province) {
                     e.preventDefault();
                     alert('Vui lòng chọn Tỉnh/Thành phố giao hàng!');
@@ -633,8 +718,19 @@
                     return;
                 }
 
+                // Chuẩn hóa Phường/Xã thông minh theo yêu cầu:
+                // Nếu trong chuỗi tên Phường/Xã từ dropdown đã chứa sẵn 'Phường', 'Xã', hoặc 'Thị trấn' (.includes())
+                // thì KHÔNG tự động nối thêm chữ 'phường'. Nếu chưa có mới bổ sung để tránh trùng lặp.
+                let formattedWard = ward;
+                if (!formattedWard.includes('Phường') && !formattedWard.includes('Xã') && !formattedWard.includes('Thị trấn')) {
+                    formattedWard = `Phường ${formattedWard}`;
+                }
+
+                // Dọn dẹp ô địa chỉ chi tiết trước khi ghép, đảm bảo không bị thừa từ 'Phường' ở cuối
+                const cleanDetail = detail.replace(/(,\s*)?(phường|xã|thị trấn)\s*$/i, '').replace(/,\s*$/, '').trim();
+
                 // Đóng gói chuỗi địa chỉ: [Số nhà/Tên đường], [Phường/Xã], [Tỉnh/Thành phố]
-                const fullShippingAddress = `${detail}, ${ward}, ${province}`;
+                const fullShippingAddress = `${cleanDetail}, ${formattedWard}, ${province}`;
                 if (shippingAddressHidden) {
                     shippingAddressHidden.value = fullShippingAddress;
                 }

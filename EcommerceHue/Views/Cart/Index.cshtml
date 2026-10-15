@@ -211,13 +211,13 @@ else
                     <span class="fw-bold fs-5 text-danger">@totalAmount.ToString("N0") ₫</span>
                 </div>
 
-                <!-- Nút Tiến hành đặt hàng & Thanh toán VnPay -->
+                <!-- Nút Tiến hành đặt hàng & Thanh toán -->
                 <!-- [Authorize] trên CartController.Checkout sẽ tự redirect Login nếu chưa đăng nhập -->
                 <a asp-controller="Cart" asp-action="Checkout"
-                   id="btn-checkout-vnpay"
+                   id="btn-checkout"
                    class="btn hue-btn-checkout w-100 fw-bold rounded-pill py-3 mb-3">
                     <span class="me-2">💳</span>
-                    Tiến hành Đặt hàng &amp; Thanh toán VnPay
+                    Tiến hành Đặt hàng &amp; Thanh toán
                 </a>
 
                 <!-- Tiếp tục mua sắm -->
@@ -228,7 +228,7 @@ else
 
                 <!-- Cam kết thanh toán an toàn -->
                 <div class="hue-secure-badge mt-4 text-center">
-                    <span class="text-muted small">🔒 Thanh toán bảo mật qua VnPay · SSL 256-bit</span>
+                    <span class="text-muted small">🔒 Thanh toán an toàn qua mã QR code bảo mật</span>
                 </div>
             </div>
         </div>

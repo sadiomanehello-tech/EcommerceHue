@@ -58,7 +58,7 @@ public sealed class CheckoutViewModel
     /// <summary>
     /// Phương thức thanh toán: "BankTransfer" (Chuyển khoản), "MoMo" (Quét mã MoMo), "VnPay" (Cổng VnPay)
     /// </summary>
-    public string PaymentMethod { get; set; } = "VnPay";
+    public string PaymentMethod { get; set; } = "BankTransfer";
 
     /// <summary>Tổng thanh toán cuối cùng sau khi trừ mã giảm giá</summary>
     public decimal TotalAmount => Math.Max(0, SubTotal + ShippingFee - DiscountAmount);

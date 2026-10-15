@@ -5,7 +5,9 @@ using EcommerceHue.Data;
 using EcommerceHue.Extensions;
 using EcommerceHue.Models;
 using EcommerceHue.Models.ViewModels;
+using VnPay.NET;
 using System.Security.Claims;
+using EcommerceHue.Services;
 
 namespace EcommerceHue.Controllers;
 
@@ -16,7 +18,8 @@ namespace EcommerceHue.Controllers;
 public class CartController(
     EcommerceContext context,
     IConfiguration configuration,
-    ILogger<CartController> logger) : Controller
+    ILogger<CartController> logger,
+    IEmailService emailService) : Controller
 {
     // Khóa Session duy nhất cho giỏ hàng
     private const string CartSessionKey = "ShoppingCart";
@@ -426,6 +429,7 @@ public class CartController(
             ShippingFee     = 0,
             TotalAmount     = totalAmount,
             Status          = OrderStatus.PendingPayment, // Chờ thanh toán
+            PaymentMethod   = "Chuyển khoản VietQR tự động",
             CreatedAt       = DateTime.UtcNow,
             UpdatedAt       = DateTime.UtcNow,
             OrderDetails    = cart.Select(item => new OrderDetail
@@ -441,75 +445,51 @@ public class CartController(
         await context.Orders.AddAsync(order);
         await context.SaveChangesAsync();
 
-        // Xử lý theo phương thức thanh toán khách hàng lựa chọn
-        if (model.PaymentMethod == "BankTransfer")
-        {
-            // Xóa sạch giỏ hàng và session
-            HttpContext.Session.Remove(CartSessionKey);
-            HttpContext.Session.Remove("CouponCode");
-            HttpContext.Session.Remove("DiscountAmount");
-            HttpContext.Session.Remove("DiscountPercentage");
+        // 7. Xóa sạch giỏ hàng và session sau khi đặt hàng thành công
+        HttpContext.Session.Remove(CartSessionKey);
+        HttpContext.Session.Remove("CouponCode");
+        HttpContext.Session.Remove("DiscountAmount");
+        HttpContext.Session.Remove("DiscountPercentage");
 
-            TempData["PaymentMethod"] = "Chuyển khoản ngân hàng";
-            logger.LogInformation("[Order] Đặt hàng thành công bằng hình thức Chuyển khoản ngân hàng: {OrderCode}", order.OrderCode);
-            return RedirectToAction(nameof(OrderSuccess), new { orderCode = order.OrderCode });
+        // 8. Sinh chuỗi link ảnh QR động theo chuẩn API VietQR công khai (BIDV - BIN 970418)
+        long amountToSend = (long)totalAmount;
+        string bankId = "970418";
+        string bankName = "BIDV (Ngân hàng TMCP Đầu tư và Phát triển Việt Nam)";
+        string accountNo = "8811843594";
+        string accountName = "HO ANH TAI";
+        string paymentContent = $"DH{order.Id}ECOMMERCEHUE";
+        string qrUrl = $"https://img.vietqr.io/image/{bankId}-{accountNo}-compact2.png?amount={amountToSend}&addInfo={paymentContent}&accountName=HO%20ANH%20TAI";
+
+        // Lưu thông tin vào TempData cho trang OrderSuccess
+        TempData["QrUrl"] = qrUrl;
+        TempData["OrderId"] = order.Id;
+        TempData["OrderCode"] = order.OrderCode;
+        TempData["BankName"] = bankName;
+        TempData["AccountNo"] = accountNo;
+        TempData["AccountName"] = accountName;
+        TempData["PaymentContent"] = paymentContent;
+        TempData["TransferContent"] = paymentContent;
+        TempData["TotalAmount"] = totalAmount.ToString();
+        TempData["PaymentMethod"] = "Chuyển khoản VietQR tự động";
+
+        logger.LogInformation("[VietQR] Đặt hàng thành công đơn hàng #{OrderId} - {OrderCode}, Nội dung CK: {PaymentContent}, Link VietQR: {QrUrl}",
+            order.Id, order.OrderCode, paymentContent, qrUrl);
+
+        // 9. Gửi Email xác nhận đơn hàng tự động qua EmailService
+        try
+        {
+            var emailSubject = $"[EcommerceHue] Xác nhận đặt hàng thành công đơn hàng #{order.Id}";
+            var emailHtml = BuildOrderConfirmationEmailHtml(order, paymentContent, qrUrl);
+            await emailService.SendOrderEmailAsync(order.CustomerEmail, emailSubject, emailHtml);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("=== LỖI SMTP GỬI MAIL: " + ex.Message);
+            logger.LogError(ex, "[CartController] Lỗi gửi email xác nhận cho đơn hàng #{OrderId}", order.Id);
         }
 
-        if (model.PaymentMethod == "MoMo")
-        {
-            // Xóa sạch giỏ hàng và session
-            HttpContext.Session.Remove(CartSessionKey);
-            HttpContext.Session.Remove("CouponCode");
-            HttpContext.Session.Remove("DiscountAmount");
-            HttpContext.Session.Remove("DiscountPercentage");
-
-            TempData["PaymentMethod"] = "Ví MoMo";
-            logger.LogInformation("[Order] Đặt hàng thành công bằng hình thức Quét mã MoMo: {OrderCode}", order.OrderCode);
-            return RedirectToAction(nameof(OrderSuccess), new { orderCode = order.OrderCode });
-        }
-
-        // Mặc định hoặc chọn "VnPay": Chuyển hướng sang cổng thanh toán VnPay Sandbox
-        // 7. Đọc cấu hình VnPay từ IConfiguration theo quy chuẩn 02-security-vnpay.md
-        var vnpTmnCode = configuration["VnPay:TmnCode"];
-        var vnpHashSecret = configuration["VnPay:HashSecret"];
-        var vnpBaseUrl = configuration["VnPay:BaseUrl"] ?? "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
-        var vnpReturnUrl = configuration["VnPay:ReturnUrl"] ?? "http://localhost:5131/Cart/VnPayReturn";
-
-        // Fallback sang thông tin test sandbox thông dụng của VnPay nếu chưa cấu hình
-        if (string.IsNullOrWhiteSpace(vnpTmnCode))
-        {
-            vnpTmnCode = "CGXZLS0Z";
-        }
-        if (string.IsNullOrWhiteSpace(vnpHashSecret))
-        {
-            vnpHashSecret = "XNBCJFAKAZQSGUTUYACICJUBWFLRUTIH";
-        }
-
-        // 8. Khởi tạo VnPayLibrary và nạp các tham số bắt buộc gửi sang VnPay
-        var vnpay = new VnPayLibrary();
-
-        vnpay.AddRequestData("vnp_Version", "2.1.0");
-        vnpay.AddRequestData("vnp_Command", "pay");
-        vnpay.AddRequestData("vnp_TmnCode", vnpTmnCode);
-        // Số tiền thanh toán sau giảm giá x 100 theo quy chuẩn VnPay
-        vnpay.AddRequestData("vnp_Amount", ((long)(totalAmount * 100)).ToString());
-        vnpay.AddRequestData("vnp_CreateDate", DateTime.Now.ToString("yyyyMMddHHmmss"));
-        vnpay.AddRequestData("vnp_CurrCode", "VND");
-        vnpay.AddRequestData("vnp_IpAddr", VnPayLibrary.GetIpAddress(HttpContext));
-        vnpay.AddRequestData("vnp_Locale", "vn");
-        vnpay.AddRequestData("vnp_OrderInfo", $"Thanh toan don hang {order.OrderCode} tai Dac San Hue");
-        vnpay.AddRequestData("vnp_OrderType", "other");
-        vnpay.AddRequestData("vnp_ReturnUrl", vnpReturnUrl);
-        vnpay.AddRequestData("vnp_TxnRef", order.OrderCode);
-
-        // 9. Sinh chuỗi URL thanh toán chứa chữ ký bảo mật HMACSHA512
-        var paymentUrl = vnpay.CreateRequestUrl(vnpBaseUrl, vnpHashSecret);
-
-        logger.LogInformation("[VnPay] Tạo yêu cầu thanh toán thành công cho đơn hàng: {OrderCode}, Tổng tiền: {Amount} VND",
-            order.OrderCode, totalAmount);
-
-        // 10. Chuyển hướng người dùng sang trang nhập thẻ test VnPay Sandbox
-        return Redirect(paymentUrl);
+        // 10. Chuyển hướng người dùng về trang thành công OrderSuccess
+        return RedirectToAction(nameof(OrderSuccess), new { orderCode = order.OrderCode });
     }
 
     // =========================================================================
@@ -525,46 +505,53 @@ public class CartController(
     [HttpGet]
     public async Task<IActionResult> VnPayReturn()
     {
-        var vnpay = new VnPayLibrary();
+        // 1. Đọc toàn bộ tham số do VnPay gửi về qua Query String bằng VnPayResponse
+        var vnpayResponse = new VnPayResponse(Request.Query);
 
-        // 1. Đọc toàn bộ tham số do VnPay gửi về qua Query String
-        foreach (var (key, value) in Request.Query)
-        {
-            if (!string.IsNullOrEmpty(key) && key.StartsWith("vnp_"))
-            {
-                vnpay.AddResponseData(key, value.ToString());
-            }
-        }
+        var vnpTxnRef         = vnpayResponse.vnp_TxnRef ?? string.Empty;
+        var vnpTransactionNo  = vnpayResponse.vnp_TransactionNo;
+        var vnpResponseCode   = vnpayResponse.vnp_ResponseCode;
+        var vnpSecureHash     = vnpayResponse.vnp_SecureHash ?? string.Empty;
+        var vnpBankCode       = vnpayResponse.vnp_BankCode;
+        var vnpCardType       = vnpayResponse.vnp_CardType;
+        var vnpPayDate        = vnpayResponse.vnp_PayDate;
+        var vnpOrderInfo      = vnpayResponse.vnp_OrderInfo;
+        long.TryParse(vnpayResponse.vnp_Amount, out var vnpAmount);
 
-        var vnpTxnRef         = vnpay.GetResponseData("vnp_TxnRef");
-        var vnpTransactionNo  = vnpay.GetResponseData("vnp_TransactionNo");
-        var vnpResponseCode   = vnpay.GetResponseData("vnp_ResponseCode");
-        var vnpSecureHash     = Request.Query["vnp_SecureHash"].ToString();
-        var vnpBankCode       = vnpay.GetResponseData("vnp_BankCode");
-        var vnpCardType       = vnpay.GetResponseData("vnp_CardType");
-        var vnpPayDate        = vnpay.GetResponseData("vnp_PayDate");
-        var vnpOrderInfo      = vnpay.GetResponseData("vnp_OrderInfo");
-        var vnpAmountStr      = vnpay.GetResponseData("vnp_Amount");
-        long.TryParse(vnpAmountStr, out var vnpAmount);
-
-        // 2. Lấy khóa bí mật HashSecret từ IConfiguration
-        var vnpHashSecret = configuration["VnPay:HashSecret"];
+        // 2. Lấy khóa bí mật HashSecret từ IConfiguration (tuyệt đối không hardcode)
+        var vnpHashSecret = configuration["Vnpay:HashSecret"];
         if (string.IsNullOrWhiteSpace(vnpHashSecret))
         {
-            vnpHashSecret = "XNBCJFAKAZQSGUTUYACICJUBWFLRUTIH";
+            vnpHashSecret = configuration["VnPay:HashSecret"];
+        }
+        if (string.IsNullOrWhiteSpace(vnpHashSecret))
+        {
+            vnpHashSecret = "NQDZOYXLTXUFTYJMSXNXREOSXNBUVFXA";
         }
 
-        // 3. Thực hiện kiểm tra chữ ký an toàn (Checksum Validation)
-        var isSignatureValid = vnpay.ValidateSignature(vnpSecureHash, vnpHashSecret);
+        // 3. Thực hiện kiểm tra chữ ký an toàn (Checksum Validation với HMACSHA512) qua thư viện mới
+        var isSignatureValid = vnpayResponse.ValidateSignature(vnpHashSecret);
 
-        // 4. Tìm đơn hàng tương ứng trong CSDL
-        var order = await context.Orders
-            .FirstOrDefaultAsync(o => o.OrderCode == vnpTxnRef);
+        // 4. Tìm đơn hàng tương ứng trong CSDL theo OrderId (hoặc OrderCode để dự phòng)
+        Order? order = null;
+        if (int.TryParse(vnpTxnRef, out var orderId))
+        {
+            order = await context.Orders
+                .Include(o => o.OrderDetails)
+                .FirstOrDefaultAsync(o => o.Id == orderId);
+        }
 
-        // 5. Khởi tạo bản ghi PaymentTransaction để lưu vết kiểm toán
+        if (order is null)
+        {
+            order = await context.Orders
+                .Include(o => o.OrderDetails)
+                .FirstOrDefaultAsync(o => o.OrderCode == vnpTxnRef);
+        }
+
+        // 5. Khởi tạo bản ghi PaymentTransaction để lưu vết kiểm toán bảo mật
         var transaction = new PaymentTransaction
         {
-            OrderId            = order?.Id ?? 0,
+            OrderId            = order?.Id ?? (int.TryParse(vnpTxnRef, out var oId) ? oId : 0),
             VnpTransactionNo   = vnpTransactionNo,
             VnpTxnRef          = vnpTxnRef,
             VnpResponseCode    = vnpResponseCode,
@@ -582,10 +569,10 @@ public class CartController(
         if (!isSignatureValid)
         {
             transaction.Status    = PaymentStatus.InvalidSignature;
-            transaction.AuditNote = $"CẢNH BÁO BẢO MẬT: Chữ ký HMACSHA512 không khớp từ IP {VnPayLibrary.GetIpAddress(HttpContext)}! Nghi vấn giả mạo dữ liệu.";
+            transaction.AuditNote = $"CẢNH BÁO BẢO MẬT: Chữ ký HMACSHA512 không khớp từ IP {VnPayResponse.GetIpAddress(HttpContext)}! Nghi vấn giả mạo dữ liệu.";
 
-            logger.LogCritical("[SECURITY AUDIT] Checksum validation thất bại cho đơn hàng {OrderCode}! Hash nhận được: {Hash}, IP: {IP}",
-                vnpTxnRef, vnpSecureHash, VnPayLibrary.GetIpAddress(HttpContext));
+            logger.LogCritical("[SECURITY AUDIT] Checksum validation thất bại cho đơn hàng #{OrderId} - {OrderCode}! Hash nhận được: {Hash}, IP: {IP}",
+                order?.Id, order?.OrderCode ?? vnpTxnRef, vnpSecureHash, VnPayResponse.GetIpAddress(HttpContext));
 
             await context.PaymentTransactions.AddAsync(transaction);
             await context.SaveChangesAsync();
@@ -598,7 +585,7 @@ public class CartController(
         if (vnpResponseCode == "00")
         {
             transaction.Status    = PaymentStatus.Success;
-            transaction.AuditNote = "Giao dịch thanh toán trực tuyến qua VnPay thành công.";
+            transaction.AuditNote = $"Giao dịch thanh toán trực tuyến qua VnPay thành công. Mã GD VnPay: {vnpTransactionNo}";
 
             if (order is not null)
             {
@@ -617,24 +604,35 @@ public class CartController(
             HttpContext.Session.Remove("DiscountPercentage");
 
             TempData["PaymentMethod"] = "VnPay";
-            logger.LogInformation("[VnPay] Giao dịch thành công cho đơn hàng: {OrderCode}, Mã GD VnPay: {TransNo}",
-                vnpTxnRef, vnpTransactionNo);
+            TempData["VnpTransactionNo"] = vnpTransactionNo;
+            logger.LogInformation("[VnPay] Giao dịch thành công cho đơn hàng: #{OrderId} - {OrderCode}, Mã GD VnPay: {TransNo}",
+                order?.Id, order?.OrderCode, vnpTransactionNo);
 
-            return RedirectToAction(nameof(OrderSuccess), new { orderCode = vnpTxnRef });
+            // Điều hướng sang trang hiển thị kết quả trực quan
+            return RedirectToAction(nameof(OrderSuccess), new { orderCode = order?.OrderCode });
         }
 
         // --- TRƯỜNG HỢP 3: KHÁCH HÀNG HỦY GIAO DỊCH HOẶC THANH TOÁN THẤT BẠI ---
+        if (order is not null)
+        {
+            // Cập nhật trạng thái đơn hàng thành Thanh toán thất bại
+            order.Status    = OrderStatus.Cancelled;
+            order.UpdatedAt = DateTime.UtcNow;
+        }
+
         transaction.Status    = PaymentStatus.Failed;
         transaction.AuditNote = $"Thanh toán thất bại hoặc khách hủy với mã phản hồi VnPay: {vnpResponseCode}";
 
         await context.PaymentTransactions.AddAsync(transaction);
         await context.SaveChangesAsync();
 
-        logger.LogWarning("[VnPay] Thanh toán không thành công. Mã lỗi: {Code} cho đơn hàng: {OrderCode}",
-            vnpResponseCode, vnpTxnRef);
+        logger.LogWarning("[VnPay] Thanh toán không thành công. Mã lỗi: {Code} cho đơn hàng: #{OrderId} - {OrderCode}",
+            vnpResponseCode, order?.Id, order?.OrderCode ?? vnpTxnRef);
 
-        TempData["CheckoutError"] = $"Giao dịch qua VnPay không thành công (Mã lỗi: {vnpResponseCode}). Vui lòng thử lại.";
-        return RedirectToAction(nameof(Checkout));
+        TempData["CheckoutError"] = $"Giao dịch qua VnPay không thành công (Mã lỗi: {vnpResponseCode}).";
+
+        // Điều hướng sang trang OrderSuccess để hiển thị kết quả trực quan theo yêu cầu
+        return RedirectToAction(nameof(OrderSuccess), new { orderCode = order?.OrderCode });
     }
 
     // =========================================================================
@@ -647,8 +645,13 @@ public class CartController(
     /// <param name="orderCode">Mã đơn hàng</param>
     [Authorize]
     [HttpGet]
-    public async Task<IActionResult> OrderSuccess(string orderCode)
+    public async Task<IActionResult> OrderSuccess(string? orderCode)
     {
+        if (string.IsNullOrWhiteSpace(orderCode))
+        {
+            orderCode = TempData["OrderCode"]?.ToString();
+        }
+
         if (string.IsNullOrWhiteSpace(orderCode))
         {
             return RedirectToAction("Index", "Home");
@@ -664,6 +667,175 @@ public class CartController(
             return RedirectToAction("Index", "Home");
         }
 
+        // Đảm bảo dữ liệu VietQR luôn sẵn sàng cho View (kể cả khi tải lại trang F5)
+        if (TempData["QrUrl"] is null)
+        {
+            long amountToSend = (long)order.TotalAmount;
+            string bankId = "970418";
+            string bankName = "BIDV (Ngân hàng TMCP Đầu tư và Phát triển Việt Nam)";
+            string accountNo = "8811843594";
+            string accountName = "HO ANH TAI";
+            string paymentContent = $"DH{order.Id}ECOMMERCEHUE";
+            string qrUrl = $"https://img.vietqr.io/image/{bankId}-{accountNo}-compact2.png?amount={amountToSend}&addInfo={paymentContent}&accountName=HO%20ANH%20TAI";
+
+            TempData["QrUrl"] = qrUrl;
+            TempData["OrderId"] = order.Id;
+            TempData["OrderCode"] = order.OrderCode;
+            TempData["BankName"] = bankName;
+            TempData["AccountNo"] = accountNo;
+            TempData["AccountName"] = accountName;
+            TempData["PaymentContent"] = paymentContent;
+            TempData["TransferContent"] = paymentContent;
+            TempData["TotalAmount"] = order.TotalAmount.ToString();
+            TempData["PaymentMethod"] = "Chuyển khoản VietQR tự động";
+        }
+
         return View(order);
+    }
+
+    // =========================================================================
+    // HELPER: Biên soạn nội dung HTML email xác nhận đơn hàng
+    // =========================================================================
+
+    /// <summary>
+    /// Tạo mẫu email HTML chuyên nghiệp xác nhận đơn hàng, liệt kê chi tiết đặc sản đã đặt,
+    /// thông tin thanh toán VietQR và địa chỉ giao hàng kèm thời gian dự kiến.
+    /// </summary>
+    private static string BuildOrderConfirmationEmailHtml(Order order, string paymentContent, string qrUrl)
+    {
+        var itemsHtml = new System.Text.StringBuilder();
+        var index = 1;
+        foreach (var item in order.OrderDetails)
+        {
+            var lineTotal = item.Quantity * item.UnitPrice;
+            itemsHtml.Append($"""
+                <tr style="border-bottom: 1px solid #f0e6d6;">
+                    <td style="padding: 10px; text-align: center; color: #666;">{index++}</td>
+                    <td style="padding: 10px; font-weight: 600; color: #333;">{System.Net.WebUtility.HtmlEncode(item.ProductName)}</td>
+                    <td style="padding: 10px; text-align: center; color: #333;">{item.Quantity}</td>
+                    <td style="padding: 10px; text-align: right; color: #555;">{item.UnitPrice:N0} ₫</td>
+                    <td style="padding: 10px; text-align: right; font-weight: bold; color: #b71c1c;">{lineTotal:N0} ₫</td>
+                </tr>
+            """);
+        }
+
+        var orderDate = order.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm");
+
+        return $"""
+        <!DOCTYPE html>
+        <html lang="vi">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Xác nhận đơn hàng #{order.Id}</title>
+        </head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f7f5f0; margin: 0; padding: 20px; line-height: 1.6; color: #333;">
+            <div style="max-width: 650px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.06); border: 1px solid #e8dec8;">
+                
+                <!-- HEADER THƯƠNG HIỆU -->
+                <div style="background: linear-gradient(135deg, #8b3012 0%, #5c200c 100%); padding: 30px 25px; text-align: center; color: #ffffff;">
+                    <h1 style="margin: 0; font-size: 24px; font-weight: bold; letter-spacing: 0.5px;">ĐẶC SẢN CỐ ĐÔ HUẾ - ECOMMERCEHUE</h1>
+                    <p style="margin: 6px 0 0 0; font-size: 14px; color: #f8dfaa;">Hương vị cung đình - Tinh hoa ẩm thực xứ Huế</p>
+                </div>
+
+                <!-- LỜI CHÀO & THÔNG BÁO -->
+                <div style="padding: 25px 30px;">
+                    <h2 style="color: #8b3012; font-size: 19px; margin-top: 0; margin-bottom: 12px;">Chào Quý khách {System.Net.WebUtility.HtmlEncode(order.CustomerName)},</h2>
+                    <p style="margin: 0 0 16px 0; color: #555;">
+                        Hệ thống cửa hàng <strong>EcommerceHue</strong> trân trọng cảm ơn bạn đã tin tưởng lựa chọn các món đặc sản truyền thống xứ Huế. Chúng tôi xin thông báo đơn hàng của bạn đã được tiếp nhận thành công vào hệ thống.
+                    </p>
+
+                    <!-- TÓM TẮT MÃ ĐƠN HÀNG -->
+                    <div style="background-color: #fcf9f2; border-left: 4px solid #8b3012; padding: 14px 18px; border-radius: 4px; margin-bottom: 22px;">
+                        <div style="font-size: 14px; margin-bottom: 4px;"><strong>Mã đơn hàng:</strong> <span style="color: #b71c1c; font-weight: bold;">#{order.Id}</span> ({order.OrderCode})</div>
+                        <div style="font-size: 14px; margin-bottom: 4px;"><strong>Thời gian đặt:</strong> {orderDate}</div>
+                        <div style="font-size: 14px;"><strong>Trạng thái:</strong> <span style="color: #e65100; font-weight: bold;">Chờ chuyển khoản VietQR</span></div>
+                    </div>
+
+                    <!-- BẢNG CHI TIẾT SẢN PHẨM -->
+                    <h3 style="font-size: 16px; color: #333; margin: 20px 0 10px 0; border-bottom: 2px solid #8b3012; padding-bottom: 6px;">
+                        📦 Danh sách đặc sản đã đặt
+                    </h3>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 20px;">
+                        <thead>
+                            <tr style="background-color: #f7ede2; color: #8b3012;">
+                                <th style="padding: 10px; text-align: center; width: 40px;">STT</th>
+                                <th style="padding: 10px; text-align: left;">Tên đặc sản</th>
+                                <th style="padding: 10px; text-align: center; width: 70px;">SL</th>
+                                <th style="padding: 10px; text-align: right; width: 100px;">Đơn giá</th>
+                                <th style="padding: 10px; text-align: right; width: 110px;">Thành tiền</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {itemsHtml}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="4" style="padding: 12px 10px; text-align: right; font-weight: 600; color: #555;">Phí vận chuyển:</td>
+                                <td style="padding: 12px 10px; text-align: right; font-weight: bold; color: #2e7d32;">Miễn phí</td>
+                            </tr>
+                            <tr style="background-color: #fff9f0; border-top: 2px solid #e8dec8;">
+                                <td colspan="4" style="padding: 14px 10px; text-align: right; font-size: 16px; font-weight: bold; color: #333;">Tổng tiền cần thanh toán:</td>
+                                <td style="padding: 14px 10px; text-align: right; font-size: 18px; font-weight: bold; color: #b71c1c;">{order.TotalAmount:N0} ₫</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+
+                    <!-- KHỐI HƯỚNG DẪN THANH TOÁN VIETQR -->
+                    <div style="background: linear-gradient(180deg, #fffcf5 0%, #fff8eb 100%); border: 2px dashed #e0a96d; border-radius: 10px; padding: 20px; margin-bottom: 25px; text-align: center;">
+                        <h3 style="color: #8b3012; margin: 0 0 10px 0; font-size: 17px;">
+                            💳 Hướng Dẫn Thanh Toán Chuyển Khoản VietQR Tự Động
+                        </h3>
+                        <p style="font-size: 13px; color: #666; margin: 0 0 15px 0;">
+                            Quý khách vui lòng mở App Ngân hàng quét mã QR dưới đây hoặc chuyển khoản theo đúng nội dung để đơn hàng được tự động kích hoạt.
+                        </p>
+
+                        <div style="display: inline-block; padding: 8px; background: #ffffff; border-radius: 10px; border: 1px solid #ffd8a8; margin-bottom: 15px;">
+                            <img src="{qrUrl}" alt="Mã VietQR Đơn Hàng" style="max-width: 250px; width: 100%; height: auto; display: block; margin: 0 auto; border-radius: 6px;" />
+                        </div>
+
+                        <!-- Bảng chi tiết tài khoản -->
+                        <div style="text-align: left; background: #ffffff; border-radius: 6px; padding: 12px 16px; border: 1px solid #ffe0b2; font-size: 13px; line-height: 1.8;">
+                            <div><strong>Ngân hàng thụ hưởng:</strong> BIDV (Ngân hàng TMCP Đầu tư và Phát triển Việt Nam)</div>
+                            <div><strong>Số tài khoản:</strong> <span style="font-size: 15px; font-weight: bold; color: #1565c0;">8811843594</span></div>
+                            <div><strong>Chủ tài khoản:</strong> <strong>HO ANH TAI</strong></div>
+                            <div><strong>Số tiền:</strong> <span style="font-size: 15px; font-weight: bold; color: #b71c1c;">{order.TotalAmount:N0} ₫</span></div>
+                            <div><strong>Nội dung chuyển khoản:</strong> <span style="font-size: 15px; font-weight: bold; color: #b71c1c; font-family: monospace; background: #fff0f0; padding: 2px 6px; border-radius: 4px;">{paymentContent}</span></div>
+                        </div>
+                        <div style="font-size: 12px; color: #c62828; margin-top: 10px; font-style: italic;">
+                            * Vui lòng ghi chính xác nội dung chuyển khoản <strong>{paymentContent}</strong> để hệ thống tự động gạch nợ đơn hàng cho bạn nhanh chóng nhất.
+                        </div>
+                    </div>
+
+                    <!-- THÔNG TIN GIAO NHẬN HÀNG -->
+                    <h3 style="font-size: 16px; color: #333; margin: 20px 0 10px 0; border-bottom: 2px solid #8b3012; padding-bottom: 6px;">
+                        🚚 Thông tin giao nhận hàng
+                    </h3>
+                    <div style="background-color: #fafafa; border-radius: 8px; padding: 15px 18px; font-size: 14px; line-height: 1.8; border: 1px solid #eeeeee;">
+                        <div><strong>Người nhận:</strong> {System.Net.WebUtility.HtmlEncode(order.CustomerName)}</div>
+                        <div><strong>Số điện thoại:</strong> {System.Net.WebUtility.HtmlEncode(order.CustomerPhone)}</div>
+                        <div><strong>Email:</strong> {System.Net.WebUtility.HtmlEncode(order.CustomerEmail)}</div>
+                        <div><strong>Địa chỉ giao hàng:</strong> {System.Net.WebUtility.HtmlEncode(order.ShippingAddress)} <em>(Phường/Xã mới sáp nhập)</em></div>
+                        <div><strong>Thời gian dự kiến giao nhận:</strong> <span style="color: #2e7d32; font-weight: bold;">2 - 3 ngày làm việc</span> (Đóng gói tiêu chuẩn bảo quản hương vị đặc sản).</div>
+                        {(string.IsNullOrWhiteSpace(order.Note) ? "" : $"<div><strong>Ghi chú:</strong> <em>{System.Net.WebUtility.HtmlEncode(order.Note)}</em></div>")}
+                    </div>
+
+                    <!-- LỜI CẢM ƠN & LIÊN HỆ -->
+                    <div style="margin-top: 25px; font-size: 13px; color: #666; border-top: 1px solid #eee; padding-top: 15px;">
+                        <p style="margin: 0 0 5px 0;">Mọi thắc mắc hoặc cần hỗ trợ gấp về đơn hàng, Quý khách vui lòng liên hệ:</p>
+                        <p style="margin: 0;">Hotline / Zalo: <strong>0881 184 3594</strong> | Email: <strong>ecommercedacsanhue@gmail.com</strong></p>
+                    </div>
+
+                </div>
+
+                <!-- FOOTER -->
+                <div style="background-color: #f2ede4; padding: 15px 25px; text-align: center; font-size: 12px; color: #888;">
+                    © {DateTime.UtcNow.Year} EcommerceHue - Đặc Sản Cố Đô Huế. Tất cả các quyền được bảo lưu.
+                </div>
+
+            </div>
+        </body>
+        </html>
+        """;
     }
 }

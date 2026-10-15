@@ -41,6 +41,9 @@ builder.Services.AddDbContext<EcommerceContext>(options =>
 // --- MVC Controllers + Views ---
 builder.Services.AddControllersWithViews();
 
+// --- Đăng ký Dịch vụ gửi Email (MailKit / Gmail SMTP) ---
+builder.Services.AddScoped<EcommerceHue.Services.IEmailService, EcommerceHue.Services.EmailService>();
+
 // --- Cấu hình Cookie Authentication & Google OAuth (quy tắc 01-coding-style.md + 02-security-vnpay.md) ---
 // Mọi thông tin nhạy cảm đọc từ IConfiguration, không hardcode.
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
