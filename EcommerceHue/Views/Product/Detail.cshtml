@@ -1,0 +1,879 @@
+@model EcommerceHue.Models.Product
+@{
+    ViewData["Title"] = $"{Model.Name} – Đặc Sản Cố Đô Huế";
+    ViewData["Description"] = Model.Description ?? $"Mua {Model.Name} chính gốc Cố Đô Huế, cam kết an toàn thực phẩm, giao hàng toàn quốc nhanh chóng.";
+
+    // =========================================================================
+    // LOGIC FALLBACK DATA THÔNG MINH THEO TỪNG NHÓM ĐẶC SẢN HUẾ
+    // =========================================================================
+    var prodName = (Model.Name ?? "").ToLowerInvariant();
+    var catName  = (Model.Category?.Name ?? "").ToLowerInvariant();
+
+    bool isTomChua = prodName.Contains("tôm chua") || catName.Contains("tôm chua") || prodName.Contains("mắm");
+    bool isMeXung  = prodName.Contains("mè xửng") || prodName.Contains("kẹo") || catName.Contains("mè xửng") || catName.Contains("bánh");
+    bool isTra     = prodName.Contains("trà") || prodName.Contains("sen") || catName.Contains("trà");
+    bool isNemTre  = prodName.Contains("tré") || prodName.Contains("nem") || prodName.Contains("chả");
+
+    // 1. Thương hiệu / Nhãn hàng
+    string brandName = isMeXung  ? "Mè Xửng Cung Đình Thiên Hương"
+                     : isTomChua ? "Tôm Chua Cố Đô Trọng Tín"
+                     : isTra     ? "Trà Sen Cung Đình Đức Phượng"
+                     : isNemTre  ? "Nem Tré Gia Truyền Đông Ba"
+                     : "Đặc Sản Cố Đô Huế Chính Gốc";
+
+    // 2. Định lượng tịnh (Net Weight)
+    string netWeight = isTomChua ? "Hũ thủy tinh 500g (Khối lượng cái: 350g)"
+                     : isMeXung  ? "Hộp quà tặng 450g (Đóng gói từng thanh riêng)"
+                     : isTra     ? "Hộp giấy hoàng gia 250g (25 túi lọc tiện lợi)"
+                     : isNemTre  ? "Gói 400g (10 chiếc bọc lá ổi truyền thống)"
+                     : "Đóng gói tiêu chuẩn 500g";
+
+    // 3. Danh sách thành phần cấu tạo
+    string ingredients = isTomChua
+        ? "Tôm đất tươi tự nhiên đầm phá Tam Giang (65%), riềng tươi thái chỉ, tỏi tươi củ trắng, ớt chỉ thiên Huế, nước mắm cá cơm nguyên chất, đường mía phèn, muối hầm sạch, thính nếp cái hoa vàng lên men tự nhiên. Tuyệt đối không hàn the, không chất tạo màu nhân tạo."
+        : isMeXung
+        ? "Mạch nha nếp Kim Long (45%), hạt mè (vừng) rang vàng thơm, đậu phộng (lạc) bùi béo chọn lọc, đường cát tinh luyện, tinh bột nếp dẻo thơm, dầu cọ thực vật tinh luyện, hương vani tự nhiên."
+        : isTra
+        ? "Tim sen Huế (hạt sen Tịnh Tâm), atiso Đà Lạt, hoa cúc La Mã, hoa nhài sấy lạnh, hoài sơn, cỏ ngọt tự nhiên, cam thảo bắc, táo đỏ, kỷ tử, hoa đại, khổ qua sấy khô theo phương pháp sao thảo dược bí truyền triều Nguyễn."
+        : isNemTre
+        ? "Thịt đầu heo tươi sạch (tai, mũi, bì heo luộc giòn), củ riềng cay nồng, tỏi củ giã nhuyễn, mè rang vàng, thính gạo rang thơm, lá ổi tươi, tiêu sọ Phú Quốc, gia vị truyền thống Cố Đô."
+        : "Nguyên liệu đặc sản tự nhiên xứ Huế chọn lọc loại 1, quy trình chế biến khép kín truyền thống đảm bảo giữ trọn dinh dưỡng và phong vị nguyên bản.";
+
+    // 4. Thông số kỹ thuật bao bì
+    string packageSpecs = isTomChua ? "Hũ thủy tinh cao cấp nắp thiếc chuyên dụng, màng seal chống rò rỉ khí (12 x 8.5 x 8.5 cm)"
+                        : isMeXung  ? "Hộp giấy Ivory in ấn phủ màng metalize ánh kim, túi màng nhôm phức hợp PA/PE kín khí (22 x 15 x 4 cm)"
+                        : isTra     ? "Hộp carton cứng hoa văn cung đình, túi zip bạc bảo quản hương thơm tối đa (18 x 12 x 6 cm)"
+                        : "Bao bì thực phẩm đa lớp đạt chuẩn an toàn thực phẩm Quốc gia (PA/PE)";
+
+    // 5. Hướng dẫn sử dụng
+    string usageInstruction = isTomChua
+        ? "Sản phẩm dùng ăn liền trực tiếp. Ngon nhất khi dùng kèm thịt ba chỉ (ba rọi) luộc thái mỏng, cuốn bánh tráng rau sống, khế chua, chuối chát, dưa leo và bún tươi. Có thể giã thêm chút tỏi ớt đường tùy khẩu vị của quý khách."
+        : isMeXung
+        ? "Dùng trực tiếp ngay khi mở bao bì từng thanh. Thưởng thức tuyệt vời và trọn vẹn nhất khi nhâm nhi cùng một tách trà sen hoặc trà Cung Đình Huế ấm nóng trong không gian thư thái."
+        : isTra
+        ? "Cho 10g - 15g trà (hoặc 1 túi lọc) vào ấm, tráng qua nước sôi. Rót 250ml - 300ml nước sôi ở nhiệt độ 90°C - 95°C, đậy nắp hãm từ 3 - 5 phút cho trà ngấm rồi thưởng thức. Có thể uống nóng hoặc thêm đá làm thức uống giải nhiệt thanh mát mỗi ngày."
+        : isNemTre
+        ? "Bóc lớp lá chuối bên ngoài, trộn đều nem tré cùng tỏi tép, ớt tươi và rau răm. Chấm kèm tương ớt Huế hoặc nước mắm tỏi ớt cay nồng làm món khai vị nhắm rượu tuyệt hảo."
+        : "Sử dụng trực tiếp hoặc chế biến theo khẩu vị gia đình. Dùng ngay sau khi mở gói bao bì.";
+
+    // 6. Hướng dẫn bảo quản
+    string storageInstruction = isTomChua
+        ? "Bảo quản nơi khô ráo, tránh ánh nắng trực tiếp. Sau khi mở nắp, bắt buộc đậy kín nắp và bảo quản trong NGĂN MÁT TỦ LẠNH (nhiệt độ từ 4°C - 8°C) để giữ tôm giữ được màu đỏ au đẹp mắt và độ giòn ngọt thơm ngon tự nhiên lên đến 6 tháng."
+        : isMeXung
+        ? "Bảo quản nơi khô ráo, thoáng mát, sạch sẽ, tránh ánh nắng mặt trời chiếu trực tiếp và tránh nơi có độ ẩm cao hoặc gần côn trùng. Sau khi xé thanh kẹo nên dùng ngay để giữ độ dẻo giòn thơm của mè."
+        : isTra
+        ? "Bảo quản trong hộp kín hoặc kéo chặt miệng túi zip sau mỗi lần sử dụng. Đặt nơi khô ráo, thoáng mát, nhiệt độ phòng (dưới 30°C), tránh tiếp xúc với không khí ẩm ướt."
+        : "Bảo quản nơi khô mát, sạch sẽ, tránh ánh nắng trực tiếp. Đậy kín sau khi sử dụng.";
+
+    // 7. Cảnh báo an toàn
+    string allergenWarning = isTomChua ? "Lưu ý: Không dùng cho người có tiền sử dị ứng với tôm, hải sản giáp xác. Không dùng sản phẩm khi thấy mốc hỏng hoặc có mùi lạ."
+                           : isMeXung  ? "Lưu ý: Sản phẩm chứa hạt mè (vừng) và đậu phộng (lạc). Người mẫn cảm hoặc dị ứng với các loại hạt trên cần cân nhắc trước khi dùng."
+                           : isTra     ? "Lưu ý: Phụ nữ mang thai trong 3 tháng đầu nên tham khảo ý kiến bác sĩ trước khi sử dụng thảo dược có tính thanh nhiệt mạnh."
+                           : "Không sử dụng sản phẩm khi đã quá hạn sử dụng in trên bao bì hoặc bao bì bị rách, xì hơi.";
+
+    // Tính toán giảm giá và giá gạch ngang
+    var hasDiscount = Model.OriginalPrice.HasValue && Model.OriginalPrice.Value > Model.Price;
+    var discountPercent = hasDiscount
+        ? (int)Math.Round((1 - (Model.Price / Model.OriginalPrice!.Value)) * 100)
+        : 0;
+
+    // Mã SKU và Barcode mẫu động
+    string skuCode = $"HUE-{(Model.CategoryId > 0 ? Model.CategoryId : 1):D2}-{Model.Id:D4}";
+    string barcodeNumber = $"8938501{Model.Id:D6}";
+}
+
+<div class="container py-4">
+
+    <!-- BREADCRUMB ĐIỀU HƯỚNG -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb py-2 px-3 rounded-pill bg-light border small">
+            <li class="breadcrumb-item">
+                <a asp-controller="Home" asp-action="Index" class="text-decoration-none text-muted">Trang chủ</a>
+            </li>
+            @if (Model.Category != null)
+            {
+                <li class="breadcrumb-item">
+                    <a asp-controller="Home" asp-action="Index" asp-route-categoryId="@Model.CategoryId" class="text-decoration-none text-muted">
+                        @Model.Category.Name
+                    </a>
+                </li>
+            }
+            <li class="breadcrumb-item active text-dark fw-semibold" aria-current="page">
+                @Model.Name
+            </li>
+        </ol>
+    </nav>
+
+    <!-- =========================================================================
+         KHU VỰC 1: NỬA TRÊN TRANG – THÔNG TIN NHẬN DIỆN & THƯƠNG MẠI
+         ========================================================================= -->
+    <div class="card rounded-4 border-0 shadow-sm overflow-hidden p-3 p-md-4 mb-4 bg-white">
+        <div class="row g-4 align-items-start">
+
+            <!-- CỘT TRÁI: ẢNH SẢN PHẨM & HUY HIỆU CHẤT LƯỢNG -->
+            <div class="col-lg-5 col-md-6">
+                <div class="position-relative rounded-4 overflow-hidden border bg-light shadow-xs mb-3 text-center">
+                    <img src="@(Model.ImageUrl ?? "/images/placeholder.jpg")"
+                         alt="@Model.Name"
+                         id="mainProductImage"
+                         class="img-fluid w-100 rounded-4 hue-product-detail-img"
+                         onerror="this.src='/images/placeholder.jpg'" />
+
+                    <!-- Badge giảm giá -->
+                    @if (hasDiscount)
+                    {
+                        <span class="position-absolute top-0 start-0 m-3 badge bg-danger rounded-pill px-3 py-2 shadow-sm fs-6">
+                            🔥 Giảm @discountPercent%
+                        </span>
+                    }
+
+                    <!-- Badge danh mục -->
+                    <span class="position-absolute bottom-0 start-0 m-3 badge bg-dark bg-opacity-75 rounded-pill px-3 py-2 small">
+                        🏮 @(Model.Category?.Name ?? "Đặc sản Huế")
+                    </span>
+                </div>
+
+                <!-- CAM KẾT CHẤT LƯỢNG HUẾ -->
+                <div class="row g-2 text-center small text-muted">
+                    <div class="col-4">
+                        <div class="p-2 border rounded-3 bg-light h-100">
+                            <div class="fs-4">🌿</div>
+                            <div class="fw-semibold text-dark mt-1">100% Tự Nhiên</div>
+                            <div class="text-secondary" style="font-size: 0.72rem;">Không chất độc hại</div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="p-2 border rounded-3 bg-light h-100">
+                            <div class="fs-4">🏆</div>
+                            <div class="fw-semibold text-dark mt-1">Chuẩn Vị Cố Đô</div>
+                            <div class="text-secondary" style="font-size: 0.72rem;">Nghệ nhân truyền thống</div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="p-2 border rounded-3 bg-light h-100">
+                            <div class="fs-4">🚚</div>
+                            <div class="fw-semibold text-dark mt-1">Giao Toàn Quốc</div>
+                            <div class="text-secondary" style="font-size: 0.72rem;">Đóng gói kỹ 24h</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CỘT PHẢI: THÔNG TIN THƯƠNG MẠI, GIÁ BÁN, MÃ VẠCH & ĐẶT HÀNG -->
+            <div class="col-lg-7 col-md-6">
+                
+                <!-- THƯƠNG HIỆU & ĐÁNH GIÁ -->
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-3 py-1 fw-bold">
+                        ⚜️ @brandName
+                    </span>
+                    <div class="d-flex align-items-center gap-1 text-warning small">
+                        <span>⭐⭐⭐⭐⭐</span>
+                        <span class="text-muted ms-1">(4.9/5 · 286 đánh giá)</span>
+                    </div>
+                </div>
+
+                <!-- TÊN SẢN PHẨM -->
+                <h1 class="h3 fw-bold text-dark mb-2 hue-title-primary">
+                    @Model.Name
+                </h1>
+
+                <!-- MÔ TẢ TỔNG QUAN -->
+                <p class="text-muted small leading-relaxed mb-3">
+                    @(string.IsNullOrWhiteSpace(Model.Description) 
+                        ? $"{Model.Name} là thức quà đặc sản tinh hoa của xứ Huế, được chế biến thủ công theo công thức gia truyền nức tiếng, mang lại hương vị thơm ngon khó quên và bổ dưỡng."
+                        : Model.Description)
+                </p>
+
+                <!-- KHU VỰC HIỂN THỊ GIÁ BÁN NIÊM YẾT -->
+                <div class="p-3 bg-light rounded-4 border mb-3">
+                    <div class="d-flex align-items-baseline gap-3 flex-wrap">
+                        <!-- Giá bán mới màu đỏ Huế -->
+                        <span class="fs-2 fw-bold text-danger">
+                            @Model.Price.ToString("N0") <span class="fs-5 fw-normal">₫</span>
+                        </span>
+
+                        @if (hasDiscount)
+                        {
+                            <!-- Giá gốc gạch ngang -->
+                            <span class="text-muted text-decoration-line-through fs-5">
+                                @Model.OriginalPrice!.Value.ToString("N0") ₫
+                            </span>
+                            <span class="badge bg-danger rounded-pill px-2 py-1 small">
+                                Tiết kiệm @((Model.OriginalPrice.Value - Model.Price).ToString("N0")) ₫
+                            </span>
+                        }
+                    </div>
+                    <div class="text-muted small mt-1">
+                        Đã bao gồm thuế GTGT · Miễn phí đổi trả trong 7 ngày nếu lỗi từ nhà sản xuất.
+                    </div>
+                </div>
+
+                <!-- KHU VỰC THÔNG SỐ TỒN KHO & HẠN SỬ DỤNG (THEO 01-CODING-STYLE.MD) -->
+                <div class="row g-2 mb-3">
+                    <div class="col-sm-6">
+                        <div class="d-flex align-items-center gap-2 p-2 border rounded-3 bg-white">
+                            <span class="fs-4">📅</span>
+                            <div>
+                                <div class="text-muted" style="font-size: 0.75rem;">Hạn sử dụng (HSD):</div>
+                                <div class="fw-bold text-success">@Model.ExpiryDate.ToString("dd/MM/yyyy")</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="d-flex align-items-center gap-2 p-2 border rounded-3 bg-white">
+                            <span class="fs-4">📦</span>
+                            <div>
+                                <div class="text-muted" style="font-size: 0.75rem;">Tình trạng kho hàng:</div>
+                                <div class="fw-bold @(Model.StockQuantity > 0 ? "text-primary" : "text-danger")">
+                                    @(Model.StockQuantity > 0 ? $"Còn hàng ({Model.StockQuantity} sản phẩm)" : "Tạm hết hàng")
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- =========================================================================
+                     MÃ ĐỊNH DANH SẢN PHẨM: SKU ĐỘNG + MÃ VẠCH (BARCODE) & QR TRUY XUẤT
+                     ========================================================================= -->
+                <div class="p-3 border rounded-4 bg-white shadow-xs mb-4">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                        <span class="small fw-bold text-dark text-uppercase">
+                            🏷️ Mã định danh & Truy xuất nguồn gốc
+                        </span>
+                        <span class="badge bg-secondary-subtle text-secondary rounded-pill px-2 py-1 small font-monospace">
+                            SKU: <strong>@skuCode</strong>
+                        </span>
+                    </div>
+
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 p-2 rounded-3 bg-light border">
+                        
+                        <!-- MÔ PHỎNG MÃ VẠCH CHUẨN BARCODE CODE 128 -->
+                        <div class="d-flex flex-column align-items-center">
+                            <div class="hue-barcode-strip" title="Mã vạch EAN-13 chuẩn Quốc gia: @barcodeNumber">
+                                <!-- Thanh vạch giả lập SVG chuẩn barcode nét đen trắng -->
+                                <svg width="170" height="42" viewBox="0 0 170 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect width="170" height="42" fill="white"/>
+                                    <!-- Các vạch barcode song song -->
+                                    <rect x="4" y="2" width="2" height="32" fill="#111"/>
+                                    <rect x="8" y="2" width="4" height="32" fill="#111"/>
+                                    <rect x="15" y="2" width="2" height="32" fill="#111"/>
+                                    <rect x="19" y="2" width="1" height="32" fill="#111"/>
+                                    <rect x="23" y="2" width="3" height="32" fill="#111"/>
+                                    <rect x="28" y="2" width="2" height="32" fill="#111"/>
+                                    <rect x="33" y="2" width="4" height="32" fill="#111"/>
+                                    <rect x="40" y="2" width="2" height="32" fill="#111"/>
+                                    <rect x="44" y="2" width="1" height="32" fill="#111"/>
+                                    <rect x="48" y="2" width="3" height="32" fill="#111"/>
+                                    <rect x="54" y="2" width="2" height="32" fill="#111"/>
+                                    <rect x="59" y="2" width="4" height="32" fill="#111"/>
+                                    <rect x="65" y="2" width="1" height="32" fill="#111"/>
+                                    <rect x="69" y="2" width="3" height="32" fill="#111"/>
+                                    <rect x="74" y="2" width="2" height="32" fill="#111"/>
+                                    <rect x="78" y="2" width="1" height="32" fill="#111"/>
+                                    <rect x="82" y="2" width="4" height="32" fill="#111"/>
+                                    <rect x="89" y="2" width="2" height="32" fill="#111"/>
+                                    <rect x="94" y="2" width="3" height="32" fill="#111"/>
+                                    <rect x="99" y="2" width="1" height="32" fill="#111"/>
+                                    <rect x="103" y="2" width="4" height="32" fill="#111"/>
+                                    <rect x="109" y="2" width="2" height="32" fill="#111"/>
+                                    <rect x="114" y="2" width="1" height="32" fill="#111"/>
+                                    <rect x="118" y="2" width="3" height="32" fill="#111"/>
+                                    <rect x="123" y="2" width="2" height="32" fill="#111"/>
+                                    <rect x="128" y="2" width="4" height="32" fill="#111"/>
+                                    <rect x="135" y="2" width="1" height="32" fill="#111"/>
+                                    <rect x="139" y="2" width="3" height="32" fill="#111"/>
+                                    <rect x="144" y="2" width="2" height="32" fill="#111"/>
+                                    <rect x="149" y="2" width="1" height="32" fill="#111"/>
+                                    <rect x="153" y="2" width="4" height="32" fill="#111"/>
+                                    <rect x="160" y="2" width="2" height="32" fill="#111"/>
+                                    <rect x="165" y="2" width="2" height="32" fill="#111"/>
+                                </svg>
+                            </div>
+                            <span class="small font-monospace text-dark mt-1" style="font-size: 0.78rem; letter-spacing: 1px;">
+                                @barcodeNumber
+                            </span>
+                        </div>
+
+                        <!-- MÃ QR TRUY XUẤT CHỐNG HÀNG GIẢ -->
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="p-1 bg-white border rounded shadow-xs" title="Mã QR Chống hàng giả & Quản lý kho">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#2b2b2b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="3" width="7" height="7"></rect>
+                                    <rect x="14" y="3" width="7" height="7"></rect>
+                                    <rect x="14" y="14" width="7" height="7"></rect>
+                                    <rect x="3" y="14" width="7" height="7"></rect>
+                                    <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                                    <line x1="18" y1="7" x2="18.01" y2="7"></line>
+                                    <line x1="7" y1="18" x2="7.01" y2="18"></line>
+                                    <line x1="18" y1="18" x2="18.01" y2="18"></line>
+                                    <line x1="10" y1="14" x2="10" y2="17"></line>
+                                    <line x1="14" y1="10" x2="17" y2="10"></line>
+                                </svg>
+                            </div>
+                            <div class="small">
+                                <div class="fw-semibold text-success" style="font-size: 0.75rem;">🛡️ Tem chống hàng giả</div>
+                                <div class="text-muted" style="font-size: 0.7rem;">Mã hóa QR Cố Đô Huế</div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- BỘ CHỌN SỐ LƯỢNG & NÚT THÊM GIỎ HÀNG AJAX -->
+                @if (Model.StockQuantity > 0)
+                {
+                    <div class="d-flex flex-wrap align-items-center gap-3 mb-4">
+                        
+                        <!-- Bộ chọn số lượng -->
+                        <div class="d-flex align-items-center border rounded-pill bg-white p-1 shadow-xs">
+                            <button type="button" class="btn btn-sm btn-light rounded-circle fw-bold px-2 py-1" onclick="changeQuantity(-1)" aria-label="Giảm số lượng">
+                                ➖
+                            </button>
+                            <input type="number"
+                                   id="productQuantity"
+                                   value="1"
+                                   min="1"
+                                   max="@Model.StockQuantity"
+                                   class="form-control form-control-sm border-0 text-center fw-bold"
+                                   style="width: 55px;"
+                                   aria-label="Số lượng sản phẩm" />
+                            <button type="button" class="btn btn-sm btn-light rounded-circle fw-bold px-2 py-1" onclick="changeQuantity(1)" aria-label="Tăng số lượng">
+                                ➕
+                            </button>
+                        </div>
+
+                        <!-- Nút Thêm vào giỏ hàng AJAX -->
+                        <button type="button"
+                                id="btn-detail-add-cart"
+                                class="btn btn-warning fw-bold px-4 py-2 rounded-pill flex-grow-1 hue-btn-cart-main shadow-xs text-dark"
+                                onclick="addToCartDetail(@Model.Id)">
+                            <span class="btn-text">🛒 Thêm vào giỏ hàng</span>
+                            <span class="btn-spinner spinner-border spinner-border-sm d-none" role="status"></span>
+                        </button>
+
+                        <!-- Nút Mua ngay (Chuyển trang thanh toán) -->
+                        <button type="button"
+                                class="btn btn-danger fw-bold px-4 py-2 rounded-pill shadow-xs"
+                                onclick="buyNowDetail(@Model.Id)">
+                            ⚡ Mua ngay
+                        </button>
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-danger rounded-4 py-3 mb-4 d-flex align-items-center gap-2">
+                        <span class="fs-4">⚠️</span>
+                        <div>
+                            <strong>Sản phẩm hiện đang tạm hết hàng!</strong><br />
+                            Vui lòng liên hệ Hotline <strong>0901 234 567</strong> hoặc Zalo <strong>0912 738 062</strong> để đặt trước lô mới nhất.
+                        </div>
+                    </div>
+                }
+
+                <!-- THÔNG TIN HỖ TRỢ NHANH -->
+                <div class="d-flex flex-wrap align-items-center gap-4 text-muted small pt-3 border-top">
+                    <div>💳 Thanh toán: <strong>VietQR · payOS · BIDV · COD</strong></div>
+                    <div>📦 Giao nhanh: <strong>Nội thành 24h · Toàn quốc 2-3 ngày</strong></div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- =========================================================================
+         KHU VỰC 2: NỬA DƯỚI TRANG – CHIA 4 TAB BOOTSTRAP THÔNG TIN MỞ RỘNG
+         ========================================================================= -->
+    <div class="card rounded-4 border-0 shadow-sm overflow-hidden p-3 p-md-4 mb-5 bg-white">
+        
+        <!-- THANH ĐIỀU HƯỚNG 4 TAB -->
+        <ul class="nav nav-tabs nav-fill hue-product-tabs mb-4" id="productDetailTabs" role="tablist">
+            
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active fw-bold text-uppercase py-3"
+                        id="tab-origin-tab"
+                        data-bs-toggle="tab"
+                        data-bs-target="#tab-origin"
+                        type="button"
+                        role="tab"
+                        aria-controls="tab-origin"
+                        aria-selected="true">
+                    🏛️ Xuất Xứ & Pháp Lý
+                </button>
+            </li>
+
+            <li class="nav-item" role="presentation">
+                <button class="nav-link fw-bold text-uppercase py-3"
+                        id="tab-specs-tab"
+                        data-bs-toggle="tab"
+                        data-bs-target="#tab-specs"
+                        type="button"
+                        role="tab"
+                        aria-controls="tab-specs"
+                        aria-selected="false">
+                    🧪 Thành Phần & Kỹ Thuật
+                </button>
+            </li>
+
+            <li class="nav-item" role="presentation">
+                <button class="nav-link fw-bold text-uppercase py-3"
+                        id="tab-usage-tab"
+                        data-bs-toggle="tab"
+                        data-bs-target="#tab-usage"
+                        type="button"
+                        role="tab"
+                        aria-controls="tab-usage"
+                        aria-selected="false">
+                    📖 HDSD & Bảo Quản
+                </button>
+            </li>
+
+            <li class="nav-item" role="presentation">
+                <button class="nav-link fw-bold text-uppercase py-3"
+                        id="tab-policy-tab"
+                        data-bs-toggle="tab"
+                        data-bs-target="#tab-policy"
+                        type="button"
+                        role="tab"
+                        aria-controls="tab-policy"
+                        aria-selected="false">
+                    🛡️ Chính Sách & Bảo Hành
+                </button>
+            </li>
+
+        </ul>
+
+        <!-- NỘI DUNG 4 TAB -->
+        <div class="tab-content" id="productDetailTabsContent">
+
+            <!-- TAB 1: XUẤT XỨ & PHÁP LÝ -->
+            <div class="tab-pane fade show active p-2 p-md-3" id="tab-origin" role="tabpanel" aria-labelledby="tab-origin-tab">
+                <h4 class="h5 fw-bold text-dark mb-3 border-start border-warning border-4 ps-2">
+                    🏛️ Đơn Vị Chịu Trách Nhiệm & Pháp Lý Hàng Hóa
+                </h4>
+                <p class="text-muted small mb-4">
+                    Sản phẩm được bảo hộ chỉ dẫn địa lý và kiểm định chất lượng chặt chẽ bởi các cơ quan chuyên môn tỉnh Thừa Thiên Huế.
+                </p>
+
+                <div class="table-responsive">
+                    <table class="table table-bordered table-striped align-middle small mb-0">
+                        <tbody>
+                            <tr>
+                                <th class="w-25 bg-light text-secondary">Đơn vị sản xuất & phân phối</th>
+                                <td class="fw-semibold text-dark">
+                                    Hợp tác xã Đặc sản Truyền thống Cố Đô & Công ty TNHH EcommerceHue
+                                </td>
+                            </tr>
+                            <tr>
+                                <th class="bg-light text-secondary">Địa chỉ cơ sở sản xuất</th>
+                                <td>
+                                    Khu sản xuất làng nghề truyền thống, Phường Đông Ba, Thành phố Huế, Tỉnh Thừa Thiên Huế
+                                </td>
+                            </tr>
+                            <tr>
+                                <th class="bg-light text-secondary">Xuất xứ hàng hóa</th>
+                                <td>
+                                    <strong class="text-success">Made in Vietnam</strong> · Đặc sản truyền thống Cố Đô Huế chính gốc
+                                </td>
+                            </tr>
+                            <tr>
+                                <th class="bg-light text-secondary">Ngày sản xuất (NSX)</th>
+                                <td>
+                                    In trực tiếp trên thân hũ/bao bì sản phẩm (Luôn giao lô sản xuất mới nhất trong vòng 15 ngày)
+                                </td>
+                            </tr>
+                            <tr>
+                                <th class="bg-light text-secondary">Hạn sử dụng (HSD)</th>
+                                <td>
+                                    <strong class="text-danger">@Model.ExpiryDate.ToString("dd/MM/yyyy")</strong> 
+                                    <em>(Tuân thủ nghiêm ngặt quy định ghi nhãn thực phẩm an toàn)</em>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th class="bg-light text-secondary">Quy cách & Định lượng tịnh</th>
+                                <td class="fw-semibold text-primary">
+                                    @netWeight
+                                </td>
+                            </tr>
+                            <tr>
+                                <th class="bg-light text-secondary">Số tự công bố / Giấy phép ATTP</th>
+                                <td>
+                                    Số TCB: <strong>01/ECOMMERCEHUE/2026</strong> · Giấy chứng nhận cơ sở đủ điều kiện ATTP số: <strong>48/2026/NNPTNT-HUE</strong>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 2: THÀNH PHẦN & ĐẶC TÍNH KỸ THUẬT -->
+            <div class="tab-pane fade p-2 p-md-3" id="tab-specs" role="tabpanel" aria-labelledby="tab-specs-tab">
+                <h4 class="h5 fw-bold text-dark mb-3 border-start border-warning border-4 ps-2">
+                    🧪 Thành Phần Cấu Tạo & Tiêu Chuẩn Kỹ Thuật
+                </h4>
+
+                <!-- BẢNG THÀNH PHẦN -->
+                <div class="p-3 bg-light rounded-4 border mb-4">
+                    <h5 class="h6 fw-bold text-dark mb-2">🌿 Danh sách nguyên liệu thành phần:</h5>
+                    <p class="text-muted small leading-relaxed mb-0">
+                        @ingredients
+                    </p>
+                </div>
+
+                <!-- THÔNG SỐ SPECS & CHỨNG NHẬN -->
+                <div class="row g-4">
+                    <div class="col-md-7">
+                        <h5 class="h6 fw-bold text-dark mb-3">📐 Thông số kỹ thuật bao bì đóng gói:</h5>
+                        <table class="table table-bordered table-sm small align-middle">
+                            <tbody>
+                                <tr>
+                                    <th class="w-40 bg-light text-secondary">Quy cách đóng gói</th>
+                                    <td>@packageSpecs</td>
+                                </tr>
+                                <tr>
+                                    <th class="bg-light text-secondary">Chất liệu bao bì</th>
+                                    <td>Thủy tinh tinh khiết chịu lực hoặc màng nhôm phức hợp nguyên sinh đạt chuẩn Food-Grade</td>
+                                </tr>
+                                <tr>
+                                    <th class="bg-light text-secondary">Khối lượng tổng (Gross)</th>
+                                    <td>Khoảng 550g - 650g (Đã bao gồm vỏ bảo quản)</td>
+                                </tr>
+                                <tr>
+                                    <th class="bg-light text-secondary">Độ ẩm & Bảo quản</th>
+                                    <td>Độ ẩm dưới 15% đối với đồ khô; Độ pH 3.8 - 4.2 đối với đồ lên men</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- KHU VỰC HUY HIỆU TIÊU CHUẨN ĐẠT ĐƯỢC -->
+                    <div class="col-md-5">
+                        <h5 class="h6 fw-bold text-dark mb-3">🏅 Chứng nhận chất lượng uy tín:</h5>
+                        <div class="d-flex flex-column gap-2">
+                            
+                            <div class="p-2 border rounded-3 bg-white d-flex align-items-center gap-3">
+                                <span class="fs-3">🌟</span>
+                                <div>
+                                    <div class="fw-bold text-dark small">Chứng nhận OCOP 4 Sao</div>
+                                    <div class="text-muted" style="font-size: 0.72rem;">Chương trình mỗi xã một sản phẩm tỉnh TT-Huế</div>
+                                </div>
+                            </div>
+
+                            <div class="p-2 border rounded-3 bg-white d-flex align-items-center gap-3">
+                                <span class="fs-3">🛡️</span>
+                                <div>
+                                    <div class="fw-bold text-dark small">ISO 22000:2018 & HACCP Codex</div>
+                                    <div class="text-muted" style="font-size: 0.72rem;">Hệ thống quản lý an toàn thực phẩm Quốc tế</div>
+                                </div>
+                            </div>
+
+                            <div class="p-2 border rounded-3 bg-white d-flex align-items-center gap-3">
+                                <span class="fs-3">🇺🇸</span>
+                                <div>
+                                    <div class="fw-bold text-dark small">FDA Standard Compliance</div>
+                                    <div class="text-muted" style="font-size: 0.72rem;">Đạt chuẩn đóng gói xuất khẩu bưu phẩm đi Mỹ/EU</div>
+                                </div>
+                            </div>
+
+                            <div class="p-2 border rounded-3 bg-white d-flex align-items-center gap-3">
+                                <span class="fs-3">♻️</span>
+                                <div>
+                                    <div class="fw-bold text-dark small">Bao Bì Thân Thiện Môi Trường</div>
+                                    <div class="text-muted" style="font-size: 0.72rem;">Tái chế 100% bảo vệ cảnh quan Cố Đô</div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: HƯỚNG DẪN SỬ DỤNG & BẢO QUẢN -->
+            <div class="tab-pane fade p-2 p-md-3" id="tab-usage" role="tabpanel" aria-labelledby="tab-usage-tab">
+                <h4 class="h5 fw-bold text-dark mb-3 border-start border-warning border-4 ps-2">
+                    📖 Hướng Dẫn Sử Dụng & Bảo Quản Đúng Cách
+                </h4>
+
+                <div class="row g-4">
+                    
+                    <!-- HƯỚNG DẪN CÁCH DÙNG -->
+                    <div class="col-md-6">
+                        <div class="card h-100 rounded-4 border p-3 bg-light">
+                            <div class="d-flex align-items-center gap-2 mb-2 text-primary">
+                                <span class="fs-4">🍽️</span>
+                                <h5 class="h6 fw-bold mb-0">Cách sử dụng ngon đúng vị:</h5>
+                            </div>
+                            <p class="text-muted small leading-relaxed mb-0">
+                                @usageInstruction
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- HƯỚNG DẪN BẢO QUẢN -->
+                    <div class="col-md-6">
+                        <div class="card h-100 rounded-4 border p-3 bg-light">
+                            <div class="d-flex align-items-center gap-2 mb-2 text-success">
+                                <span class="fs-4">❄️</span>
+                                <h5 class="h6 fw-bold mb-0">Điều kiện nhiệt độ bảo quản:</h5>
+                            </div>
+                            <p class="text-muted small leading-relaxed mb-0">
+                                @storageInstruction
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- CẢNH BÁO AN TOÀN -->
+                <div class="mt-4 p-3 bg-warning-subtle border border-warning rounded-4 text-warning-emphasis small">
+                    <div class="fw-bold d-flex align-items-center gap-2 mb-1">
+                        <span>⚠️ Cảnh báo an toàn thực phẩm & dị ứng:</span>
+                    </div>
+                    <div>@allergenWarning</div>
+                </div>
+            </div>
+
+            <!-- TAB 4: CHÍNH SÁCH BÁN HÀNG & BẢO HÀNH -->
+            <div class="tab-pane fade p-2 p-md-3" id="tab-policy" role="tabpanel" aria-labelledby="tab-policy-tab">
+                <h4 class="h5 fw-bold text-dark mb-3 border-start border-warning border-4 ps-2">
+                    🛡️ Chính Sách Bán Hàng, Đổi Trả & Chăm Sóc Khách Hàng
+                </h4>
+
+                <div class="row g-3">
+                    
+                    <div class="col-md-4">
+                        <div class="p-3 border rounded-4 bg-light text-center h-100">
+                            <div class="fs-2 mb-2">🔄</div>
+                            <h5 class="h6 fw-bold text-dark mb-1">Đổi trả 100% trong 7 ngày</h5>
+                            <p class="text-muted small mb-0">
+                                Đổi mới miễn phí hoặc hoàn tiền 100% nếu sản phẩm bị vỡ hỏng, hở nắp do quá trình vận chuyển hoặc không đúng mô tả.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="p-3 border rounded-4 bg-light text-center h-100">
+                            <div class="fs-2 mb-2">👑</div>
+                            <h5 class="h6 fw-bold text-dark mb-1">Cam kết chính gốc 100%</h5>
+                            <p class="text-muted small mb-0">
+                                Cam kết bồi thường 200% nếu phát hiện sản phẩm giả mạo, nhái thương hiệu hoặc sử dụng chất bảo quản công nghiệp cấm.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="p-3 border rounded-4 bg-light text-center h-100">
+                            <div class="fs-2 mb-2">📞</div>
+                            <h5 class="h6 fw-bold text-dark mb-1">Hỗ trợ khách hàng 24/7</h5>
+                            <p class="text-muted small mb-0">
+                                Đường dây nóng giải quyết khiếu nại và tư vấn ẩm thực qua Hotline/Zalo: <strong>0912 738 062</strong> - <strong>0901 234 567</strong>.
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="mt-4 p-3 border-start border-primary border-4 bg-light rounded-3 small text-muted">
+                    ℹ️ <em>Lưu ý: Đối với các sản phẩm thực phẩm lên men tươi như tôm chua hay tré, quý khách vui lòng kiểm tra niêm phong bưu phẩm khi đồng kiểm cùng bưu tá giao hàng để được hỗ trợ giải quyết nhanh chóng nhất.</em>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- =========================================================================
+         KHU VỰC 3: SẢN PHẨM LIÊN QUAN CÙNG DANH MỤC
+         ========================================================================= -->
+    @if (ViewBag.RelatedProducts is IEnumerable<EcommerceHue.Models.Product> relatedList && relatedList.Any())
+    {
+        <div class="mt-5">
+            <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+                <h3 class="h5 fw-bold text-dark mb-0">
+                    <span class="border-start border-warning border-4 ps-2">
+                        Đặc Sản Cùng Danh Mục
+                    </span>
+                </h3>
+                <a asp-controller="Home" asp-action="Index" asp-route-categoryId="@Model.CategoryId" class="btn btn-sm btn-outline-warning text-dark fw-semibold rounded-pill px-3">
+                    Xem tất cả &rarr;
+                </a>
+            </div>
+
+            <div class="row row-cols-1 row-cols-sm-2 row-cols-md-4 g-3">
+                @foreach (var rel in relatedList)
+                {
+                    <div class="col">
+                        <div class="card h-100 rounded-4 border-0 shadow-xs overflow-hidden hue-product-card">
+                            <a asp-controller="Product" asp-action="Detail" asp-route-id="@rel.Id" class="text-decoration-none">
+                                <div class="ratio ratio-1x1 bg-light">
+                                    <img src="@(rel.ImageUrl ?? "/images/placeholder.jpg")"
+                                         alt="@rel.Name"
+                                         class="img-fluid object-fit-cover w-100 h-100"
+                                         onerror="this.src='/images/placeholder.jpg'" />
+                                </div>
+                            </a>
+                            <div class="card-body p-3 d-flex flex-column">
+                                <a asp-controller="Product" asp-action="Detail" asp-route-id="@rel.Id" class="text-decoration-none text-dark">
+                                    <h4 class="h6 fw-bold mb-1 text-truncate" title="@rel.Name">@rel.Name</h4>
+                                </a>
+                                <div class="fw-bold text-danger fs-6 mb-2">
+                                    @rel.Price.ToString("N0") ₫
+                                </div>
+                                <div class="mt-auto">
+                                    <a asp-controller="Product" asp-action="Detail" asp-route-id="@rel.Id" class="btn btn-sm btn-outline-secondary w-100 rounded-pill">
+                                        Xem chi tiết
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+</div>
+
+@section Scripts {
+<script>
+    // Điều chỉnh số lượng sản phẩm (+ / -)
+    function changeQuantity(delta) {
+        const input = document.getElementById('productQuantity');
+        if (!input) return;
+        let current = parseInt(input.value) || 1;
+        const max = parseInt(input.getAttribute('max')) || 999;
+        const min = parseInt(input.getAttribute('min')) || 1;
+
+        current += delta;
+        if (current < min) current = min;
+        if (current > max) current = max;
+
+        input.value = current;
+    }
+
+    // Thêm vào giỏ hàng qua AJAX
+    async function addToCartDetail(productId) {
+        const btn = document.getElementById('btn-detail-add-cart');
+        const qtyInput = document.getElementById('productQuantity');
+        const quantity = qtyInput ? (parseInt(qtyInput.value) || 1) : 1;
+
+        if (btn) {
+            btn.disabled = true;
+            btn.querySelector('.btn-text').classList.add('d-none');
+            btn.querySelector('.btn-spinner').classList.remove('d-none');
+        }
+
+        try {
+            const formData = new URLSearchParams();
+            formData.append('productId', productId);
+            formData.append('quantity', quantity);
+
+            const response = await fetch('/Cart/AddToCart', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData.toString()
+            });
+
+            if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+
+            const data = await response.json();
+
+            if (data.success) {
+                if (typeof showToast === 'function') {
+                    showToast(data.message, 'success');
+                } else {
+                    alert(data.message);
+                }
+                if (typeof updateNavCartBadge === 'function') {
+                    updateNavCartBadge(data.cartCount);
+                }
+            } else {
+                if (typeof showToast === 'function') {
+                    showToast(data.message, 'warning');
+                } else {
+                    alert(data.message);
+                }
+            }
+        } catch (err) {
+            console.error('[AddToCartDetail Error]:', err);
+            if (typeof showToast === 'function') {
+                showToast('Không thể thêm vào giỏ. Vui lòng thử lại!', 'error');
+            } else {
+                alert('Có lỗi xảy ra. Vui lòng thử lại!');
+            }
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.querySelector('.btn-text').classList.remove('d-none');
+                btn.querySelector('.btn-spinner').classList.add('d-none');
+            }
+        }
+    }
+
+    // Mua ngay: Thêm vào giỏ hàng và chuyển hướng thẳng sang trang Checkout
+    async function buyNowDetail(productId) {
+        await addToCartDetail(productId);
+        window.location.href = '/Cart/Checkout';
+    }
+</script>
+}
+
+<style>
+    .hue-title-primary {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        color: #5a1f00;
+        letter-spacing: .2px;
+    }
+
+    .hue-product-detail-img {
+        max-height: 420px;
+        object-fit: cover;
+        transition: transform .3s ease;
+    }
+
+    .hue-product-detail-img:hover {
+        transform: scale(1.03);
+    }
+
+    .hue-product-tabs .nav-link {
+        color: #666;
+        border: none;
+        border-bottom: 3px solid transparent;
+        font-size: 0.92rem;
+        letter-spacing: .5px;
+        transition: all .2s ease;
+    }
+
+    .hue-product-tabs .nav-link:hover {
+        color: #8b3012;
+        background-color: #faf7f2;
+    }
+
+    .hue-product-tabs .nav-link.active {
+        color: #8b3012 !important;
+        border-color: #ffd700 !important;
+        background-color: transparent !important;
+        border-bottom-width: 3.5px !important;
+    }
+
+    .hue-btn-cart-main {
+        background: linear-gradient(135deg, #ffd700 0%, #ffc107 100%);
+        border: none;
+        transition: all .2s;
+    }
+
+    .hue-btn-cart-main:hover {
+        background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+        transform: translateY(-2px);
+    }
+
+    .hue-barcode-strip {
+        background: #ffffff;
+        border: 1px solid #ddd;
+        padding: 4px 8px;
+        border-radius: 6px;
+        display: inline-block;
+    }
+</style>

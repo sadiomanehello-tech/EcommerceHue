@@ -81,13 +81,16 @@ public class CartController(
     /// - cartCount: tổng số lượng sản phẩm trong giỏ (cập nhật badge navbar)
     /// </summary>
     /// <param name="productId">Id sản phẩm cần thêm</param>
+    /// <param name="quantity">Số lượng cần thêm (mặc định 1)</param>
     [HttpPost]
     [IgnoreAntiforgeryToken]   // AJAX gửi header X-Requested-With thay thế CSRF token
-    public async Task<IActionResult> AddToCart(int productId)
+    public async Task<IActionResult> AddToCart(int productId, int quantity = 1)
     {
         // Kiểm tra yêu cầu đến từ AJAX (bảo vệ cơ bản chống CSRF)
         if (Request.Headers["X-Requested-With"] != "XMLHttpRequest")
             return BadRequest(new { success = false, message = "Yêu cầu không hợp lệ." });
+
+        if (quantity < 1) quantity = 1;
 
         // Truy vấn sản phẩm từ DB (AsNoTracking vì chỉ đọc)
         var product = await context.Products
@@ -103,7 +106,7 @@ public class CartController(
         if (existingItem is not null)
         {
             // Kiểm tra ràng buộc tồn kho trước khi tăng số lượng
-            if (existingItem.Quantity >= product.StockQuantity)
+            if (existingItem.Quantity + quantity > product.StockQuantity)
                 return Json(new
                 {
                     success   = false,
@@ -111,20 +114,20 @@ public class CartController(
                     cartCount = cart.Sum(i => i.Quantity)
                 });
 
-            existingItem.Quantity++;
+            existingItem.Quantity += quantity;
         }
         else
         {
             // Kiểm tra tồn kho lần đầu thêm vào giỏ
-            if (product.StockQuantity <= 0)
-                return Json(new { success = false, message = $"Sản phẩm '{product.Name}' đã hết hàng." });
+            if (product.StockQuantity < quantity)
+                return Json(new { success = false, message = $"Số lượng yêu cầu ({quantity}) vượt quá tồn kho ({product.StockQuantity})." });
 
             cart.Add(new CartItem
             {
                 ProductId   = product.Id,
                 ProductName = product.Name,
                 Price       = product.Price,
-                Quantity    = 1,
+                Quantity    = quantity,
                 ImageUrl    = product.ImageUrl
             });
         }
@@ -135,7 +138,7 @@ public class CartController(
         return Json(new
         {
             success   = true,
-            message   = $"✅ Đã thêm '{product.Name}' vào giỏ hàng!",
+            message   = $"✅ Đã thêm {quantity} '{product.Name}' vào giỏ hàng!",
             cartCount = newCount
         });
     }

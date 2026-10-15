@@ -195,10 +195,12 @@
 
                             <!-- Ảnh sản phẩm & Badge -->
                             <div class="hue-product-img-wrap position-relative">
-                                <img src="@(product.ImageUrl ?? "/images/placeholder.jpg")"
-                                     alt="@product.Name"
-                                     class="hue-product-img w-100"
-                                     onerror="this.src='/images/placeholder.jpg'" />
+                                <a asp-controller="Product" asp-action="Detail" asp-route-id="@product.Id" class="d-block overflow-hidden">
+                                    <img src="@(product.ImageUrl ?? "/images/placeholder.jpg")"
+                                         alt="@product.Name"
+                                         class="hue-product-img w-100"
+                                         onerror="this.src='/images/placeholder.jpg'" />
+                                </a>
 
                                 <!-- Badge danh mục -->
                                 <span class="position-absolute top-0 start-0 m-2 badge bg-dark bg-opacity-75 rounded-pill px-2 py-1 small">
@@ -224,7 +226,9 @@
 
                                 <!-- Tên sản phẩm -->
                                 <h3 class="h6 fw-bold mb-1 hue-product-name" title="@product.Name">
-                                    @product.Name
+                                    <a asp-controller="Product" asp-action="Detail" asp-route-id="@product.Id" class="text-decoration-none text-dark hover-warning">
+                                        @product.Name
+                                    </a>
                                 </h3>
 
                                 <!-- Mô tả ngắn -->

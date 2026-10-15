@@ -247,10 +247,113 @@
          TOAST CONTAINER – hiển thị thông báo góc dưới phải toàn trang
          ================================================================ -->
     <div id="hue-toast-container"
-         class="toast-container position-fixed bottom-0 end-0 p-3"
-         style="z-index: 1080;"
+         class="toast-container position-fixed end-0 p-3"
+         style="z-index: 1080; bottom: 90px;"
          aria-live="polite"
          aria-atomic="true">
+    </div>
+
+    <!-- ================================================================
+         KHỐI BONG BÓNG LIÊN HỆ ĐA KÊNH (MULTI-CHANNEL CHAT BUBBLES)
+         ================================================================ -->
+    <div id="hue-multi-chat-container" class="hue-multi-chat-container" aria-label="Kênh hỗ trợ trực tuyến">
+        
+        <!-- Nút 1: Zalo Chat Cá Nhân -->
+        <a href="https://zalo.me/0912738062"
+           target="_blank"
+           rel="noopener noreferrer"
+           class="zalo-chat-button hue-chat-bubble hue-bubble-zalo"
+           title="Chat tư vấn qua Zalo (0912 738 062)"
+           aria-label="Liên hệ tư vấn qua Zalo">
+            <svg class="hue-bubble-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="24" cy="24" r="24" fill="#0068FF"/>
+                <path d="M13 18C13 14.6863 15.6863 12 19 12H29C32.3137 12 35 14.6863 35 18V26C35 29.3137 32.3137 32 29 32H24.5L19 36V32H19C15.6863 32 13 29.3137 13 26V18Z" fill="white"/>
+                <path d="M17 19.5H23L18.5 25.5H24V27.5H17V25.5L21.5 19.5H17V19.5Z" fill="#0068FF"/>
+                <circle cx="27" cy="23.5" r="1.5" fill="#0068FF"/>
+                <circle cx="31.5" cy="23.5" r="1.5" fill="#0068FF"/>
+            </svg>
+            <span class="hue-bubble-tooltip">Chat Zalo: 0912 738 062</span>
+        </a>
+
+        <!-- Nút 2: Facebook Messenger / Chatbot Giả Lập Thông Minh -->
+        <button type="button"
+                id="btn-toggle-chatbot"
+                class="hue-chat-bubble hue-bubble-messenger"
+                title="Tư vấn trực tuyến 24/7"
+                aria-label="Mở khung trò chuyện hỗ trợ">
+            <!-- Icon Messenger SVG -->
+            <svg class="hue-bubble-icon" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M14 2C7.37 2 2 7.04 2 13.25C2 16.8 3.73 19.95 6.44 21.98V26L10.3 23.88C11.47 24.28 12.71 24.5 14 24.5C20.63 24.5 26 19.46 26 13.25C26 7.04 20.63 2 14 2ZM15.4 17.2L12.35 13.95L6.4 17.2L12.95 10.25L16.05 13.5L21.95 10.25L15.4 17.2Z" fill="white"/>
+            </svg>
+            <!-- Chấm báo online xanh -->
+            <span class="hue-bubble-badge-online" title="Đang trực tuyến"></span>
+            <span class="hue-bubble-tooltip">Tư vấn 24/7</span>
+        </button>
+
+    </div>
+
+    <!-- ================================================================
+         CỬA SỔ CHATBOT GIẢ LẬP THÔNG MINH (INTERACTIVE CHATBOT WINDOW)
+         ================================================================ -->
+    <div id="hue-chatbot-window" class="hue-chatbot-window d-none" aria-hidden="true">
+        
+        <!-- Header Chatbot -->
+        <div class="hue-chatbot-header">
+            <div class="d-flex align-items-center gap-2">
+                <div class="position-relative">
+                    <div class="hue-bot-avatar">🏮</div>
+                    <span class="hue-bot-status-dot" title="Đang trực tuyến"></span>
+                </div>
+                <div>
+                    <div class="hue-bot-title">Trợ Lý Ẩm Thực Cố Đô</div>
+                    <div class="hue-bot-status-text">● Trực tuyến · Phản hồi tức thì</div>
+                </div>
+            </div>
+            <button type="button" id="btn-close-chatbot" class="hue-btn-chat-close" title="Đóng cửa sổ chat" aria-label="Đóng">
+                ✕
+            </button>
+        </div>
+
+        <!-- Body Chatbot (Khu vực tin nhắn) -->
+        <div id="hue-chatbot-body" class="hue-chatbot-body">
+            <!-- Tin nhắn chào mừng ban đầu -->
+            <div class="hue-msg hue-msg-bot">
+                <div class="hue-msg-bubble">
+                    Xin chào! Đặc sản xứ Huế - <strong>EcommerceHue</strong> có thể giúp gì cho bạn? 🏮
+                </div>
+                <div class="hue-msg-time">Vừa xong</div>
+            </div>
+
+            <!-- 3 Nút gợi ý câu hỏi nhanh -->
+            <div id="hue-quick-questions" class="hue-quick-questions my-2">
+                <div class="hue-quick-title text-muted mb-2 small fw-semibold">💡 Gợi ý câu hỏi nhanh:</div>
+                <button type="button" class="hue-btn-quick" data-question="1">
+                    🚚 Phí vận chuyển và thời gian giao đặc sản Huế là bao lâu?
+                </button>
+                <button type="button" class="hue-btn-quick" data-question="2">
+                    💳 Cách thức thanh toán đơn hàng như thế nào?
+                </button>
+                <button type="button" class="hue-btn-quick" data-question="3">
+                    🎁 Mã giảm giá đơn hàng đầu tiên lấy ở đâu?
+                </button>
+            </div>
+        </div>
+
+        <!-- Footer Chatbot (Ô nhập liệu câu hỏi) -->
+        <div class="hue-chatbot-footer">
+            <form id="hue-chatbot-form" class="d-flex align-items-center gap-2 m-0" onsubmit="return false;">
+                <input type="text"
+                       id="hue-chatbot-input"
+                       class="form-control hue-chat-input"
+                       placeholder="Nhập câu hỏi của bạn..."
+                       autocomplete="off" />
+                <button type="submit" id="btn-send-chat" class="btn btn-warning hue-btn-send" title="Gửi tin nhắn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                    </svg>
+                </button>
+            </form>
+        </div>
     </div>
 
     <script>
@@ -408,6 +511,151 @@
             });
         }
     });
+
+    // ====================================================================
+    // MULTI-CHANNEL CHAT & INTELLIGENT CHATBOT CONTROLLER
+    // ====================================================================
+    document.addEventListener('DOMContentLoaded', function () {
+        const btnToggleChat = document.getElementById('btn-toggle-chatbot');
+        const btnCloseChat = document.getElementById('btn-close-chatbot');
+        const chatWindow = document.getElementById('hue-chatbot-window');
+        const chatBody = document.getElementById('hue-chatbot-body');
+        const chatInput = document.getElementById('hue-chatbot-input');
+        const chatForm = document.getElementById('hue-chatbot-form');
+        const quickQuestions = document.querySelectorAll('.hue-btn-quick');
+
+        // Các kịch bản trả lời tự động chuẩn theo yêu cầu
+        const botAnswers = {
+            1: 'Hệ thống áp dụng chính sách giao nhận 2 cấp mới sáp nhập. Thời gian giao nội thành Huế là 24h, các tỉnh thành khác từ 2-3 ngày ạ! 🚚',
+            2: 'Shop hỗ trợ chuyển khoản VietQR gạch nợ tự động qua BIDV và ship COD nhận hàng trả tiền nhé! 💳',
+            3: 'Bạn chỉ cần nhập Email vào ô Đăng ký nhận bản tin ở chân trang, hệ thống sẽ tự động gửi mã HUEDACSAN10 giảm 10% vào Gmail của bạn ngay lập tức! 🎁'
+        };
+
+        // Bật / Tắt cửa sổ Chat
+        function toggleChatbot() {
+            if (!chatWindow) return;
+            const isHidden = chatWindow.classList.contains('d-none');
+            if (isHidden) {
+                chatWindow.classList.remove('d-none');
+                chatWindow.setAttribute('aria-hidden', 'false');
+                if (chatInput) chatInput.focus();
+                scrollToBottom();
+            } else {
+                chatWindow.classList.add('d-none');
+                chatWindow.setAttribute('aria-hidden', 'true');
+            }
+        }
+
+        if (btnToggleChat) btnToggleChat.addEventListener('click', toggleChatbot);
+        if (btnCloseChat) btnCloseChat.addEventListener('click', toggleChatbot);
+
+        // Cuộn xuống tin nhắn mới nhất
+        function scrollToBottom() {
+            if (chatBody) {
+                chatBody.scrollTop = chatBody.scrollHeight;
+            }
+        }
+
+        // Thêm tin nhắn của Khách hàng
+        function appendUserMessage(text) {
+            const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const msgHtml = `
+                <div class="hue-msg hue-msg-user">
+                    <div class="hue-msg-bubble">${escapeHtml(text)}</div>
+                    <div class="hue-msg-time text-end">${timeStr}</div>
+                </div>
+            `;
+            chatBody.insertAdjacentHTML('beforeend', msgHtml);
+            scrollToBottom();
+        }
+
+        // Hiển thị hiệu ứng Bot đang gõ tin nhắn (Typing indicator)
+        function showTypingIndicator() {
+            const typingHtml = `
+                <div id="hue-typing-indicator" class="hue-msg hue-msg-bot">
+                    <div class="hue-msg-bubble hue-typing-dots">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+            `;
+            chatBody.insertAdjacentHTML('beforeend', typingHtml);
+            scrollToBottom();
+        }
+
+        function removeTypingIndicator() {
+            const typing = document.getElementById('hue-typing-indicator');
+            if (typing) typing.remove();
+        }
+
+        // Thêm tin nhắn trả lời của Bot
+        function appendBotMessage(text) {
+            removeTypingIndicator();
+            const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const msgHtml = `
+                <div class="hue-msg hue-msg-bot">
+                    <div class="hue-msg-bubble">${text}</div>
+                    <div class="hue-msg-time">${timeStr}</div>
+                </div>
+            `;
+            chatBody.insertAdjacentHTML('beforeend', msgHtml);
+            scrollToBottom();
+        }
+
+        // Xử lý khi bấm nút câu hỏi gợi ý nhanh
+        quickQuestions.forEach(btn => {
+            btn.addEventListener('click', function () {
+                const qId = this.getAttribute('data-question');
+                const userQuestionText = this.innerText.replace(/^[^\s]+\s/, ''); // Bỏ icon đầu
+                appendUserMessage(userQuestionText);
+
+                showTypingIndicator();
+                setTimeout(() => {
+                    const answer = botAnswers[qId] || 'Dạ, Quý khách vui lòng để lại số điện thoại hoặc liên hệ Hotline 0901 234 567 để được hỗ trợ chu đáo nhất ạ!';
+                    appendBotMessage(answer);
+                }, 550);
+            });
+        });
+
+        // Xử lý khi người dùng gõ tin nhắn tự do
+        function handleUserSubmit() {
+            if (!chatInput) return;
+            const text = chatInput.value.trim();
+            if (!text) return;
+
+            appendUserMessage(text);
+            chatInput.value = '';
+
+            // Phân tích từ khóa thông minh
+            showTypingIndicator();
+            setTimeout(() => {
+                const lower = text.toLowerCase();
+                let reply = '';
+                if (lower.includes('vận chuyển') || lower.includes('ship') || lower.includes('giao hàng') || lower.includes('bao lâu') || lower.includes('thời gian')) {
+                    reply = botAnswers[1];
+                } else if (lower.includes('thanh toán') || lower.includes('vietqr') || lower.includes('bidv') || lower.includes('cod') || lower.includes('chuyển khoản')) {
+                    reply = botAnswers[2];
+                } else if (lower.includes('giảm giá') || lower.includes('mã') || lower.includes('coupon') || lower.includes('voucher') || lower.includes('10%')) {
+                    reply = botAnswers[3];
+                } else {
+                    reply = 'Cảm ơn Quý khách đã gửi tin nhắn! Ngoài các câu hỏi thường gặp, Quý khách có thể gọi Hotline <strong>0901 234 567</strong> hoặc bấm nút Zalo bên cạnh để chuyên viên ẩm thực Huế tư vấn trực tiếp 24/7 ạ! 🏮';
+                }
+                appendBotMessage(reply);
+            }, 550);
+        }
+
+        if (chatForm) {
+            chatForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                handleUserSubmit();
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    });
     </script>
 
     <style>
@@ -557,6 +805,360 @@
         @@keyframes hueFadeIn {
             from { opacity: 0; transform: translateY(-6px); }
             to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ================================================================
+           MULTI-CHANNEL CHAT BUBBLES & CHATBOT STYLES
+           ================================================================ */
+        .hue-multi-chat-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1070;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .hue-chat-bubble {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.22);
+            cursor: pointer;
+            transition: all .25s cubic-bezier(.175,.885,.32,1.275);
+            position: relative;
+            border: none;
+            outline: none;
+            padding: 0;
+            text-decoration: none;
+        }
+
+        .hue-chat-bubble:hover {
+            transform: scale(1.12);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.32);
+        }
+
+        .hue-bubble-icon {
+            width: 32px;
+            height: 32px;
+            display: block;
+        }
+
+        .zalo-chat-button,
+        .hue-bubble-zalo {
+            background: #0068ff;
+            animation: hueZaloPulseShake 3s infinite;
+        }
+
+        @@keyframes hueZaloPulseShake {
+            0%, 100% {
+                transform: scale(1) rotate(0deg);
+                box-shadow: 0 0 0 0 rgba(0, 104, 255, 0.6), 0 4px 18px rgba(0,0,0,0.22);
+            }
+            8%, 24% {
+                transform: scale(1.06) rotate(-5deg);
+            }
+            16%, 32% {
+                transform: scale(1.06) rotate(5deg);
+            }
+            40% {
+                transform: scale(1) rotate(0deg);
+                box-shadow: 0 0 0 14px rgba(0, 104, 255, 0), 0 4px 18px rgba(0,0,0,0.22);
+            }
+            60% {
+                box-shadow: 0 0 0 0 rgba(0, 104, 255, 0), 0 4px 18px rgba(0,0,0,0.22);
+            }
+        }
+
+        .hue-bubble-messenger {
+            background: linear-gradient(135deg, #0084ff 0%, #a033ff 50%, #ff5277 100%);
+            animation: hueBubblePulse 2.8s infinite;
+        }
+
+        .hue-bubble-badge-online {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 13px;
+            height: 13px;
+            background-color: #22c55e;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+        }
+
+        .hue-bubble-tooltip {
+            position: absolute;
+            right: 62px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(30, 20, 15, 0.9);
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 5px 10px;
+            border-radius: 6px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .2s ease, transform .2s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+        }
+
+        .hue-chat-bubble:hover .hue-bubble-tooltip {
+            opacity: 1;
+            transform: translateY(-50%) translateX(-4px);
+        }
+
+        @@keyframes hueBubblePulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(0, 132, 255, 0.55), 0 4px 18px rgba(0,0,0,0.22);
+            }
+            70% {
+                box-shadow: 0 0 0 14px rgba(0, 132, 255, 0), 0 4px 18px rgba(0,0,0,0.22);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(0, 132, 255, 0), 0 4px 18px rgba(0,0,0,0.22);
+            }
+        }
+
+        /* --- CỬA SỔ CHATBOT --- */
+        .hue-chatbot-window {
+            position: fixed;
+            bottom: 86px;
+            right: 20px;
+            width: 360px;
+            max-width: calc(100vw - 32px);
+            height: 500px;
+            max-height: calc(100vh - 110px);
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 12px 36px rgba(0,0,0,0.25);
+            border: 1px solid #ebdccb;
+            z-index: 1090;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: hueChatSlideUp .28s cubic-bezier(.16,1,.3,1);
+        }
+
+        @@keyframes hueChatSlideUp {
+            from { opacity: 0; transform: translateY(18px) scale(0.96); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .hue-chatbot-header {
+            background: linear-gradient(135deg, #5a1f00 0%, #8b3012 100%);
+            color: #ffffff;
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 2px solid #ffd700;
+        }
+
+        .hue-bot-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: rgba(255, 215, 0, 0.2);
+            border: 2px solid #ffd700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .hue-bot-status-dot {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 10px;
+            height: 10px;
+            background-color: #22c55e;
+            border: 2px solid #5a1f00;
+            border-radius: 50%;
+        }
+
+        .hue-bot-title {
+            font-weight: 700;
+            font-size: 14.5px;
+            letter-spacing: .3px;
+        }
+
+        .hue-bot-status-text {
+            font-size: 11.5px;
+            color: #ffd700;
+        }
+
+        .hue-btn-chat-close {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.85);
+            font-size: 18px;
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all .2s;
+        }
+
+        .hue-btn-chat-close:hover {
+            background: rgba(255,255,255,0.2);
+            color: #ffd700;
+        }
+
+        .hue-chatbot-body {
+            flex: 1;
+            padding: 14px 14px;
+            overflow-y: auto;
+            background: #faf7f2;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .hue-msg {
+            max-width: 86%;
+            display: flex;
+            flex-direction: column;
+            animation: hueFadeIn .2s ease;
+        }
+
+        .hue-msg-bot {
+            align-self: flex-start;
+        }
+
+        .hue-msg-user {
+            align-self: flex-end;
+        }
+
+        .hue-msg-bubble {
+            padding: 10px 14px;
+            border-radius: 14px;
+            font-size: 13.5px;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+
+        .hue-msg-bot .hue-msg-bubble {
+            background: #ffffff;
+            color: #2d3748;
+            border: 1px solid #ebdccb;
+            border-bottom-left-radius: 3px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+        }
+
+        .hue-msg-user .hue-msg-bubble {
+            background: linear-gradient(135deg, #7b2a00 0%, #9e3713 100%);
+            color: #ffffff;
+            border-bottom-right-radius: 3px;
+            box-shadow: 0 2px 6px rgba(123,42,0,0.25);
+        }
+
+        .hue-msg-time {
+            font-size: 10.5px;
+            color: #9ca3af;
+            margin-top: 3px;
+            padding: 0 4px;
+        }
+
+        /* Nút câu hỏi gợi ý nhanh */
+        .hue-quick-questions {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .hue-btn-quick {
+            text-align: left;
+            background: #ffffff;
+            border: 1px solid #f0caa3;
+            color: #7b2a00;
+            border-radius: 20px;
+            padding: 7px 12px;
+            font-size: 12.5px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all .2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+            line-height: 1.4;
+        }
+
+        .hue-btn-quick:hover {
+            background: #fff4ea;
+            border-color: #d97706;
+            color: #b45309;
+            transform: translateX(3px);
+        }
+
+        /* Typing Dots */
+        .hue-typing-dots {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 12px !important;
+        }
+
+        .hue-typing-dots span {
+            width: 7px;
+            height: 7px;
+            background: #9ca3af;
+            border-radius: 50%;
+            animation: hueDotBounce 1.4s infinite ease-in-out;
+        }
+
+        .hue-typing-dots span:nth-child(2) { animation-delay: .2s; }
+        .hue-typing-dots span:nth-child(3) { animation-delay: .4s; }
+
+        @@keyframes hueDotBounce {
+            0%, 80%, 100% { transform: scale(0); opacity: .4; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Footer Input */
+        .hue-chatbot-footer {
+            padding: 10px 12px;
+            background: #ffffff;
+            border-top: 1px solid #ebdccb;
+        }
+
+        .hue-chat-input {
+            border-radius: 20px !important;
+            font-size: 13.5px;
+            border: 1px solid #e2d3be !important;
+            padding: .45rem .9rem;
+        }
+
+        .hue-chat-input:focus {
+            border-color: #b45309 !important;
+            box-shadow: 0 0 0 .2rem rgba(180,83,9,.15) !important;
+        }
+
+        .hue-btn-send {
+            border-radius: 50% !important;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 !important;
+            flex-shrink: 0;
+            background-color: #ffd700;
+            border-color: #ffd700;
+            color: #5a1f00;
+        }
+
+        .hue-btn-send:hover {
+            background-color: #ffc107;
+            border-color: #ffc107;
         }
     </style>
 </body>
