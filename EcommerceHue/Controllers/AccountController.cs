@@ -323,6 +323,11 @@ public class AccountController(
         // Xóa Cookie xác thực
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
 
+        // Xóa sạch trạng thái phiên Session phân quyền
+        HttpContext.Session.Remove("IsAdmin");
+        HttpContext.Session.Remove("IsShipper");
+        HttpContext.Session.Remove("Role");
+
         logger.LogInformation("Khách hàng đã đăng xuất: {Username}", username);
 
         TempData["Success"] = "Bạn đã đăng xuất thành công. Hẹn gặp lại!";
@@ -345,22 +350,60 @@ public class AccountController(
 
     /// <summary>
     /// Tạo danh sách Claims chứa thông tin cá nhân và gọi SignInAsync
-    /// để ghi Cookie xác thực cho khách hàng.
+    /// để ghi Cookie xác thực cho khách hàng, đồng thời cấp Role phân quyền RBAC.
     /// </summary>
     private async Task SignInCustomerAsync(Customer customer, bool isPersistent)
     {
+        // Xác định Role phân quyền hệ thống (RBAC):
+        // 1. Admin: Nếu email hoặc username chứa 'admin' hoặc email chủ cửa hàng
+        // 2. Shipper: Nếu email hoặc username chứa 'shipper'
+        // 3. Customer: Khách hàng mua sắm thông thường
+        string role = "Customer";
+        var lowerEmail = (customer.Email ?? string.Empty).ToLowerInvariant();
+        var lowerUsername = (customer.Username ?? string.Empty).ToLowerInvariant();
+
+        if (lowerEmail.Contains("admin") || lowerUsername.Contains("admin") || lowerEmail == "sadiomanehello@gmail.com")
+        {
+            role = "Admin";
+        }
+        else if (lowerEmail.Contains("shipper") || lowerUsername.Contains("shipper"))
+        {
+            role = "Shipper";
+        }
+
         var claims = new List<Claim>
         {
             // Claims chuẩn
             new(ClaimTypes.NameIdentifier, customer.Id.ToString()),
-            new(ClaimTypes.Name,           customer.Username),
+            new(ClaimTypes.Name,           customer.Username ?? string.Empty),
+
+            // Claim phân quyền bảo mật quan trọng (Role-Based Access Control)
+            new(ClaimTypes.Role,           role),
 
             // Claims thông tin cá nhân – dùng để tự động điền form Checkout
-            new("FullName",    customer.FullName),
-            new(ClaimTypes.Email,        customer.Email),
-            new("PhoneNumber", customer.PhoneNumber),
-            new("Address",     customer.Address)
+            new("FullName",    customer.FullName ?? string.Empty),
+            new(ClaimTypes.Email,        customer.Email ?? string.Empty),
+            new("PhoneNumber", customer.PhoneNumber ?? string.Empty),
+            new("Address",     customer.Address ?? string.Empty)
         };
+
+        // Lưu thông tin Role vào Session dự phòng
+        if (role == "Admin")
+        {
+            HttpContext.Session.SetString("IsAdmin", "true");
+            HttpContext.Session.SetString("Role", "Admin");
+        }
+        else if (role == "Shipper")
+        {
+            HttpContext.Session.SetString("IsShipper", "true");
+            HttpContext.Session.SetString("Role", "Shipper");
+        }
+        else
+        {
+            HttpContext.Session.Remove("IsAdmin");
+            HttpContext.Session.Remove("IsShipper");
+            HttpContext.Session.SetString("Role", "Customer");
+        }
 
         var identity  = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);

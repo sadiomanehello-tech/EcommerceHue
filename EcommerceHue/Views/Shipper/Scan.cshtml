@@ -367,9 +367,12 @@
                     <span class="fw-bold small text-secondary">
                         📋 KIỆN ĐÃ TIẾP NHẬN HÔM NAY (<span id="scanCount">0</span>)
                     </span>
-                    <a href="/Admin/Orders" class="small text-decoration-none text-primary" style="font-size: 11px;">
-                        Về Quản Trị Admin ➜
-                    </a>
+                    @if (User.IsInRole("Admin"))
+                    {
+                        <a href="/Admin/Orders" class="small text-decoration-none text-primary" style="font-size: 11px;">
+                            Về Quản Trị Admin ➜
+                        </a>
+                    }
                 </div>
                 <div id="historyContainer">
                     <div class="text-center text-muted py-3 small" id="historyEmptyText">

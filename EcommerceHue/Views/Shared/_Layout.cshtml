@@ -73,11 +73,22 @@
                                             🛒 Tiếp tục thanh toán
                                         </a>
                                     </li>
-                                    <li>
-                                        <a class="dropdown-item fw-semibold text-primary" href="/Admin/Orders">
-                                            📋 Quản lý đơn hàng (Admin)
-                                        </a>
-                                    </li>
+                                    @if (User.IsInRole("Admin"))
+                                    {
+                                        <li>
+                                            <a class="dropdown-item fw-semibold text-primary" href="/Admin/Orders">
+                                                📋 Quản lý đơn hàng (Admin)
+                                            </a>
+                                        </li>
+                                    }
+                                    @if (User.IsInRole("Admin") || User.IsInRole("Shipper"))
+                                    {
+                                        <li>
+                                            <a class="dropdown-item fw-semibold text-warning-emphasis" href="/Shipper/Scan" target="_blank">
+                                                🛵 App Shipper Quét Mã
+                                            </a>
+                                        </li>
+                                    }
                                     <li><hr class="dropdown-divider m-1" /></li>
                                     <li>
                                         <!-- Đăng xuất dùng POST để bảo vệ CSRF -->

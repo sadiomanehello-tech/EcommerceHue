@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using EcommerceHue.Data;
 using EcommerceHue.Models;
 using EcommerceHue.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,8 +17,10 @@ public sealed class ScanBarcodeRequest
 }
 
 /// <summary>
-/// Phân hệ điều phối & quét nhận kiện hàng dành cho Shipper Giao Hàng Nhanh (GHN)
+/// Phân hệ điều phối & quét nhận kiện hàng dành riêng cho Shipper GHN và Quản trị viên (Admin).
+/// Bảo vệ nghiêm ngặt bằng phân quyền RBAC: Chỉ tài khoản Role "Admin" hoặc "Shipper" mới có quyền truy cập.
 /// </summary>
+[Authorize(Roles = "Admin,Shipper")]
 public sealed class ShipperController(
     EcommerceContext context,
     IEmailService emailService,

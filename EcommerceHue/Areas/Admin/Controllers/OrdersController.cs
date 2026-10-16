@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using EcommerceHue.Data;
@@ -6,10 +7,11 @@ using EcommerceHue.Models;
 namespace EcommerceHue.Areas.Admin.Controllers;
 
 /// <summary>
-/// Phân hệ Quản trị đơn hàng dành cho người bán (Admin).
-/// Hỗ trợ duyệt danh sách đơn, xem chi tiết đóng gói và cập nhật tiến độ vận chuyển.
+/// Phân hệ Quản trị đơn hàng dành riêng cho người bán / Quản trị viên (Admin).
+/// Bảo vệ nghiêm ngặt bằng phân quyền RBAC: Chỉ tài khoản Role = "Admin" mới có quyền truy cập.
 /// </summary>
 [Area("Admin")]
+[Authorize(Roles = "Admin")]
 [Route("Admin/[controller]/[action]")]
 public class OrdersController(
     EcommerceContext context,
@@ -20,24 +22,53 @@ public class OrdersController(
     // =========================================================================
 
     /// <summary>
-    /// Hiển thị toàn bộ danh sách đơn hàng từ CSDL, sắp xếp mới nhất lên đầu.
+    /// Hiển thị danh sách đơn hàng từ CSDL có hỗ trợ bộ lọc theo ngày đặt và trạng thái xử lý.
+    /// Sắp xếp mặc định đơn mới nhất lên đầu.
     /// </summary>
+    /// <param name="filterDate">Ngày đặt hàng cần lọc</param>
+    /// <param name="filterStatus">Mã trạng thái đơn hàng (0: Chờ thanh toán, 1: Đã thanh toán, 3: Đang giao...)</param>
     [HttpGet]
     [Route("/Admin/Orders")]
     [Route("/Admin/Orders/Index")]
     [Route("Admin/[controller]")]
     [Route("Admin/[controller]/[action]")]
-    public async Task<IActionResult> Index()
+    public async Task<IActionResult> Index(DateTime? filterDate, int? filterStatus)
     {
-        // Kéo toàn bộ danh sách đơn hàng từ Database và sắp xếp đơn mới nhất lên đầu
-        var orders = await context.Orders
-            .AsNoTracking()
+        var query = context.Orders.AsNoTracking().AsQueryable();
+
+        // 1. Lọc theo ngày đặt hàng nếu có chọn ngày
+        if (filterDate.HasValue)
+        {
+            var targetDate = filterDate.Value.Date;
+            // Xử lý múi giờ Việt Nam (UTC+7): bao phủ cả ngày đặt theo giờ địa phương và UTC
+            var startUtc = targetDate.AddHours(-7);
+            var endUtc = startUtc.AddDays(1);
+
+            query = query.Where(o => (o.CreatedAt >= startUtc && o.CreatedAt < endUtc) || o.CreatedAt.Date == targetDate);
+        }
+
+        // 2. Lọc theo trạng thái đơn hàng nếu có chọn trạng thái
+        if (filterStatus.HasValue && filterStatus.Value >= 0)
+        {
+            query = query.Where(o => (int)o.Status == filterStatus.Value);
+        }
+
+        // 3. Mặc định luôn sắp xếp đơn hàng mới nhất lên đầu
+        var orders = await query
             .OrderByDescending(o => o.CreatedAt)
             .ToListAsync();
 
-        logger.LogInformation("[Admin] Tải danh sách đơn hàng: {Count} đơn", orders.Count);
+        logger.LogInformation(
+            "[Admin] Tải danh sách đơn hàng (FilterDate: {Date}, FilterStatus: {Status}): {Count} đơn",
+            filterDate?.ToString("yyyy-MM-dd") ?? "Tất cả",
+            filterStatus?.ToString() ?? "Tất cả",
+            orders.Count);
 
-        return View("~/Views/Admin/Orders/Index.cshtml", orders);
+        // Truyền các giá trị bộ lọc hiện tại ra ngoài View qua ViewData để giữ trạng thái ô chọn
+        ViewData["FilterDate"] = filterDate?.ToString("yyyy-MM-dd");
+        ViewData["FilterStatus"] = filterStatus;
+
+        return View("~/Areas/Admin/Views/Orders/Index.cshtml", orders);
     }
 
     // =========================================================================

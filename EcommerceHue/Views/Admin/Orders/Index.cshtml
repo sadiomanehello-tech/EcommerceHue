@@ -94,6 +94,53 @@
         </div>
     </div>
 
+    <!-- THANH CÔNG CỤ BỘ LỌC ĐƠN HÀNG (DATE & STATUS FILTER) -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4 bg-white">
+        <div class="card-body p-3 p-md-4">
+            <form method="get" action="/Admin/Orders/Index" class="row g-3 align-items-end">
+                <!-- 1. Ô CHỌN NGÀY ĐẶT HÀNG -->
+                <div class="col-12 col-md-4">
+                    <label class="form-label small fw-bold text-secondary mb-1">
+                        📅 Lọc theo ngày đặt hàng:
+                    </label>
+                    <input type="date"
+                           name="filterDate"
+                           class="form-control shadow-none"
+                           value="@ViewData["FilterDate"]" />
+                </div>
+
+                <!-- 2. Ô CHỌN TRẠNG THÁI ĐƠN HÀNG -->
+                <div class="col-12 col-md-4">
+                    <label class="form-label small fw-bold text-secondary mb-1">
+                        🏷️ Lọc theo trạng thái:
+                    </label>
+                    @{
+                        var currentStatus = ViewData["FilterStatus"] as int?;
+                    }
+                    <select name="filterStatus" class="form-select shadow-none">
+                        <option value="" selected="@(!currentStatus.HasValue)">--- Tất cả trạng thái ---</option>
+                        <option value="0" selected="@(currentStatus.HasValue && currentStatus.Value == 0)">Chờ thanh toán</option>
+                        <option value="1" selected="@(currentStatus.HasValue && currentStatus.Value == 1)">Chờ xử lý (Đã thanh toán)</option>
+                        <option value="2" selected="@(currentStatus.HasValue && currentStatus.Value == 2)">Chờ shipper lấy hàng</option>
+                        <option value="3" selected="@(currentStatus.HasValue && currentStatus.Value == 3)">Đang giao hàng</option>
+                        <option value="4" selected="@(currentStatus.HasValue && currentStatus.Value == 4)">Đã giao hàng thành công</option>
+                        <option value="5" selected="@(currentStatus.HasValue && currentStatus.Value == 5)">Đã hủy đơn</option>
+                    </select>
+                </div>
+
+                <!-- 3. NÚT LỌC VÀ NÚT ĐẶT LẠI -->
+                <div class="col-12 col-md-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary fw-semibold flex-grow-1 shadow-xs">
+                        🔍 Lọc dữ liệu
+                    </button>
+                    <a href="/Admin/Orders/Index" class="btn btn-secondary fw-semibold px-3 shadow-xs">
+                        🔄 Đặt lại
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- BẢNG DANH SÁCH ĐƠN HÀNG STRIPED CHUYÊN NGHIỆP -->
     <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-5">
         <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center">
