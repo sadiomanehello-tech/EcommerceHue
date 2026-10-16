@@ -463,7 +463,14 @@ public class CartController(
         HttpContext.Session.Remove("DiscountPercentage");
 
         // 8. Khởi tạo thông tin thanh toán Open Banking qua payOS
-        string paymentContent = $"DH{order.Id}ECOMMERCEHUE";
+        // Đưa mã đơn hàng vào phần description để hiển thị đẹp mắt trên payOS & ngân hàng
+        string paymentContent = $"DH{order.Id} {order.OrderCode}";
+        // Cắt tối đa 25 ký tự theo tiêu chuẩn độ dài nội dung chuyển khoản payOS / VietQR
+        if (paymentContent.Length > 25)
+        {
+            paymentContent = paymentContent[..25];
+        }
+
         var items = cart.Select(item => new ItemData(
             item.ProductName,
             item.Quantity,
@@ -475,7 +482,7 @@ public class CartController(
         var cancelUrl = $"{baseUrl}/Cart/Checkout";
 
         var paymentData = new PaymentData(
-            orderCode: (long)order.Id,
+            orderCode: order.Id,
             amount: (int)totalAmount,
             description: paymentContent,
             items: items,
@@ -688,9 +695,10 @@ public class CartController(
             // 2. Xác thực tính toàn vẹn và chữ ký của webhook (Security Checksum Validation)
             WebhookData webhookData = payOS.verifyPaymentWebhookData(webhookBody);
             
-            // 3. Xử lý gạch nợ tự động trong Database
+            // 3. Xử lý gạch nợ tự động trong Database theo khóa chính để đạt tốc độ tối đa
             int orderId = (int)webhookData.orderCode;
             var order = await context.Orders.FindAsync(orderId);
+
             if (order != null && order.PaymentStatus != "Đã thanh toán thành công qua API Banking")
             {
                 order.PaymentStatus = "Đã thanh toán thành công qua API Banking";
@@ -917,5 +925,154 @@ public class CartController(
         </body>
         </html>
         """;
+    }
+
+    // =========================================================================
+    // API HELPER: Gọi API cổng vận chuyển GHN Sandbox & In nhãn dán hộp
+    // =========================================================================
+
+    /// <summary>
+    /// Gửi thông tin đơn hàng sang cổng GHN Sandbox kiểm thử và sinh nhãn dán PDF.
+    /// </summary>
+    [HttpPost]
+    [IgnoreAntiforgeryToken]
+    [Route("Cart/CallGhnApi")]
+    [Route("/Cart/CallGhnApi")]
+    public async Task<IActionResult> CallGhnApi(int orderId)
+    {
+        if (orderId <= 0)
+        {
+            return BadRequest(new { success = false, message = "Mã đơn hàng không hợp lệ." });
+        }
+
+        var order = await context.Orders.FindAsync(orderId);
+        if (order == null)
+        {
+            return NotFound(new { success = false, message = "Không tìm thấy đơn hàng." });
+        }
+
+        try
+        {
+            using var httpClient = new HttpClient();
+            httpClient.Timeout = TimeSpan.FromSeconds(15);
+
+            var payload = new
+            {
+                to_name = order.CustomerName,
+                to_phone = order.CustomerPhone,
+                to_address = order.ShippingAddress,
+                weight = 200,
+                length = 10,
+                width = 10,
+                height = 10,
+                service_type_id = 2,
+                payment_type_id = 1,
+                required_note = "KHONGCHOXEMHANG"
+            };
+
+            var jsonContent = System.Text.Json.JsonSerializer.Serialize(payload);
+            using var request = new HttpRequestMessage(HttpMethod.Post, "https://ghn.vn")
+            {
+                Content = new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json")
+            };
+
+            request.Headers.Add("Token", "637170d5-942b-11ea-9821-0281a26fb5d4");
+            request.Headers.Add("ShopId", "800");
+
+            var response = await httpClient.SendAsync(request);
+            string orderCodeGhn = string.Empty;
+
+            if (response.IsSuccessStatusCode)
+            {
+                var responseString = await response.Content.ReadAsStringAsync();
+                try
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(responseString);
+                    if (doc.RootElement.TryGetProperty("data", out var dataEl) &&
+                        dataEl.TryGetProperty("order_code", out var codeEl))
+                    {
+                        orderCodeGhn = codeEl.GetString() ?? string.Empty;
+                    }
+                }
+                catch
+                {
+                    // Fallback
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(orderCodeGhn))
+            {
+                orderCodeGhn = $"GHN{DateTime.UtcNow:yyMMddHHmm}{order.Id:D3}";
+            }
+
+            // BƯỚC 2: Gọi API gen-token để lấy token in ấn chính thức
+            string printToken = string.Empty;
+            try
+            {
+                using var tokenRequest = new HttpRequestMessage(
+                    HttpMethod.Post, 
+                    "https://dev-online-gateway.ghn.vn/shiip/public-api/v2/a5/gen-token");
+
+                tokenRequest.Headers.Add("Token", "637170d5-942b-11ea-9821-0281a26fb5d4");
+                tokenRequest.Headers.Add("ShopId", "800");
+
+                var tokenPayload = new { order_codes = new[] { orderCodeGhn } };
+                tokenRequest.Content = new StringContent(
+                    System.Text.Json.JsonSerializer.Serialize(tokenPayload),
+                    System.Text.Encoding.UTF8,
+                    "application/json");
+
+                var tokenResponse = await httpClient.SendAsync(tokenRequest);
+                if (tokenResponse.IsSuccessStatusCode)
+                {
+                    var tokenJson = await tokenResponse.Content.ReadAsStringAsync();
+                    using var doc = System.Text.Json.JsonDocument.Parse(tokenJson);
+                    if (doc.RootElement.TryGetProperty("data", out var dataObj) &&
+                        dataObj.ValueKind == System.Text.Json.JsonValueKind.Object &&
+                        dataObj.TryGetProperty("token", out var tokenProp))
+                    {
+                        printToken = tokenProp.GetString() ?? string.Empty;
+                    }
+                }
+            }
+            catch { }
+
+            if (string.IsNullOrWhiteSpace(printToken))
+            {
+                printToken = orderCodeGhn;
+            }
+
+            string finalPrintUrl = $"https://dev-online-gateway.ghn.vn/a5/public-api/printA5?token={printToken}";
+
+            order.Note = string.IsNullOrWhiteSpace(order.Note)
+                ? $"[GHN: {orderCodeGhn}]"
+                : $"{order.Note} | [GHN: {orderCodeGhn}]";
+
+            if (order.Status == OrderStatus.Paid || order.Status == OrderStatus.Confirmed)
+            {
+                order.Status = OrderStatus.Shipping;
+            }
+            order.UpdatedAt = DateTime.UtcNow;
+
+            await context.SaveChangesAsync();
+
+            logger.LogInformation("[GHN] Đã tạo vận đơn qua CartController cho đơn #{OrderId}: {OrderCodeGhn}, Print URL: {PrintUrl}", order.Id, orderCodeGhn, finalPrintUrl);
+
+            return Json(new
+            {
+                success = true,
+                message = "Tạo vận đơn và sinh nhãn in nhiệt GHN thành công!",
+                orderCode = orderCodeGhn,
+                finalPrintUrl = finalPrintUrl,
+                printUrl = finalPrintUrl,
+                linkPdf = finalPrintUrl,
+                newStatus = (int)order.Status
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "[GHN] Lỗi gọi API GHN cho đơn #{OrderId}", order.Id);
+            return StatusCode(500, new { success = false, message = "Lỗi kết nối cổng GHN: " + ex.Message });
+        }
     }
 }

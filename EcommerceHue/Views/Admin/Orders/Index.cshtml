@@ -1,0 +1,675 @@
+@model IEnumerable<EcommerceHue.Models.Order>
+@{
+    ViewData["Title"] = "Quản lý đơn hàng & Đóng gói";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    var orderList = Model?.ToList() ?? new List<EcommerceHue.Models.Order>();
+    var totalOrders = orderList.Count;
+    var paidOrders = orderList.Count(o => (int)o.Status == 1);
+    var pendingOrders = orderList.Count(o => (int)o.Status == 0);
+    var shippingOrders = orderList.Count(o => (int)o.Status == 3);
+    var totalRevenue = orderList.Where(o => (int)o.Status == 1 || (int)o.Status == 3 || (int)o.Status == 4).Sum(o => o.TotalAmount);
+}
+
+<div class="container-fluid py-4 px-md-5">
+    <!-- TIÊU ĐỀ TRANG & BỘ LỌC THỐNG KÊ NHANH -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1 text-muted small">
+                    <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Index" class="text-decoration-none">🏠 Trang chủ</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Phân hệ Quản trị</li>
+                    <li class="breadcrumb-item active fw-bold text-dark" aria-current="page">Quản lý Đơn hàng</li>
+                </ol>
+            </nav>
+            <h2 class="fw-bold mb-1" style="color: #4a154b;">
+                📦 Quản Lý Đơn Hàng & Đóng Gói Đặc Sản Huế
+            </h2>
+            <p class="text-muted mb-0 small">
+                Trung tâm tiếp nhận, kiểm tra giỏ hàng đặc sản và đối soát vận chuyển dành riêng cho Chủ cửa hàng.
+            </p>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            <a href="/Shipper/Scan" target="_blank" class="btn btn-warning btn-sm rounded-pill shadow-xs fw-bold text-dark">
+                🛵 App Shipper Quét Mã
+            </a>
+            <button class="btn btn-outline-secondary btn-sm rounded-pill shadow-xs" onclick="window.location.reload();">
+                🔄 Làm mới danh sách
+            </button>
+            <span class="badge bg-purple text-white px-3 py-2 rounded-pill fs-6" style="background-color: #581c87;">
+                Tổng: <strong>@totalOrders</strong> đơn hàng
+            </span>
+        </div>
+    </div>
+
+    <!-- CÁC THẺ THỐNG KÊ TRẠNG THÁI SCANNABLE -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100 p-3" style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="text-success fw-bold small text-uppercase">Đã thanh toán (Sẵn sàng gói)</div>
+                        <h3 class="fw-extrabold text-success mb-0 mt-1">@paidOrders</h3>
+                    </div>
+                    <div class="fs-1 text-success opacity-75">✅</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100 p-3" style="background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="text-secondary fw-bold small text-uppercase">Chờ khách chuyển khoản</div>
+                        <h3 class="fw-extrabold text-secondary mb-0 mt-1">@pendingOrders</h3>
+                    </div>
+                    <div class="fs-1 text-secondary opacity-75">⏳</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100 p-3" style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="text-primary fw-bold small text-uppercase">Đang giao hàng</div>
+                        <h3 class="fw-extrabold text-primary mb-0 mt-1">@shippingOrders</h3>
+                    </div>
+                    <div class="fs-1 text-primary opacity-75">🚚</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100 p-3" style="background: linear-gradient(135deg, #fdf4ff 0%, #f5d0fe 100%);">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="fw-bold small text-uppercase" style="color: #86198f;">Doanh thu ghi nhận</div>
+                        <h3 class="fw-extrabold mb-0 mt-1" style="color: #701a75;">@totalRevenue.ToString("N0") ₫</h3>
+                    </div>
+                    <div class="fs-1 opacity-75" style="color: #86198f;">💰</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BẢNG DANH SÁCH ĐƠN HÀNG STRIPED CHUYÊN NGHIỆP -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-5">
+        <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold mb-0 text-dark">
+                📋 Danh Sách Đơn Hàng Cần Xử Lý
+            </h5>
+            <div class="small text-muted">
+                Sắp xếp: <strong>Đơn mới nhất trên cùng</strong>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover table-striped align-middle mb-0" id="ordersTable">
+                <thead class="table-light text-muted small text-uppercase" style="letter-spacing: 0.5px;">
+                    <tr>
+                        <th class="ps-4 py-3" style="width: 14%;">Mã Đơn Hàng</th>
+                        <th style="width: 15%;">Khách Hàng</th>
+                        <th style="width: 11%;">Số Điện Thoại</th>
+                        <th style="width: 25%;">Địa Chỉ Giao Nhận</th>
+                        <th class="text-end" style="width: 12%;">Tổng Tiền</th>
+                        <th class="text-center" style="width: 11%;">Ngày Đặt</th>
+                        <th class="text-center" style="width: 12%;">Trạng Thái</th>
+                        <th class="text-center pe-4" style="width: 10%;">Thao Tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (orderList.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <div class="fs-2 mb-2">📭</div>
+                                <h6 class="fw-semibold">Hiện tại chưa có đơn hàng nào trong hệ thống!</h6>
+                                <p class="small text-muted">Khi có khách đặt mua Mè xửng, Tôm chua, Trà Cung Đình... đơn hàng sẽ hiển thị ngay tại đây.</p>
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var order in orderList)
+                        {
+                            <tr id="order-row-@order.Id">
+                                <!-- MÃ ĐƠN HÀNG -->
+                                <td class="ps-4">
+                                    <div class="fw-bold font-monospace" style="color: #581c87;">
+                                        @order.OrderCode
+                                    </div>
+                                    <span class="badge bg-light text-secondary border shadow-xs" style="font-size: 0.7rem;">
+                                        ID: #@order.Id
+                                    </span>
+                                </td>
+
+                                <!-- TÊN KHÁCH HÀNG -->
+                                <td>
+                                    <div class="fw-bold text-dark">@order.CustomerName</div>
+                                    <div class="text-muted small text-truncate" style="max-width: 180px;" title="@order.CustomerEmail">
+                                        📧 @order.CustomerEmail
+                                    </div>
+                                </td>
+
+                                <!-- SỐ ĐIỆN THOẠI -->
+                                <td>
+                                    <a href="tel:@order.CustomerPhone" class="text-decoration-none fw-semibold text-primary font-monospace">
+                                        📞 @order.CustomerPhone
+                                    </a>
+                                </td>
+
+                                <!-- ĐỊA CHỈ GIAO NHẬN (VnExpress / Xã Phường mới) -->
+                                <td>
+                                    <div class="small text-dark" style="line-height: 1.45;">
+                                        📍 @order.ShippingAddress
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(order.Note))
+                                    {
+                                        <div class="mt-1 small text-warning-emphasis bg-warning-subtle px-2 py-0.5 rounded border border-warning-subtle d-inline-block">
+                                            📝 <em>Ghi chú: @order.Note</em>
+                                        </div>
+                                    }
+                                </td>
+
+                                <!-- TỔNG TIỀN -->
+                                <td class="text-end">
+                                    <div class="fw-bold text-danger fs-6">
+                                        @order.TotalAmount.ToString("N0") ₫
+                                    </div>
+                                    <div class="text-muted small" style="font-size: 0.72rem;">
+                                        Đã gồm ship
+                                    </div>
+                                </td>
+
+                                <!-- NGÀY ĐẶT (Múi giờ Việt Nam UTC+7) -->
+                                <td class="text-center text-muted small">
+                                    <div class="fw-semibold text-dark">@order.CreatedAt.AddHours(7).ToString("dd/MM/yyyy")</div>
+                                    <div class="font-monospace text-secondary" style="font-size: 0.75rem;">@order.CreatedAt.AddHours(7).ToString("HH:mm")</div>
+                                </td>
+
+                                <!-- CỘT TRẠNG THÁI HIỂN THỊ THÔNG MINH BẰNG BADGE MÀU SẮC -->
+                                <td class="text-center" id="status-cell-@order.Id">
+                                    @{
+                                        int statusVal = (int)order.Status;
+                                    }
+                                    @if (statusVal == 1)
+                                    {
+                                        <!-- Status == 1: Xanh lá cây rực rỡ 'Đã thanh toán - Sẵn sàng gói hàng' -->
+                                        <span class="badge px-2.5 py-2 rounded-pill shadow-xs fw-semibold"
+                                              style="background-color: #16a34a; color: #ffffff; font-size: 0.78rem;">
+                                            🟢 Đã thanh toán - Sẵn sàng gói hàng
+                                        </span>
+                                    }
+                                    else if (statusVal == 0)
+                                    {
+                                        <!-- Status == 0: Màu xám 'Chờ khách chuyển khoản' -->
+                                        <span class="badge px-2.5 py-2 rounded-pill shadow-xs fw-semibold"
+                                              style="background-color: #64748b; color: #ffffff; font-size: 0.78rem;">
+                                            ⚪ Chờ khách chuyển khoản
+                                        </span>
+                                    }
+                                    else if (statusVal == 2)
+                                    {
+                                        <!-- Status == 2: Vàng cam 'Đã xác nhận' -->
+                                        <span class="badge px-2.5 py-2 rounded-pill shadow-xs fw-semibold"
+                                              style="background-color: #d97706; color: #ffffff; font-size: 0.78rem;">
+                                            🟡 Chờ shipper lấy hàng
+                                        </span>
+                                    }
+                                    else if (statusVal == 3)
+                                    {
+                                        <!-- Status == 3: Xanh dương 'Đang giao hàng' -->
+                                        <span class="badge px-2.5 py-2 rounded-pill shadow-xs fw-semibold"
+                                              style="background-color: #2563eb; color: #ffffff; font-size: 0.78rem;">
+                                            🚚 Đang giao hàng
+                                        </span>
+                                    }
+                                    else if (statusVal == 4)
+                                    {
+                                        <!-- Status == 4: Xanh ngọc 'Đã giao hàng thành công' -->
+                                        <span class="badge px-2.5 py-2 rounded-pill shadow-xs fw-semibold"
+                                              style="background-color: #059669; color: #ffffff; font-size: 0.78rem;">
+                                            ✨ Đã giao hàng thành công
+                                        </span>
+                                    }
+                                    else if (statusVal == 5)
+                                    {
+                                        <!-- Status == 5: Đỏ 'Đã hủy đơn' -->
+                                        <span class="badge px-2.5 py-2 rounded-pill shadow-xs fw-semibold"
+                                              style="background-color: #dc2626; color: #ffffff; font-size: 0.78rem;">
+                                            ❌ Đã hủy đơn
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary px-2.5 py-2 rounded-pill">
+                                            @order.Status
+                                        </span>
+                                    }
+                                </td>
+
+                                <!-- THAO TÁC / NÚT BẬT MODAL CHI TIẾT ĐÓNG GÓI -->
+                                <td class="text-center pe-4">
+                                    <button type="button"
+                                            class="btn btn-sm btn-purple rounded-pill px-3 shadow-xs fw-semibold d-inline-flex align-items-center gap-1"
+                                            style="background-color: #581c87; color: #ffffff; border: none; font-size: 0.8rem;"
+                                            onclick="openOrderPackingModal(@order.Id)">
+                                        📦 Xem chi tiết đóng gói
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================================
+     BOOTSTRAP MODAL: POP-UP CHI TIẾT ĐÓNG GÓI HÀNG ĐẶC SẢN
+     ========================================================================= -->
+<div class="modal fade" id="orderPackingModal" tabindex="-1" aria-labelledby="packingModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content rounded-4 border-0 shadow-lg overflow-hidden">
+            <!-- MODAL HEADER -->
+            <div class="modal-header text-white px-4 py-3" style="background: linear-gradient(135deg, #4a154b 0%, #6a1b9a 100%);">
+                <div>
+                    <h5 class="modal-title fw-bold" id="packingModalTitle">
+                        📦 Danh Sách Mặt Hàng Cần Đóng Gói
+                    </h5>
+                    <div class="small text-white-50 mt-1" id="packingModalSubtitle">
+                        Mã đơn hàng: <span class="text-warning fw-bold font-monospace" id="modalOrderCode">--</span>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+
+            <!-- MODAL BODY -->
+            <div class="modal-body p-4 bg-light">
+                <!-- KHỐI THÔNG TIN GIAO NHẬN -->
+                <div class="card border-0 shadow-xs rounded-3 p-3 mb-3 bg-white">
+                    <div class="row g-2 small">
+                        <div class="col-md-6">
+                            <span class="text-muted">👤 Người nhận:</span>
+                            <strong class="text-dark" id="modalCustomerName">--</strong>
+                        </div>
+                        <div class="col-md-6">
+                            <span class="text-muted">📞 Điện thoại:</span>
+                            <strong class="text-primary font-monospace" id="modalCustomerPhone">--</strong>
+                        </div>
+                        <div class="col-12 mt-2">
+                            <span class="text-muted">📍 Địa chỉ nhận hàng:</span>
+                            <span class="fw-semibold text-dark" id="modalShippingAddress">--</span>
+                        </div>
+                        <div class="col-12 mt-1" id="modalNoteWrapper" style="display: none;">
+                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle p-2 w-100 text-start">
+                                📝 <strong>Ghi chú của khách:</strong> <span id="modalCustomerNote"></span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BẢNG DANH SÁCH MẶT HÀNG CẦN NHẶT VÀO HỘP -->
+                <div class="card border-0 shadow-xs rounded-3 overflow-hidden bg-white mb-3">
+                    <div class="card-header bg-white py-2.5 px-3 border-bottom d-flex justify-content-between align-items-center">
+                        <span class="fw-bold small text-uppercase" style="color: #581c87;">
+                            🛒 Chi Tiết Sản Phẩm Cần Nhặt
+                        </span>
+                        <span class="badge bg-purple-subtle text-purple border" style="font-size: 0.72rem;">
+                            Kiểm đếm cẩn thận HSD & Số lượng
+                        </span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead class="table-light text-muted small" style="font-size: 0.78rem;">
+                                <tr>
+                                    <th class="ps-3 py-2">Đặc Sản Huế</th>
+                                    <th class="text-center">Tồn Kho</th>
+                                    <th class="text-center">Hạn Sử Dụng</th>
+                                    <th class="text-end">Đơn Giá</th>
+                                    <th class="text-center text-primary fw-bold" style="background-color: #f0f7ff;">Số Lượng Cần Gói</th>
+                                    <th class="text-end pe-3">Thành Tiền</th>
+                                </tr>
+                            </thead>
+                            <tbody id="packingItemsTbody">
+                                <!-- Dữ liệu mặt hàng sẽ được render qua JavaScript AJAX -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="card-footer bg-white py-3 px-3 border-top d-flex justify-content-between align-items-center">
+                        <span class="text-muted small">Tổng thanh toán đơn hàng:</span>
+                        <span class="fs-5 fw-extrabold text-danger" id="modalTotalAmount">0 ₫</span>
+                    </div>
+                </div>
+
+                <!-- KHỐI GỌI VẬN CHUYỂN GHN SANDBOX & IN NHÃN DÁN HỘP -->
+                <div class="card border-0 shadow-xs rounded-3 p-3 bg-white mb-3" style="border-left: 4px solid #0284c7 !important;">
+                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
+                        <div>
+                            <div class="fw-bold text-dark small">🚚 Cổng Giao Hàng Nhanh GHN (Sandbox Test):</div>
+                            <div class="small text-muted">Đóng gói bưu kiện mẫu 200g, trích xuất mã vận đơn & xuất bản nhãn in nhiệt PDF dán hộp.</div>
+                        </div>
+                        <button type="button"
+                                class="btn btn-primary fw-bold rounded-pill px-3 py-2 shadow-xs d-inline-flex align-items-center gap-1 text-nowrap"
+                                id="btnCallGhnApi"
+                                onclick="callGhnShippingApi()">
+                            📦 Gọi vận chuyển &amp; In nhãn dán hộp
+                        </button>
+                    </div>
+                </div>
+
+                <!-- KHỐI CẬP NHẬT TRẠNG THÁI VẬN CHUYỂN -->
+                <div class="card border-0 shadow-xs rounded-3 p-3 bg-white">
+                    <label class="form-label fw-bold text-dark small mb-2">
+                        🚀 Cập Nhật Tiến Độ Giao Hàng Cho Đơn Này:
+                    </label>
+                    <div class="input-group">
+                        <select class="form-select" id="selectNextStatus" aria-label="Chọn trạng thái đơn hàng">
+                            <option value="1">🟢 Đã thanh toán (Sẵn sàng gói hàng)</option>
+                            <option value="2">🟡 Đã xác nhận đóng gói</option>
+                            <option value="3">🚚 Đang giao hàng (Đã giao cho Shipper)</option>
+                            <option value="4">✨ Đã giao hàng thành công</option>
+                            <option value="5">❌ Hủy đơn hàng</option>
+                        </select>
+                        <button class="btn btn-secondary fw-semibold px-3 d-inline-flex align-items-center gap-1"
+                                id="btnUpdateStatus"
+                                onclick="submitShipmentStatusUpdate()">
+                            💾 Cập Nhật Trạng Thái
+                        </button>
+                    </div>
+                    <div class="small text-muted mt-2">
+                        💡 <em>Gợi ý:</em> Sau khi nhặt đủ Mè xửng, Tôm chua vào thùng xốp/hộp carton, hãy chuyển sang <strong>"Đang giao hàng"</strong> để khách an tâm theo dõi đơn.
+                    </div>
+                </div>
+            </div>
+
+            <!-- MODAL FOOTER -->
+            <div class="modal-footer bg-white px-4 py-2.5 d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button"
+                            class="btn btn-primary btn-sm rounded-pill px-3 fw-bold d-inline-flex align-items-center gap-1 shadow-xs"
+                            onclick="callGhnShippingApi()">
+                        🚚 Gọi GHN &amp; In nhãn dán
+                    </button>
+                    <button type="button"
+                            class="btn btn-outline-secondary btn-sm rounded-pill px-3 fw-semibold d-inline-flex align-items-center gap-1"
+                            onclick="printCurrentOrderLabel()">
+                        🖨️ In phiếu nhiệt ngay
+                    </button>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm rounded-pill px-4" data-bs-dismiss="modal">
+                    Đóng cửa sổ
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    let currentActiveOrderId = 0;
+    const packingModalEl = document.getElementById('orderPackingModal');
+    let packingModalInstance = null;
+
+    document.addEventListener('DOMContentLoaded', function () {
+        if (packingModalEl && typeof bootstrap !== 'undefined') {
+            packingModalInstance = new bootstrap.Modal(packingModalEl);
+        }
+    });
+
+    // =========================================================================
+    // HÀM AJAX: Gọi GetOrderDetails mở Pop-up Modal chi tiết đóng gói
+    // =========================================================================
+    async function openOrderPackingModal(orderId) {
+        currentActiveOrderId = orderId;
+        const tbody = document.getElementById('packingItemsTbody');
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center py-4 text-muted">
+                    <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                    Đang tải danh sách đặc sản cần đóng gói...
+                </td>
+            </tr>`;
+
+        // Mở modal trước để chủ shop không phải chờ
+        if (packingModalInstance) {
+            packingModalInstance.show();
+        }
+
+        try {
+            const response = await fetch(`/Admin/Orders/GetOrderDetails?orderId=${orderId}`);
+            if (!response.ok) {
+                throw new Error("Không thể tải thông tin đơn hàng.");
+            }
+
+            const data = await response.json();
+            if (!data.success) {
+                alert(data.message || "Đã xảy ra lỗi.");
+                return;
+            }
+
+            // Đổ dữ liệu thông tin đơn hàng
+            document.getElementById('modalOrderCode').innerText = data.orderCode;
+            document.getElementById('modalCustomerName').innerText = data.customerName;
+            document.getElementById('modalCustomerPhone').innerText = data.customerPhone;
+            document.getElementById('modalShippingAddress').innerText = data.shippingAddress;
+            document.getElementById('modalTotalAmount').innerText = Number(data.totalAmount).toLocaleString('vi-VN') + " ₫";
+
+            // Xử lý ghi chú nếu có
+            const noteWrapper = document.getElementById('modalNoteWrapper');
+            const noteEl = document.getElementById('modalCustomerNote');
+            if (data.note && data.note.trim() !== '') {
+                noteEl.innerText = data.note;
+                noteWrapper.style.display = 'block';
+            } else {
+                noteWrapper.style.display = 'none';
+            }
+
+            // Gán trạng thái hiện tại vào dropdown select
+            const selectEl = document.getElementById('selectNextStatus');
+            if (selectEl) {
+                selectEl.value = data.status;
+            }
+
+            // Render danh sách sản phẩm cần nhặt
+            if (!data.items || data.items.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-3 text-muted">Không có chi tiết sản phẩm.</td></tr>`;
+            } else {
+                let html = '';
+                data.items.forEach(item => {
+                    const priceFormatted = Number(item.unitPrice).toLocaleString('vi-VN') + " ₫";
+                    const totalFormatted = Number(item.lineTotal).toLocaleString('vi-VN') + " ₫";
+                    html += `
+                        <tr>
+                            <td class="ps-3 py-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <img src="${item.imageUrl}" 
+                                         alt="${item.productName}" 
+                                         class="rounded-3 border object-fit-cover" 
+                                         style="width: 44px; height: 44px;"
+                                         onerror="this.src='/images/placeholder.jpg'" />
+                                    <div>
+                                        <div class="fw-bold text-dark">${item.productName}</div>
+                                        <span class="text-muted small" style="font-size: 0.72rem;">Mã SP: #${item.productId}</span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="text-center text-muted small">
+                                <span class="badge ${item.stockQuantity > 5 ? 'bg-light text-dark border' : 'bg-danger-subtle text-danger'}">
+                                    ${item.stockQuantity} cái
+                                </span>
+                            </td>
+                            <td class="text-center text-muted small font-monospace">
+                                ${item.expiryDate}
+                            </td>
+                            <td class="text-end text-muted small">
+                                ${priceFormatted}
+                            </td>
+                            <td class="text-center fw-extrabold text-primary fs-6" style="background-color: #f0f7ff;">
+                                <span class="badge bg-primary px-3 py-1.5 rounded-pill fs-6 shadow-xs">
+                                    x ${item.quantity}
+                                </span>
+                            </td>
+                            <td class="text-end pe-3 fw-bold text-danger">
+                                ${totalFormatted}
+                            </td>
+                        </tr>
+                    `;
+                });
+                tbody.innerHTML = html;
+            }
+        } catch (error) {
+            console.error("Lỗi AJAX GetOrderDetails:", error);
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-3 text-danger">Lỗi khi tải dữ liệu: ${error.message}</td></tr>`;
+        }
+    }
+
+    // =========================================================================
+    // HÀM AJAX: Cập nhật trạng thái vận chuyển UpdateShipmentStatus
+    // =========================================================================
+    async function submitShipmentStatusUpdate() {
+        if (!currentActiveOrderId) return;
+
+        const selectEl = document.getElementById('selectNextStatus');
+        const nextStatus = parseInt(selectEl.value);
+        const btn = document.getElementById('btnUpdateStatus');
+
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Đang lưu...`;
+
+        try {
+            const response = await fetch('/Admin/Orders/UpdateShipmentStatus', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: new URLSearchParams({
+                    orderId: currentActiveOrderId,
+                    nextStatus: nextStatus
+                })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                // Cập nhật ngay Badge trên bảng bên ngoài mà không cần F5 trang
+                updateRowStatusBadge(currentActiveOrderId, nextStatus);
+                alert("🎉 " + result.message);
+                if (packingModalInstance) {
+                    packingModalInstance.hide();
+                }
+            } else {
+                alert("⚠️ Không thể cập nhật: " + (result.message || "Vui lòng thử lại."));
+            }
+        } catch (error) {
+            console.error("Lỗi khi cập nhật trạng thái:", error);
+            alert("Lỗi kết nối tới máy chủ khi cập nhật đơn hàng.");
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = `💾 Cập Nhật Ngay`;
+        }
+    }
+
+    // Helper cập nhật badge trực tiếp trên hàng của bảng
+    function updateRowStatusBadge(orderId, statusVal) {
+        const cell = document.getElementById(`status-cell-${orderId}`);
+        if (!cell) return;
+
+        let badgeHtml = '';
+        switch (statusVal) {
+            case 1:
+                badgeHtml = `<span class="badge px-2.5 py-2 rounded-pill shadow-xs fw-semibold" style="background-color: #16a34a; color: #ffffff; font-size: 0.78rem;">🟢 Đã thanh toán - Sẵn sàng gói hàng</span>`;
+                break;
+            case 0:
+                badgeHtml = `<span class="badge px-2.5 py-2 rounded-pill shadow-xs fw-semibold" style="background-color: #64748b; color: #ffffff; font-size: 0.78rem;">⚪ Chờ khách chuyển khoản</span>`;
+                break;
+            case 2:
+                badgeHtml = `<span class="badge px-2.5 py-2 rounded-pill shadow-xs fw-semibold" style="background-color: #d97706; color: #ffffff; font-size: 0.78rem;">🟡 Chờ shipper lấy hàng</span>`;
+                break;
+            case 3:
+                badgeHtml = `<span class="badge px-2.5 py-2 rounded-pill shadow-xs fw-semibold" style="background-color: #2563eb; color: #ffffff; font-size: 0.78rem;">🚚 Đang giao hàng</span>`;
+                break;
+            case 4:
+                badgeHtml = `<span class="badge px-2.5 py-2 rounded-pill shadow-xs fw-semibold" style="background-color: #059669; color: #ffffff; font-size: 0.78rem;">✨ Đã giao hàng thành công</span>`;
+                break;
+            case 5:
+                badgeHtml = `<span class="badge px-2.5 py-2 rounded-pill shadow-xs fw-semibold" style="background-color: #dc2626; color: #ffffff; font-size: 0.78rem;">❌ Đã hủy đơn</span>`;
+                break;
+            default:
+                badgeHtml = `<span class="badge bg-secondary px-2.5 py-2 rounded-pill">Khác</span>`;
+                break;
+        }
+        cell.innerHTML = badgeHtml;
+    }
+
+    // =========================================================================
+    // HÀM AJAX: Gọi API cổng vận chuyển GHN Sandbox & In nhãn dán hộp (PDF)
+    // =========================================================================
+    async function callGhnShippingApi() {
+        if (!currentActiveOrderId) {
+            alert("Vui lòng chọn đơn hàng cần gọi vận chuyển.");
+            return;
+        }
+
+        const btn = document.getElementById('btnCallGhnApi');
+        const originalText = btn ? btn.innerHTML : '📦 Gọi vận chuyển & In nhãn dán hộp';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Đang kết nối GHN...`;
+        }
+
+        try {
+            const response = await fetch('/Admin/Orders/CallGhnApi', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: new URLSearchParams({
+                    orderId: currentActiveOrderId
+                })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                // Tự động bật mở Tab trình duyệt mới hiển thị tờ hóa đơn in nhiệt dán thùng carton nội bộ
+                const finalPrintUrl = result.finalPrintUrl || ('/Admin/Orders/PrintOrderLabel?orderId=' + currentActiveOrderId);
+                window.open(finalPrintUrl, '_blank');
+
+                // Cập nhật trạng thái hiển thị trên bảng ngoài và select box
+                if (result.newStatus) {
+                    updateRowStatusBadge(currentActiveOrderId, result.newStatus);
+                    const selectEl = document.getElementById('selectNextStatus');
+                    if (selectEl) {
+                        selectEl.value = result.newStatus;
+                    }
+                }
+
+                alert(`🎉 ${result.message}\n📦 Mã vận đơn: ${result.orderCode}\n📄 Đã mở phiếu in nhiệt nội bộ trong tab mới!`);
+            } else {
+                alert("⚠️ Không thể kết nối cổng vận chuyển: " + (result.message || "Vui lòng kiểm tra lại."));
+            }
+        } catch (error) {
+            console.error("Lỗi khi gọi GHN API:", error);
+            alert("Lỗi kết nối tới máy chủ khi tạo vận đơn: " + error.message);
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        }
+    }
+
+    // =========================================================================
+    // HÀM: Mở trực tiếp phiếu in nhiệt nội bộ cho đơn hàng đang chọn
+    // =========================================================================
+    function printCurrentOrderLabel() {
+        if (!currentActiveOrderId) {
+            alert("Vui lòng chọn đơn hàng cần in phiếu.");
+            return;
+        }
+        window.open('/Admin/Orders/PrintOrderLabel?orderId=' + currentActiveOrderId, '_blank');
+    }
+</script>
+}
