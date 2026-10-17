@@ -239,20 +239,99 @@ public class CartController(
     // =========================================================================
 
     /// <summary>
+    /// API: Kiểm tra tồn kho toàn bộ giỏ hàng trước khi chuyển sang bước thanh toán.
+    /// Trả về JSON để hiển thị Pop-up SweetAlert2 hoạt họa rung lắc tại trang Giỏ hàng.
+    /// </summary>
+    [HttpPost]
+    [HttpGet]
+    [IgnoreAntiforgeryToken]
+    public async Task<IActionResult> CheckCartStock()
+    {
+        var cart = GetCart();
+        if (cart.Count == 0)
+        {
+            return Json(new { success = false, message = "Giỏ hàng đang trống. Vui lòng thêm sản phẩm trước khi đặt hàng!" });
+        }
+
+        foreach (var item in cart)
+        {
+            var product = await context.Products.FindAsync(item.ProductId);
+            if (product == null) continue;
+
+            if (item.Quantity > product.StockQuantity)
+            {
+                logger.LogWarning(
+                    "[CheckCartStock] Phát hiện vượt tồn kho: '{ProductName}' (ID: {ProductId}). Đặt: {ReqQty} > Kho: {Stock}",
+                    product.Name, product.Id, item.Quantity, product.StockQuantity);
+
+                return Json(new
+                {
+                    success = false,
+                    productId = product.Id,
+                    productName = product.Name,
+                    stockQuantity = product.StockQuantity,
+                    orderQuantity = item.Quantity,
+                    message = $"Sản phẩm '{product.Name}' hiện tại chỉ còn đúng {product.StockQuantity} hũ trong kho. Bạn đang đặt {item.Quantity} hũ, vui lòng vào giỏ hàng giảm số lượng để có thể đặt hàng!"
+                });
+            }
+        }
+
+        return Json(new { success = true });
+    }
+
+    /// <summary>
     /// Hiển thị trang đặt hàng. Yêu cầu đăng nhập ([Authorize]).
     /// Tự động điền sẵn Thông tin Giao hàng từ Claims của user hiện tại.
     /// </summary>
     [Authorize]
     [HttpGet]
-    public IActionResult Checkout()
+    [HttpPost]
+    [IgnoreAntiforgeryToken]
+    public async Task<IActionResult> Checkout()
     {
         var cart = GetCart();
 
         // Giỏ hàng trống – chuyển về trang giỏ hàng kèm thông báo
         if (cart.Count == 0)
         {
+            if (Request.Method == "POST" || Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+            {
+                return Json(new { success = false, message = "Giỏ hàng đang trống. Vui lòng thêm sản phẩm trước khi đặt hàng!" });
+            }
             TempData["CartWarning"] = "⚠️ Giỏ hàng đang trống. Vui lòng thêm sản phẩm trước khi đặt hàng.";
             return RedirectToAction(nameof(Index));
+        }
+
+        // Bẫy kiểm tra tồn kho ngay khi mở trang Checkout hoặc khi gọi POST từ Cart
+        foreach (var item in cart)
+        {
+            var product = await context.Products.FindAsync(item.ProductId);
+            if (product != null && item.Quantity > product.StockQuantity)
+            {
+                var msg = $"Sản phẩm '{product.Name}' hiện tại chỉ còn đúng {product.StockQuantity} hũ trong kho. Bạn đang đặt {item.Quantity} hũ, vui lòng vào giỏ hàng giảm số lượng để có thể đặt hàng!";
+                if (Request.Method == "POST" || Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                {
+                    return Json(new
+                    {
+                        success = false,
+                        productId = product.Id,
+                        productName = product.Name,
+                        message = msg
+                    });
+                }
+                TempData["CartWarning"] = msg;
+                return RedirectToAction(nameof(Index));
+            }
+        }
+
+        // Nếu là yêu cầu POST từ Giỏ hàng (AJAX kiểm tra kho trước khi bẻ hướng sang Checkout/payOS)
+        if (Request.Method == "POST" || Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+        {
+            return Json(new
+            {
+                success = true,
+                checkoutUrl = "/Cart/Checkout"
+            });
         }
 
         // Đọc thông tin từ Claims (do AccountController ghi khi đăng nhập)
@@ -400,16 +479,67 @@ public class CartController(
         // 1. Kiểm tra giỏ hàng có rỗng không
         if (cart.Count == 0)
         {
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+            {
+                return Json(new { success = false, message = "Giỏ hàng đang trống. Vui lòng thêm sản phẩm trước khi đặt hàng!" });
+            }
             TempData["CartWarning"] = "⚠️ Giỏ hàng đang trống. Vui lòng thêm sản phẩm trước khi đặt hàng.";
             return RedirectToAction(nameof(Index));
+        }
+
+        // =====================================================================
+        // BƯỚC 1: KIỂM TRA ĐIỀU KIỆN TỒN KHO TRƯỚC KHI GỌI API PAYOS (CHẶN BÁN VƯỢT MỨC)
+        // Bắt buộc đặt logic này lên đầu hàm: Khách đặt > Tồn kho => CƯỠNG CHẾ CHẶN ĐƠN NGAY
+        // =====================================================================
+        foreach (var item in cart)
+        {
+            var product = await context.Products.FindAsync(item.ProductId);
+            if (product == null) continue;
+
+            // Kiểm tra nếu SỐ LƯỢNG KHÁCH ĐẶT MUA lớn hơn SỐ LƯỢNG THẬT TRONG KHO
+            if (item.Quantity > product.StockQuantity)
+            {
+                logger.LogWarning(
+                    "[Overselling Protection] CƯỠNG CHẾ CHẶN ĐƠN: '{ProductName}' (ID: {ProductId}). Khách đặt {ReqQty} > Tồn kho {Stock}",
+                    product.Name, product.Id, item.Quantity, product.StockQuantity);
+
+                // BẮT BUỘC trả về thông báo lỗi, chặn luồng ngay lập tức, KHÔNG CHẠY thêm bất kỳ lệnh nào phía sau
+                return Json(new
+                {
+                    success = false,
+                    productId = product.Id,
+                    message = $"Sản phẩm '{product.Name}' hiện tại chỉ còn đúng {product.StockQuantity} hũ trong kho. Bạn đang đặt {item.Quantity} hũ, vui lòng vào giỏ hàng giảm số lượng để có thể đặt hàng!"
+                });
+            }
         }
 
         // 2. Kiểm tra tính hợp lệ của dữ liệu đầu vào
         if (!ModelState.IsValid)
         {
+            var errors = string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+            {
+                return Json(new { success = false, message = "Thông tin giao hàng chưa đầy đủ: " + errors });
+            }
             model.CartItems = cart;
             model.SubTotal = cart.Sum(i => i.Total);
             return View("Checkout", model);
+        }
+
+        // =====================================================================
+        // BƯỚC 2: TRỪ TỒN KHO TRONG DATABASE (CHIỀU GIẢM)
+        // Đảm bảo lệnh trừ kho CHỈ ĐƯỢC CHẠY sau khi tất cả các mặt hàng trong giỏ đã vượt qua vòng kiểm tra an toàn ở Bước 1
+        // =====================================================================
+        foreach (var item in cart)
+        {
+            var product = await context.Products.FindAsync(item.ProductId);
+            if (product != null)
+            {
+                product.StockQuantity -= item.Quantity;
+                logger.LogInformation(
+                    "[Kho hàng - Chiều giảm] Trừ {Quantity} sản phẩm '{ProductName}' (ID: {ProductId}). Tồn kho còn lại: {NewStock}",
+                    item.Quantity, product.Name, product.Id, product.StockQuantity);
+            }
         }
 
         // 3. Đọc mã giảm giá và số tiền giảm từ Session (nếu có)
@@ -452,7 +582,7 @@ public class CartController(
             }).ToList()
         };
 
-        // 6. Lưu đơn hàng vào cơ sở dữ liệu để lấy OrderId
+        // 6. Lưu đơn hàng và cập nhật tồn kho sản phẩm vào cơ sở dữ liệu
         await context.Orders.AddAsync(order);
         await context.SaveChangesAsync();
 
@@ -521,6 +651,17 @@ public class CartController(
         {
             Console.WriteLine("=== LỖI SMTP GỬI MAIL (Đặt hàng): " + ex.Message);
             logger.LogError(ex, "[CartController] Lỗi gửi email xác nhận đặt hàng cho đơn #{OrderId}", order.Id);
+        }
+
+        // Nếu là yêu cầu AJAX từ frontend
+        if (Request.Headers["X-Requested-With"] == "XMLHttpRequest" ||
+            Request.Headers.Accept.ToString().Contains("application/json"))
+        {
+            return Json(new
+            {
+                success = true,
+                checkoutUrl = result.checkoutUrl
+            });
         }
 
         // Thực hiện lệnh bẻ hướng đưa trình duyệt khách mua sang giao diện hóa đơn động bảo mật của payOS
@@ -650,9 +791,22 @@ public class CartController(
         // --- TRƯỜNG HỢP 3: KHÁCH HÀNG HỦY GIAO DỊCH HOẶC THANH TOÁN THẤT BẠI ---
         if (order is not null)
         {
-            // Cập nhật trạng thái đơn hàng thành Thanh toán thất bại
+            // Cập nhật trạng thái đơn hàng thành Đã hủy (Cancelled)
             order.Status    = OrderStatus.Cancelled;
             order.UpdatedAt = DateTime.UtcNow;
+
+            // HOÀN KHO TỰ ĐỘNG KHI HỦY ĐƠN (CHIỀU TĂNG):
+            await context.Entry(order).Collection(o => o.OrderDetails).LoadAsync();
+            foreach (var detail in order.OrderDetails)
+            {
+                var prod = await context.Products.FindAsync(detail.ProductId);
+                if (prod != null)
+                {
+                    prod.StockQuantity += detail.Quantity; // Cộng trả lại kho
+                    logger.LogInformation("[Hoàn kho - VnPay hủy] Đã hoàn lại {Quantity} sản phẩm '{ProductName}' (ID: {ProductId}). Tồn kho mới: {Stock}",
+                        detail.Quantity, prod.Name, prod.Id, prod.StockQuantity);
+                }
+            }
         }
 
         transaction.Status    = PaymentStatus.Failed;
@@ -668,6 +822,70 @@ public class CartController(
 
         // Điều hướng sang trang OrderSuccess để hiển thị kết quả trực quan theo yêu cầu
         return RedirectToAction(nameof(OrderSuccess), new { orderCode = order?.OrderCode });
+    }
+
+    // =========================================================================
+    // API: Hủy đơn hàng chờ thanh toán & Hoàn kho tự động (Hết hạn payOS / Khách hủy)
+    // POST /Cart/CancelPendingOrder
+    // =========================================================================
+
+    /// <summary>
+    /// Xử lý hủy đơn hàng đang chờ thanh toán (PendingPayment - Status = 0) do hết hạn quét mã payOS
+    /// hoặc khách hàng chủ động hủy. Tự động hoàn lại số lượng tồn kho cho các sản phẩm (Chiều tăng).
+    /// </summary>
+    [HttpPost]
+    [IgnoreAntiforgeryToken]
+    public async Task<IActionResult> CancelPendingOrder(int orderId)
+    {
+        if (orderId <= 0)
+        {
+            return BadRequest(new { success = false, message = "Mã đơn hàng không hợp lệ." });
+        }
+
+        var order = await context.Orders
+            .Include(o => o.OrderDetails)
+            .FirstOrDefaultAsync(o => o.Id == orderId);
+
+        if (order == null)
+        {
+            return NotFound(new { success = false, message = "Không tìm thấy đơn hàng cần hủy." });
+        }
+
+        // Chỉ hoàn kho khi đơn đang ở trạng thái Chờ thanh toán (Status = 0)
+        if (order.Status == OrderStatus.PendingPayment)
+        {
+            order.Status = OrderStatus.Cancelled;
+            order.UpdatedAt = DateTime.UtcNow;
+
+            // Vòng lặp hoàn kho tự động (Chiều tăng):
+            foreach (var detail in order.OrderDetails)
+            {
+                var prod = await context.Products.FindAsync(detail.ProductId);
+                if (prod != null)
+                {
+                    prod.StockQuantity += detail.Quantity; // Cộng trả lại kho
+                    logger.LogInformation(
+                        "[Hoàn kho - Hết hạn thanh toán] Đã hoàn {Quantity} sản phẩm '{ProductName}' (ID: {ProductId}). Tồn kho mới: {StockQuantity}",
+                        detail.Quantity, prod.Name, prod.Id, prod.StockQuantity);
+                }
+            }
+
+            await context.SaveChangesAsync();
+
+            return Json(new
+            {
+                success = true,
+                message = $"Đã hủy đơn hàng #{order.Id} và hoàn lại toàn bộ số lượng tồn kho sản phẩm thành công!",
+                orderId = order.Id,
+                status = (int)order.Status
+            });
+        }
+
+        return BadRequest(new
+        {
+            success = false,
+            message = "Chỉ có thể hủy và hoàn kho đối với đơn hàng đang ở trạng thái 'Chờ thanh toán'."
+        });
     }
 
     // =========================================================================

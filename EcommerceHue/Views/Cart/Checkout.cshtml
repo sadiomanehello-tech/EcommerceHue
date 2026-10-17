@@ -1,3 +1,6 @@
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+
 @model EcommerceHue.Models.ViewModels.CheckoutViewModel
 
 @{
@@ -688,15 +691,18 @@
         // 3. ĐÓNG GÓI CHUỖI ĐỊA CHỈ TRƯỚC KHI SUBMIT FORM ĐẶT HÀNG & VALIDATION
         // ====================================================================
         const checkoutForm = document.getElementById('checkout-form');
+        const btnPlaceOrder = document.getElementById('btn-place-order');
+
         if (checkoutForm) {
-            checkoutForm.addEventListener('submit', function (e) {
+            checkoutForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+
                 const province = provinceSelect ? provinceSelect.value.trim() : '';
                 const ward = districtSelect ? districtSelect.value.trim() : '';
                 const detail = detailInput ? detailInput.value.trim() : '';
 
-                // 2. NẾU Ô TỈNH/THÀNH PHỐ CÓ GIÁ TRỊ HỢP LỆ (KHÁC RỖNG), TUYỆT ĐỐI KHÔNG ALERT LỖI NÀY!
+                // Kiểm tra bắt buộc chọn Tỉnh/Thành phố
                 if (!province) {
-                    e.preventDefault();
                     alert('Vui lòng chọn Tỉnh/Thành phố giao hàng!');
                     provinceSelect?.focus();
                     return;
@@ -704,7 +710,6 @@
 
                 // Kiểm tra bắt buộc chọn Phường/Xã
                 if (!ward) {
-                    e.preventDefault();
                     alert('Vui lòng chọn Phường/Xã giao hàng!');
                     districtSelect?.focus();
                     return;
@@ -712,27 +717,91 @@
 
                 // Kiểm tra bắt buộc nhập số nhà/tên đường
                 if (!detail) {
-                    e.preventDefault();
                     alert('Vui lòng nhập số nhà, tên đường cụ thể!');
                     detailInput?.focus();
                     return;
                 }
 
-                // Chuẩn hóa Phường/Xã thông minh theo yêu cầu:
-                // Nếu trong chuỗi tên Phường/Xã từ dropdown đã chứa sẵn 'Phường', 'Xã', hoặc 'Thị trấn' (.includes())
-                // thì KHÔNG tự động nối thêm chữ 'phường'. Nếu chưa có mới bổ sung để tránh trùng lặp.
+                // Chuẩn hóa Phường/Xã
                 let formattedWard = ward;
                 if (!formattedWard.includes('Phường') && !formattedWard.includes('Xã') && !formattedWard.includes('Thị trấn')) {
                     formattedWard = `Phường ${formattedWard}`;
                 }
 
-                // Dọn dẹp ô địa chỉ chi tiết trước khi ghép, đảm bảo không bị thừa từ 'Phường' ở cuối
+                // Dọn dẹp ô địa chỉ chi tiết trước khi ghép
                 const cleanDetail = detail.replace(/(,\s*)?(phường|xã|thị trấn)\s*$/i, '').replace(/,\s*$/, '').trim();
-
-                // Đóng gói chuỗi địa chỉ: [Số nhà/Tên đường], [Phường/Xã], [Tỉnh/Thành phố]
                 const fullShippingAddress = `${cleanDetail}, ${formattedWard}, ${province}`;
                 if (shippingAddressHidden) {
                     shippingAddressHidden.value = fullShippingAddress;
+                }
+
+                // Kiểm tra điều khoản
+                const agreeTerms = document.getElementById('agree-terms');
+                if (agreeTerms && !agreeTerms.checked) {
+                    alert('Vui lòng đồng ý với điều khoản và điều kiện trước khi đặt hàng!');
+                    agreeTerms.focus();
+                    return;
+                }
+
+                // Bật trạng thái loading cho nút Đặt hàng
+                const originalBtnHtml = btnPlaceOrder ? btnPlaceOrder.innerHTML : 'ĐẶT HÀNG';
+                if (btnPlaceOrder) {
+                    btnPlaceOrder.disabled = true;
+                    btnPlaceOrder.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Đang kiểm tra tồn kho & xử lý...';
+                }
+
+                try {
+                    const formData = new FormData(checkoutForm);
+
+                    // Gửi POST ngầm qua Fetch API kèm header X-Requested-With
+                    const response = await fetch(checkoutForm.action || '/Cart/PlaceOrder', {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: formData
+                    });
+
+                    const contentType = response.headers.get('content-type') || '';
+                    if (!contentType.includes('application/json')) {
+                        if (response.redirected) {
+                            window.location.href = response.url;
+                            return;
+                        }
+                    }
+
+                    const result = await response.json();
+
+                    // CƯỠNG CHẾ CHẶN ĐƠN NẾU THIẾU KHO HOẶC THẤT BẠI
+                    if (!result || result.success === false) {
+                        // Kích hoạt ngay Pop-up SweetAlert2 lớn ở giữa màn hình rung lắc mạnh mẽ
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Vượt Quá Tồn Kho!',
+                            text: result.message || 'Số lượng sản phẩm trong kho không đủ đáp ứng. Vui lòng kiểm tra lại!',
+                            confirmButtonText: 'Tôi đã hiểu & Để tôi sửa lại',
+                            confirmButtonColor: '#dc3545',
+                            showClass: {
+                                popup: 'animate__animated animate__shakeX'
+                            }
+                        });
+                        return;
+                    }
+
+                    // KHI THÀNH CÔNG: Chuyển hướng sang giao diện thanh toán payOS
+                    if (result.checkoutUrl) {
+                        window.location.href = result.checkoutUrl;
+                    } else {
+                        window.location.href = '/Cart/OrderSuccess';
+                    }
+                } catch (err) {
+                    console.error('[PlaceOrder Error]:', err);
+                    alert('Có lỗi xảy ra trong quá trình đặt hàng. Vui lòng thử lại!');
+                } finally {
+                    if (btnPlaceOrder) {
+                        btnPlaceOrder.disabled = false;
+                        btnPlaceOrder.innerHTML = originalBtnHtml;
+                    }
                 }
             });
         }

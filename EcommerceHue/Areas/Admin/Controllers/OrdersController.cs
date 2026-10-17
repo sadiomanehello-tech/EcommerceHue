@@ -169,6 +169,26 @@ public class OrdersController(
         var oldStatus = order.Status;
         var newStatus = (OrderStatus)nextStatus;
 
+        // =====================================================================
+        // HOÀN KHO TỰ ĐỘNG KHI HỦY ĐƠN (CHIỀU TĂNG)
+        // Nếu chuyển sang trạng thái Cancelled (5) và đơn trước đó chưa bị hủy
+        // =====================================================================
+        if (newStatus == OrderStatus.Cancelled && oldStatus != OrderStatus.Cancelled)
+        {
+            await context.Entry(order).Collection(o => o.OrderDetails).LoadAsync();
+            foreach (var detail in order.OrderDetails)
+            {
+                var prod = await context.Products.FindAsync(detail.ProductId);
+                if (prod != null)
+                {
+                    prod.StockQuantity += detail.Quantity; // Cộng trả lại kho
+                    logger.LogInformation(
+                        "[Admin Hoàn kho] Đã hoàn {Quantity} cho sản phẩm '{ProductName}' (ID: {ProductId}). Tồn kho mới: {StockQuantity}",
+                        detail.Quantity, prod.Name, prod.Id, prod.StockQuantity);
+                }
+            }
+        }
+
         order.Status = newStatus;
         order.UpdatedAt = DateTime.UtcNow;
 

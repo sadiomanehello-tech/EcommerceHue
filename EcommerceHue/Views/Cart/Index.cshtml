@@ -1,3 +1,5 @@
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
 
 @model List<EcommerceHue.Models.CartItem>
 
@@ -62,12 +64,12 @@
 @if (!Model.Any())
 {
     <!-- Giỏ hàng trống -->
-    <div class="hue-cart-empty text-center py-5 rounded-4">
-        <div class="hue-empty-icon mb-3">🛍️</div>
+    <div class="hue-cart-empty text-center py-5 rounded-4 bg-light">
+        <div class="hue-empty-icon mb-3 fs-1">🛍️</div>
         <h3 class="text-muted fw-semibold">Giỏ hàng đang trống</h3>
         <p class="text-muted mb-4">Hãy khám phá các đặc sản Huế và thêm vào giỏ hàng nhé!</p>
         <a asp-controller="Home" asp-action="Index"
-           class="btn btn-warning btn-lg fw-semibold px-5 rounded-pill">
+           class="btn btn-warning btn-lg fw-semibold px-5 rounded-pill shadow-sm">
             🏮 Khám phá đặc sản Huế
         </a>
     </div>
@@ -80,16 +82,16 @@ else
              CỘT TRÁI: BẢNG SẢN PHẨM GIỎ HÀNG
              ============================================================ -->
         <div class="col-lg-8">
-            <div class="hue-cart-table-wrap rounded-4 shadow-sm overflow-hidden">
-                <table class="table hue-cart-table mb-0">
-                    <thead>
+            <div class="hue-cart-table-wrap rounded-4 shadow-sm overflow-hidden border">
+                <table class="table hue-cart-table table-hover align-middle mb-0">
+                    <thead class="table-light">
                         <tr>
-                            <th class="ps-4" style="width:60px"></th>
+                            <th class="ps-4" style="width:70px"></th>
                             <th>Đặc sản</th>
                             <th class="text-center" style="width:140px">Đơn giá</th>
                             <th class="text-center" style="width:160px">Số lượng</th>
-                            <th class="text-end" style="width:130px">Thành tiền</th>
-                            <th style="width:50px"></th>
+                            <th class="text-end" style="width:140px">Thành tiền</th>
+                            <th style="width:60px" class="text-center"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -101,14 +103,15 @@ else
                                     <div class="hue-cart-thumb-wrap">
                                         <img src="@(item.ImageUrl ?? "/images/placeholder.jpg")"
                                              alt="@item.ProductName"
-                                             class="hue-cart-thumb rounded-3"
+                                             class="hue-cart-thumb rounded-3 shadow-xs"
+                                             style="width: 52px; height: 52px; object-fit: cover;"
                                              onerror="this.src='/images/placeholder.jpg'" />
                                     </div>
                                 </td>
 
                                 <!-- Tên sản phẩm -->
                                 <td class="py-3 align-middle">
-                                    <div class="fw-semibold hue-cart-name">@item.ProductName</div>
+                                    <div class="fw-semibold hue-cart-name text-dark">@item.ProductName</div>
                                     <div class="small text-muted">Đặc sản Huế</div>
                                 </td>
 
@@ -127,7 +130,7 @@ else
                                         <input type="hidden" name="productId" value="@item.ProductId" />
 
                                         <button type="button"
-                                                class="btn hue-qty-btn btn-sm"
+                                                class="btn btn-outline-secondary btn-sm"
                                                 onclick="adjustQty(this, -1)"
                                                 title="Giảm">−</button>
 
@@ -135,12 +138,14 @@ else
                                                name="quantity"
                                                value="@item.Quantity"
                                                min="0"
-                                               class="form-control hue-qty-input text-center"
-                                               id="qty-@item.ProductId"
+                                               class="form-control hue-qty-input text-center fw-bold"
+                                               id="quantity-input-@item.ProductId"
+                                               data-product-id="@item.ProductId"
+                                               style="max-width: 70px;"
                                                onchange="this.form.submit()" />
 
                                         <button type="button"
-                                                class="btn hue-qty-btn btn-sm"
+                                                class="btn btn-outline-secondary btn-sm"
                                                 onclick="adjustQty(this, 1)"
                                                 title="Tăng">+</button>
                                     </form>
@@ -159,7 +164,7 @@ else
                                         @Html.AntiForgeryToken()
                                         <input type="hidden" name="productId" value="@item.ProductId" />
                                         <button type="submit"
-                                                class="btn hue-delete-btn btn-sm"
+                                                class="btn btn-outline-danger btn-sm rounded-circle"
                                                 title="Xóa khỏi giỏ"
                                                 onclick="return confirm('Xóa @item.ProductName khỏi giỏ hàng?')">
                                             🗑️
@@ -189,14 +194,14 @@ else
              CỘT PHẢI: TÓM TẮT ĐƠN HÀNG & THANH TOÁN
              ============================================================ -->
         <div class="col-lg-4">
-            <div class="hue-order-summary rounded-4 shadow-sm p-4 sticky-top" style="top: 1.5rem;">
+            <div class="hue-order-summary rounded-4 shadow-sm p-4 border bg-white sticky-top" style="top: 1.5rem;">
 
-                <h2 class="h5 fw-bold mb-4 pb-2 border-bottom">📋 Tóm tắt đơn hàng</h2>
+                <h2 class="h5 fw-bold mb-4 pb-2 border-bottom text-dark">📋 Tóm tắt đơn hàng</h2>
 
                 <!-- Chi tiết tính tiền -->
                 <div class="hue-summary-row d-flex justify-content-between mb-2">
                     <span class="text-muted">Tạm tính (@totalItems sản phẩm)</span>
-                    <span>@totalAmount.ToString("N0") ₫</span>
+                    <span class="fw-semibold">@totalAmount.ToString("N0") ₫</span>
                 </div>
                 <div class="hue-summary-row d-flex justify-content-between mb-2">
                     <span class="text-muted">Phí vận chuyển</span>
@@ -212,10 +217,9 @@ else
                 </div>
 
                 <!-- Nút Tiến hành đặt hàng & Thanh toán -->
-                <!-- [Authorize] trên CartController.Checkout sẽ tự redirect Login nếu chưa đăng nhập -->
-                <a asp-controller="Cart" asp-action="Checkout"
-                   id="btn-checkout"
-                   class="btn hue-btn-checkout w-100 fw-bold rounded-pill py-3 mb-3">
+                <a href="/Cart/Checkout"
+                   id="btnSubmitCheckout"
+                   class="btn btn-warning w-100 fw-bold rounded-pill py-3 mb-3 text-dark shadow-sm fs-6">
                     <span class="me-2">💳</span>
                     Tiến hành Đặt hàng &amp; Thanh toán
                 </a>
@@ -227,7 +231,7 @@ else
                 </a>
 
                 <!-- Cam kết thanh toán an toàn -->
-                <div class="hue-secure-badge mt-4 text-center">
+                <div class="hue-secure-badge mt-4 text-center border-top pt-3">
                     <span class="text-muted small">🔒 Thanh toán an toàn qua mã QR code bảo mật</span>
                 </div>
             </div>
@@ -237,132 +241,145 @@ else
 }
 
 <!-- ============================================================
-     STYLES RIÊNG CHO TRANG GIỎ HÀNG
+     STYLES RIÊNG & HIỆU ỨNG VIỀN ĐỎ CHỚP NHÁY
      ============================================================ -->
 @section Styles {
 <style>
-    /* --- Header --- */
     .hue-cart-header { padding: .75rem 0; }
     .hue-cart-icon-wrap {
         width: 52px; height: 52px;
         background: linear-gradient(135deg, #fff3cd, #ffe08a);
         border-radius: 14px;
         display: flex; align-items: center; justify-content: center;
-        box-shadow: 0 4px 12px rgba(255,193,7,.3);
+        font-size: 1.6rem;
     }
-    .hue-cart-icon { font-size: 1.6rem; }
+    .hue-summary-row { font-size: .95rem; }
 
-    /* --- Empty state --- */
-    .hue-cart-empty {
-        background: #fff8f2;
-        border: 2px dashed #f0deca;
+    /* Hiệu ứng CSS chớp nháy đỏ vào khung đường viền ô nhập số lượng bị lỗi */
+    @@keyframes pulseRedBorder {
+        0% {
+            border-color: #dc3545 !important;
+            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7) !important;
+        }
+        50% {
+            border-color: #dc3545 !important;
+            box-shadow: 0 0 0 8px rgba(220, 53, 69, 0) !important;
+        }
+        100% {
+            border-color: #dc3545 !important;
+            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7) !important;
+        }
     }
-    .hue-empty-icon { font-size: 4rem; }
-
-    /* --- Table --- */
-    .hue-cart-table-wrap { background: #fff; border: 1px solid #f0e6d8; }
-    .hue-cart-table thead tr {
-        background: linear-gradient(90deg, #7b2d00 0%, #b5451b 100%);
-        color: #fff;
-    }
-    .hue-cart-table thead th { border: none; font-weight: 600; padding: .9rem .75rem; }
-    .hue-cart-row { border-bottom: 1px solid #f7ede3; transition: background .2s; }
-    .hue-cart-row:last-child { border-bottom: none; }
-    .hue-cart-row:hover { background: #fdf5ef; }
-
-    /* --- Thumb --- */
-    .hue-cart-thumb-wrap { width: 56px; height: 56px; overflow: hidden; border-radius: 10px; }
-    .hue-cart-thumb { width: 100%; height: 100%; object-fit: cover; }
-
-    /* --- Product name --- */
-    .hue-cart-name { max-width: 200px; }
-
-    /* --- Quantity control --- */
-    .hue-qty-form { gap: 4px; }
-    .hue-qty-input {
-        width: 52px !important;
-        height: 32px;
-        padding: 0 4px;
-        border-color: #e8d5c4;
-        font-weight: 600;
-        font-size: .9rem;
-        -moz-appearance: textfield;
-    }
-    .hue-qty-input::-webkit-outer-spin-button,
-    .hue-qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-    .hue-qty-btn {
-        width: 28px; height: 32px;
-        background: #f0e6d8;
-        border: 1px solid #dfc9b0;
-        color: #7b2d00;
-        font-weight: 700;
-        font-size: 1rem;
-        padding: 0;
-        border-radius: 7px;
-        line-height: 1;
-        transition: background .15s;
-    }
-    .hue-qty-btn:hover { background: #e8c9a8; }
-
-    /* --- Delete button --- */
-    .hue-delete-btn {
-        background: none; border: none;
-        font-size: 1.1rem;
-        opacity: .65;
-        transition: opacity .15s, transform .15s;
-    }
-    .hue-delete-btn:hover { opacity: 1; transform: scale(1.2); }
-
-    /* --- Order summary panel --- */
-    .hue-order-summary {
-        background: #fff;
-        border: 1px solid #f0e6d8;
-    }
-    .hue-summary-row { font-size: .9rem; }
-
-    /* --- Checkout button --- */
-    .hue-btn-checkout {
-        background: linear-gradient(135deg, #006dcc 0%, #0050a3 100%);
-        color: #fff;
-        border: none;
-        letter-spacing: .3px;
-        box-shadow: 0 6px 20px rgba(0,109,204,.35);
-        transition: transform .15s, box-shadow .15s;
-        font-size: 1rem;
-    }
-    .hue-btn-checkout:hover {
-        color: #fff;
-        transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(0,109,204,.45);
-    }
-    .hue-btn-checkout:active { transform: translateY(0); }
-
-    /* --- Secure badge --- */
-    .hue-secure-badge {
-        border-top: 1px dashed #e8d5c4;
-        padding-top: .75rem;
+    .hue-qty-input.border-danger,
+    .hue-qty-input.is-invalid {
+        border: 2px solid #dc3545 !important;
+        animation: pulseRedBorder 1.2s infinite ease-in-out !important;
+        background-color: #fff5f5 !important;
     }
 </style>
 }
 
 <!-- ============================================================
-     SCRIPTS: Điều chỉnh số lượng bằng nút +/−
+     JAVASCRIPT AJAX XỬ LÝ CHECKOUT & SWEETALERT2 HOẠT HỌA RUNG LẮC
      ============================================================ -->
 @section Scripts {
 <script>
     /**
      * Tăng/giảm giá trị ô input số lượng và tự submit form để cập nhật Session.
-     * @@param {HTMLElement} btn  - Nút được nhấn (+ hoặc −)
-     * @@param {number}      delta - +1 hoặc −1
      */
     function adjustQty(btn, delta) {
         const form  = btn.closest('form');
         const input = form.querySelector('input[name="quantity"]');
         const newVal = parseInt(input.value, 10) + delta;
-
-        // Không cho phép số lượng âm (= 0 → form submit → backend sẽ xóa item)
         input.value = Math.max(0, newVal);
         form.submit();
     }
+
+    async function handleCheckout() {
+        // Xóa các cảnh báo viền đỏ cũ
+        document.querySelectorAll('.hue-qty-input').forEach(input => {
+            input.classList.remove('is-invalid', 'border-danger');
+        });
+
+        const btnCheckout = document.getElementById('btnSubmitCheckout');
+        let originalBtnHtml = '';
+        if (btnCheckout) {
+            originalBtnHtml = btnCheckout.innerHTML;
+            btnCheckout.classList.add('disabled');
+            btnCheckout.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Đang kiểm tra tồn kho...';
+        }
+
+        try {
+            // Gửi yêu cầu đặt hàng ngầm lên Backend kiểm tra kho
+            var response = await fetch('/Cart/Checkout', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            var result = await response.json();
+            
+            if (result.success) {
+                // Nếu kho đủ hàng, bẻ hướng sang link hóa đơn thanh toán của payOS hoặc Checkout
+                window.location.href = result.checkoutUrl || '/Cart/Checkout';
+            } else {
+                // Nếu vượt quá tồn kho, kích hoạt Pop-up SweetAlert2 lớn ở giữa màn hình rung lắc mạnh dữ dội
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Vượt Quá Tồn Kho!',
+                    text: result.message, // Hiển thị chuỗi: "Sản phẩm hiện tại chỉ còn đúng 30 hũ trong kho..."
+                    confirmButtonText: 'Tôi đã hiểu & Để tôi sửa lại',
+                    confirmButtonColor: '#dc3545',
+                    showClass: { popup: 'animate__animated animate__shakeX' } // Hiệu ứng lắc động mạnh gây chú ý
+                });
+                
+                // Đồng thời chớp đỏ viền ô nhập số lượng bị lỗi
+                var targetId = result.productId ? ('quantity-input-' + result.productId) : null;
+                var inputErr = (targetId ? document.getElementById(targetId) : null) || document.querySelector('[id^="quantity-input-"]');
+                if (inputErr) {
+                    inputErr.classList.add('is-invalid', 'border-danger');
+                    inputErr.focus();
+                    inputErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+        } catch (err) {
+            console.error('[Checkout Error]:', err);
+            // Fallback chuyển trang nếu có sự cố
+            window.location.href = '/Cart/Checkout';
+        } finally {
+            if (btnCheckout) {
+                btnCheckout.classList.remove('disabled');
+                btnCheckout.innerHTML = originalBtnHtml;
+            }
+        }
+    }
+
+    // Gắn sự kiện click cho nút Tiến hành Đặt hàng & Thanh toán
+    document.addEventListener('DOMContentLoaded', function () {
+        var btnCheckout = document.getElementById('btnSubmitCheckout');
+        if (btnCheckout) {
+            btnCheckout.addEventListener('click', function(e) {
+                e.preventDefault();
+                handleCheckout();
+            });
+        }
+
+        // Bắt cảnh báo nếu có từ TempData
+        @if (TempData["CartWarning"] is string warning)
+        {
+            <text>
+            Swal.fire({
+                icon: 'error',
+                title: 'Vượt Quá Tồn Kho!',
+                text: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(warning)),
+                confirmButtonText: 'Tôi đã hiểu & Để tôi sửa lại',
+                confirmButtonColor: '#dc3545',
+                showClass: { popup: 'animate__animated animate__shakeX' }
+            });
+            </text>
+        }
+    });
 </script>
 }
