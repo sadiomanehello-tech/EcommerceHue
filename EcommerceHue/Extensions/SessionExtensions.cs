@@ -44,4 +44,10 @@ public static class SessionExtensions
             return default;
         }
     }
+
+    /// <summary>Alias tương thích cho GetObject</summary>
+    public static T? GetComplexData<T>(this ISession session, string key) => session.GetObject<T>(key);
+
+    /// <summary>Alias tương thích cho SetObject</summary>
+    public static void SetComplexData<T>(this ISession session, string key, T value) => session.SetObject<T>(key, value);
 }

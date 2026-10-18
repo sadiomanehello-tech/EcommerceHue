@@ -83,18 +83,23 @@ public class CartController(
     {
         try
         {
-            var cart = GetCart();
-            if (cart == null || cart.Count == 0)
+            // Đọc dữ liệu giỏ hàng từ Session
+            var cart = HttpContext.Session.GetComplexData<List<CartItem>>("Cart")
+                    ?? HttpContext.Session.GetComplexData<List<CartItem>>(CartSessionKey);
+            
+            // BẪY LỖI NULL: Nếu giỏ hàng trống hoặc chưa có gì, lập tức trả về số 0 ngay
+            if (cart == null || !cart.Any())
             {
-                return Json(0); // Trả về số lượng bằng 0 an toàn để bẻ gãy lỗi 500
+                return Json(0);
             }
-
-            var count = cart.Sum(i => i.Quantity);
-            return Json(count);
+            
+            // Nếu có hàng, trả về tổng số lượng vật phẩm
+            return Json(cart.Sum(item => item.Quantity));
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Lỗi khi lấy số lượng giỏ hàng từ Session: {Message}", ex.Message);
+            // Nếu có bất kỳ lỗi xung đột kiểu dữ liệu nào xảy ra, vẫn trả về số 0 để giữ an toàn cho trang web
+            Console.WriteLine("=== [GET CART COUNT ERROR]: " + ex.Message);
             return Json(0);
         }
     }
@@ -312,85 +317,97 @@ public class CartController(
     /// <summary>
     /// Hiển thị trang đặt hàng. Yêu cầu đăng nhập ([Authorize]).
     /// Tự động điền sẵn Thông tin Giao hàng từ Claims của user hiện tại.
-    /// </summary>
     [Authorize]
     [HttpGet]
     [HttpPost]
     [IgnoreAntiforgeryToken]
     public async Task<IActionResult> Checkout()
     {
-        var cart = GetCart();
-
-        // Giỏ hàng trống – chuyển về trang giỏ hàng kèm thông báo
-        if (cart.Count == 0)
+        try
         {
-            if (Request.Method == "POST" || Request.Headers["X-Requested-With"] == "XMLHttpRequest")
-            {
-                return Json(new { success = false, message = "Giỏ hàng đang trống. Vui lòng thêm sản phẩm trước khi đặt hàng!" });
-            }
-            TempData["CartWarning"] = "⚠️ Giỏ hàng đang trống. Vui lòng thêm sản phẩm trước khi đặt hàng.";
-            return RedirectToAction(nameof(Index));
-        }
+            var cart = GetCart();
 
-        // Bẫy kiểm tra tồn kho ngay khi mở trang Checkout hoặc khi gọi POST từ Cart
-        foreach (var item in cart)
-        {
-            var product = await context.Products.FindAsync(item.ProductId);
-            if (product != null && item.Quantity > product.StockQuantity)
+            // Giỏ hàng trống – chuyển về trang giỏ hàng kèm thông báo
+            if (cart.Count == 0)
             {
-                var msg = $"Sản phẩm '{product.Name}' hiện tại chỉ còn đúng {product.StockQuantity} hũ trong kho. Bạn đang đặt {item.Quantity} hũ, vui lòng vào giỏ hàng giảm số lượng để có thể đặt hàng!";
                 if (Request.Method == "POST" || Request.Headers["X-Requested-With"] == "XMLHttpRequest")
                 {
-                    return Json(new
-                    {
-                        success = false,
-                        productId = product.Id,
-                        productName = product.Name,
-                        message = msg
-                    });
+                    return Json(new { success = false, message = "Giỏ hàng đang trống. Vui lòng thêm sản phẩm trước khi đặt hàng!" });
                 }
-                TempData["CartWarning"] = msg;
+                TempData["CartWarning"] = "⚠️ Giỏ hàng đang trống. Vui lòng thêm sản phẩm trước khi đặt hàng.";
                 return RedirectToAction(nameof(Index));
             }
-        }
 
-        // Nếu là yêu cầu POST từ Giỏ hàng (AJAX kiểm tra kho trước khi bẻ hướng sang Checkout/payOS)
-        if (Request.Method == "POST" || Request.Headers["X-Requested-With"] == "XMLHttpRequest")
-        {
-            return Json(new
+            // Bẫy kiểm tra tồn kho ngay khi mở trang Checkout hoặc khi gọi POST từ Cart
+            foreach (var item in cart)
             {
-                success = true,
-                checkoutUrl = "/Cart/Checkout"
-            });
+                var product = await context.Products.FindAsync(item.ProductId);
+                if (product != null && item.Quantity > product.StockQuantity)
+                {
+                    var msg = $"Sản phẩm '{product.Name}' hiện tại chỉ còn đúng {product.StockQuantity} hũ trong kho. Bạn đang đặt {item.Quantity} hũ, vui lòng vào giỏ hàng giảm số lượng để có thể đặt hàng!";
+                    if (Request.Method == "POST" || Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                    {
+                        return Json(new
+                        {
+                            success = false,
+                            productId = product.Id,
+                            productName = product.Name,
+                            message = msg
+                        });
+                    }
+                    TempData["CartWarning"] = msg;
+                    return RedirectToAction(nameof(Index));
+                }
+            }
+
+            // Nếu là yêu cầu POST từ Giỏ hàng (AJAX kiểm tra kho trước khi bẻ hướng sang Checkout/payOS)
+            if (Request.Method == "POST" || Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+            {
+                return Json(new
+                {
+                    success = true,
+                    checkoutUrl = "/Cart/Checkout"
+                });
+            }
+
+            // Đọc thông tin từ Claims (do AccountController ghi khi đăng nhập)
+            var fullName = User.FindFirstValue("FullName")        ?? string.Empty;
+            var email    = User.FindFirstValue(ClaimTypes.Email)  ?? string.Empty;
+            var phone    = User.FindFirstValue("PhoneNumber")     ?? string.Empty;
+            var address  = User.FindFirstValue("Address")         ?? string.Empty;
+
+            // Đọc thông tin mã giảm giá từ Session nếu đã áp dụng
+            var couponCode = HttpContext.Session.GetString("CouponCode");
+            var discountPercentage = HttpContext.Session.GetInt32("DiscountPercentage");
+            var discountAmountStr = HttpContext.Session.GetString("DiscountAmount");
+            decimal.TryParse(discountAmountStr, out var discountAmount);
+
+            var model = new CheckoutViewModel
+            {
+                // Tự động điền sẵn từ Claims – user có thể sửa trước khi gửi
+                CustomerName       = fullName,
+                CustomerEmail      = email,
+                CustomerPhone      = phone,
+                ShippingAddress    = address,
+                CartItems          = cart,
+                SubTotal           = cart.Sum(i => i.Total),
+                CouponCode         = couponCode,
+                DiscountPercentage = discountPercentage,
+                DiscountAmount     = discountAmount
+            };
+
+            return View(model);
         }
-
-        // Đọc thông tin từ Claims (do AccountController ghi khi đăng nhập)
-        var fullName = User.FindFirstValue("FullName")        ?? string.Empty;
-        var email    = User.FindFirstValue(ClaimTypes.Email)  ?? string.Empty;
-        var phone    = User.FindFirstValue("PhoneNumber")     ?? string.Empty;
-        var address  = User.FindFirstValue("Address")         ?? string.Empty;
-
-        // Đọc thông tin mã giảm giá từ Session nếu đã áp dụng
-        var couponCode = HttpContext.Session.GetString("CouponCode");
-        var discountPercentage = HttpContext.Session.GetInt32("DiscountPercentage");
-        var discountAmountStr = HttpContext.Session.GetString("DiscountAmount");
-        decimal.TryParse(discountAmountStr, out var discountAmount);
-
-        var model = new CheckoutViewModel
+        catch (Exception ex)
         {
-            // Tự động điền sẵn từ Claims – user có thể sửa trước khi gửi
-            CustomerName       = fullName,
-            CustomerEmail      = email,
-            CustomerPhone      = phone,
-            ShippingAddress    = address,
-            CartItems          = cart,
-            SubTotal           = cart.Sum(i => i.Total),
-            CouponCode         = couponCode,
-            DiscountPercentage = discountPercentage,
-            DiscountAmount     = discountAmount
-        };
-
-        return View(model);
+            logger.LogError(ex, "=== [CHECKOUT ERROR]: {Message}", ex.Message);
+            if (Request.Method == "POST" || Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+            {
+                return Json(new { success = false, message = "Lỗi khi xử lý giỏ hàng: " + ex.Message });
+            }
+            TempData["CartWarning"] = "Không thể tải trang đặt hàng. Vui lòng thử lại!";
+            return RedirectToAction(nameof(Index));
+        }
     }
 
     // =========================================================================
@@ -504,7 +521,9 @@ public class CartController(
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> PlaceOrder(CheckoutViewModel model)
     {
-        var cart = GetCart();
+        try
+        {
+            var cart = GetCart();
 
         // 1. Kiểm tra giỏ hàng có rỗng không
         if (cart.Count == 0)
@@ -703,6 +722,25 @@ public class CartController(
         // Thực hiện lệnh bẻ hướng đưa trình duyệt khách mua sang giao diện hóa đơn động bảo mật của payOS
         return Redirect(result.checkoutUrl);
     }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "=== [PLACE ORDER ERROR]: {Message}", ex.Message);
+        Console.WriteLine("=== [PLACE ORDER ERROR]: " + ex.Message);
+
+        if (Request.Headers["X-Requested-With"] == "XMLHttpRequest" ||
+            Request.Headers.Accept.ToString().Contains("application/json"))
+        {
+            return Json(new
+            {
+                success = false,
+                message = "Lỗi xử lý đơn hàng: " + ex.Message
+            });
+        }
+
+        TempData["CartError"] = "Có lỗi xảy ra trong quá trình đặt hàng: " + ex.Message;
+        return RedirectToAction("Checkout");
+    }
+}
 
     // =========================================================================
     // ACTION: Tiếp nhận phản hồi từ VnPay – GET /Cart/VnPayReturn
