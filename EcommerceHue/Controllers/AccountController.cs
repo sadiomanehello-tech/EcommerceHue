@@ -561,5 +561,42 @@ public class AccountController(
         // 5. Trả về kết quả JSON thành công
         return Json(new { success = true, message = "Đăng ký thành công! Vui lòng kiểm tra hộp thư Gmail để nhận mã giảm giá 10%." });
     }
+
+    // =========================================================================
+    // MÀN HÌNH KHÓA STAGING NỘI BỘ – GET /Account/StagingLogin
+    // =========================================================================
+
+    [HttpGet]
+    [AllowAnonymous]
+    public IActionResult StagingLogin()
+    {
+        // Nếu đã xác thực Staging rồi thì chuyển hướng về Trang chủ
+        if (HttpContext.Session.GetString("Staging_Authenticated") == "true")
+        {
+            return RedirectToAction("Index", "Home");
+        }
+
+        return View();
+    }
+
+    // =========================================================================
+    // XÁC THỰC MÃ PIN / MẬT KHẨU STAGING – POST /Account/StagingLogin
+    // =========================================================================
+
+    [HttpPost]
+    [AllowAnonymous]
+    [IgnoreAntiforgeryToken]
+    public IActionResult StagingLogin(string accessPassword)
+    {
+        if (!string.IsNullOrEmpty(accessPassword) && accessPassword.Trim() == "DoAnDiem10")
+        {
+            HttpContext.Session.SetString("Staging_Authenticated", "true");
+            return RedirectToAction("Index", "Home");
+        }
+
+        ModelState.AddModelError("", "Mật khẩu truy cập nội bộ chưa chính xác!");
+        ViewBag.ErrorMessage = "Mật khẩu truy cập nội bộ chưa chính xác!";
+        return View();
+    }
 }
 

@@ -114,6 +114,43 @@ var app = builder.Build();
 // --- Kích hoạt Forwarded Headers Middleware ở hàng đầu tiên (trước mọi Middleware khác) ---
 app.UseForwardedHeaders();
 
+// --- Bước 2: Kích hoạt Middleware Session ngay sau dòng builder.Build() ---
+app.UseSession();
+
+// --- Bước 3: Nhúng bộ lọc Middleware cưỡng chế khóa toàn trang, bẫy từ khóa ngoại lệ Webhook payOS ---
+app.Use(async (context, next) =>
+{
+    string path = context.Request.Path.Value?.ToLower() ?? string.Empty;
+
+    // ĐỤC LỖ NGOẠI LỆ: Cho phép payOS gọi API gạch nợ tự do không bị chặn mật khẩu
+    if (path.Contains("/payos-webhook"))
+    {
+        await next();
+        return;
+    }
+
+    // Cho phép đi tiếp nếu truy cập vào trang nhập Passcode hoặc các tệp tĩnh CSS/JS giao diện
+    if (path.Contains("/account/staginglogin") || 
+        path.StartsWith("/css") || 
+        path.StartsWith("/js") || 
+        path.StartsWith("/lib") || 
+        path.Contains("/images") ||
+        path.Contains("/favicon.ico"))
+    {
+        await next();
+        return;
+    }
+
+    // Kiểm tra nếu chưa nhập Passcode "DoAnDiem10", lập tức đá văng về trang khóa lồng đèn
+    if (context.Session.GetString("Staging_Authenticated") == null)
+    {
+        context.Response.Redirect("/Account/StagingLogin");
+        return;
+    }
+
+    await next();
+});
+
 // ============================================================================
 // KHỞI TẠO DỮ LIỆU MẪU (Seed Data) – CHỈ CHẠY Ở MÔI TRƯỜNG DEVELOPMENT
 // DbInitializer.SeedAsync kiểm tra DB trước khi chèn, an toàn khi restart nhiều lần.
@@ -135,10 +172,6 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseRouting();
-
-// --- Kích hoạt Middleware Session ---
-// Phải đặt SAU UseRouting() và TRƯỚC UseAuthorization() theo pipeline chuẩn ASP.NET Core.
-app.UseSession();
 
 // --- Kích hoạt Middleware Authentication ---
 // PHẢI đặt TRƯỚC UseAuthorization() để [Authorize] hoạt động đúng.
