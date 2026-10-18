@@ -187,43 +187,16 @@ public static class SeedData
             await context.SaveChangesAsync();
         }
 
-        // 4. Khởi tạo tài khoản Khách hàng và Quản trị Admin mẫu nếu chưa có
-        // Mật khẩu mặc định: 123456 (được băm bằng BCrypt theo quy tắc bảo mật)
-        var defaultPasswordHash = BCrypt.Net.BCrypt.HashPassword("123456");
-
-        // Tài khoản Quản trị tối cao (Admin)
-        if (!await context.Customers.AnyAsync(c => c.Email == "sadiomanehello@gmail.com"))
+        // 4. LÀM SẠCH BẢNG KHÁCH HÀNG (Wipe Out Customers)
+        // Cưỡng chế xóa sạch toàn bộ dữ liệu đang tồn tại trong bảng Customers để dọn rác hệ thống.
+        // KHÔNG nạp sẵn bất kỳ tài khoản khách hàng nào bằng chữ cứng (hardcode) nữa.
+        // Hệ thống hoàn toàn trống dữ liệu tài khoản, cho phép người dùng đăng ký mới từ đầu trên Render,
+        // và Admin sadiomanehello@gmail.com sẽ tự động kích hoạt khi đăng nhập độc quyền qua Google Login.
+        if (await context.Customers.AnyAsync())
         {
-            var adminCustomer = new Customer
-            {
-                Username     = "admin",
-                PasswordHash = defaultPasswordHash,
-                FullName     = "Quản Trị Viên (Admin)",
-                Email        = "sadiomanehello@gmail.com",
-                PhoneNumber  = "0901234567",
-                Address      = "Thành phố Huế, Tỉnh Thừa Thiên Huế",
-                CreatedAt    = DateTime.UtcNow
-            };
-            await context.Customers.AddAsync(adminCustomer);
+            context.Customers.RemoveRange(context.Customers);
+            await context.SaveChangesAsync();
         }
-
-        // Tài khoản Khách hàng mua sắm
-        if (!await context.Customers.AnyAsync(c => c.Email == "tminhniem@gmail.com"))
-        {
-            var testCustomer = new Customer
-            {
-                Username     = "tminhniem",
-                PasswordHash = defaultPasswordHash,
-                FullName     = "Thầy Thích Minh Niệm",
-                Email        = "tminhniem@gmail.com",
-                PhoneNumber  = "0909888999",
-                Address      = "Cố Đô Huế, Việt Nam",
-                CreatedAt    = DateTime.UtcNow
-            };
-            await context.Customers.AddAsync(testCustomer);
-        }
-
-        await context.SaveChangesAsync();
 
         // 5. Khởi tạo mã giảm giá mẫu nếu chưa có
         if (!await context.Coupons.AnyAsync(c => c.Code == "HUEWELCOME10"))

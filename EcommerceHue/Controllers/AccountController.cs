@@ -145,8 +145,19 @@ public class AccountController(
             return View(model);
 
         // Chuẩn hóa input đầu vào (Email hoặc Số điện thoại) theo phong cách Shopee/Lazada
-        var rawInput = model.EmailOrPhone.Trim();
+        var rawInput = model.EmailOrPhone?.Trim() ?? string.Empty;
         var normalizedInput = rawInput.ToLowerInvariant();
+
+        // =====================================================================
+        // HÀNG RÀO BẢO MẬT (Security Interceptor):
+        // Chặn đăng nhập bằng mật khẩu đối với tài khoản Admin tối cao.
+        // Cưỡng chế chỉ đăng nhập độc quyền qua Google Login.
+        // =====================================================================
+        if (!string.IsNullOrEmpty(rawInput) && (normalizedInput == "sadiomanehello@gmail.com" || normalizedInput == "admin"))
+        {
+            ModelState.AddModelError(string.Empty, "Tài khoản Quản trị viên (Admin) đã được kích hoạt chế độ bảo mật tối cao: Không chấp nhận đăng nhập bằng mật khẩu thường. Vui lòng nhấn nút 'Đăng nhập bằng Google' ở phía dưới!");
+            return View(model);
+        }
 
         // Tìm khách hàng trong cơ sở dữ liệu theo Email HOẶC Số điện thoại
         var customer = await context.Customers
@@ -296,6 +307,17 @@ public class AccountController(
         // 4. Xóa session/cookie Google thô và cấp Cookie hệ thống chuẩn hóa
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         await SignInCustomerAsync(customer, isPersistent: true);
+
+        // 5. Nếu là tài khoản Quản trị viên tối cao sadiomanehello@gmail.com: Vào thẳng /Admin/Orders
+        if (normalizedEmail == "sadiomanehello@gmail.com")
+        {
+            TempData["Success"] = "🛡️ Chào mừng Quản trị viên tối cao đã xác thực thành công qua Google OAuth!";
+            if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
+            {
+                return Redirect(returnUrl);
+            }
+            return Redirect("/Admin/Orders");
+        }
 
         TempData["Success"] = $"🎉 Chào mừng {customer.FullName} đã đăng nhập thành công bằng Google!";
 
