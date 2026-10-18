@@ -187,16 +187,30 @@ public static class SeedData
             await context.SaveChangesAsync();
         }
 
-        // 4. LÀM SẠCH BẢNG KHÁCH HÀNG (Wipe Out Customers)
-        // Cưỡng chế xóa sạch toàn bộ dữ liệu đang tồn tại trong bảng Customers để dọn rác hệ thống.
-        // KHÔNG nạp sẵn bất kỳ tài khoản khách hàng nào bằng chữ cứng (hardcode) nữa.
-        // Hệ thống hoàn toàn trống dữ liệu tài khoản, cho phép người dùng đăng ký mới từ đầu trên Render,
-        // và Admin sadiomanehello@gmail.com sẽ tự động kích hoạt khi đăng nhập độc quyền qua Google Login.
+        // 4. LÀM SẠCH DỮ LIỆU ĐỒNG BỘ THEO THỨ TỰ KHÓA NGOẠI (Foreign Key Cascade Cleanup)
+        // Xóa sạch bảng con trước (Giao dịch, Chi tiết đơn hàng), sau đó đến Đơn hàng tổng và Khách hàng cũ
+        // để loại bỏ hoàn toàn nguy cơ xung đột Foreign Key Constraint trên SQLite/SQL Server.
+        if (await context.PaymentTransactions.AnyAsync())
+        {
+            context.PaymentTransactions.RemoveRange(context.PaymentTransactions);
+        }
+
+        if (await context.OrderDetails.AnyAsync())
+        {
+            context.OrderDetails.RemoveRange(context.OrderDetails);
+        }
+
+        if (await context.Orders.AnyAsync())
+        {
+            context.Orders.RemoveRange(context.Orders);
+        }
+
         if (await context.Customers.AnyAsync())
         {
             context.Customers.RemoveRange(context.Customers);
-            await context.SaveChangesAsync();
         }
+
+        await context.SaveChangesAsync();
 
         // 5. Khởi tạo mã giảm giá mẫu nếu chưa có
         if (!await context.Coupons.AnyAsync(c => c.Code == "HUEWELCOME10"))

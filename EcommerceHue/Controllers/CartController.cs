@@ -57,8 +57,16 @@ public class CartController(
     /// </summary>
     public IActionResult Index()
     {
-        var cart = GetCart();
-        return View(cart);
+        try
+        {
+            var cart = GetCart() ?? [];
+            return View(cart);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Lỗi khi nạp trang giỏ hàng: {Message}", ex.Message);
+            return View(new List<CartItem>());
+        }
     }
 
     // =========================================================================

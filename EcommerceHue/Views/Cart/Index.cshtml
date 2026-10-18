@@ -5,8 +5,9 @@
 
 @{
     ViewData["Title"] = "Giỏ hàng của bạn";
-    var totalAmount   = Model.Sum(i => i.Total);
-    var totalItems    = Model.Sum(i => i.Quantity);
+    var cartItems     = Model ?? new List<EcommerceHue.Models.CartItem>();
+    var totalAmount   = cartItems.Sum(i => i.Total);
+    var totalItems    = cartItems.Sum(i => i.Quantity);
 }
 
 <!-- ============================================================
@@ -19,7 +20,7 @@
     <div>
         <h1 class="h3 fw-bold mb-0">Giỏ hàng của bạn</h1>
         <p class="text-muted small mb-0">
-            @if (Model.Any())
+            @if (cartItems.Any())
             {
                 <span>@totalItems sản phẩm · Tổng: <strong class="text-danger">@totalAmount.ToString("N0") ₫</strong></span>
             }
@@ -61,7 +62,7 @@
     </div>
 }
 
-@if (!Model.Any())
+@if (!cartItems.Any())
 {
     <!-- Giỏ hàng trống -->
     <div class="hue-cart-empty text-center py-5 rounded-4 bg-light">
@@ -95,7 +96,7 @@ else
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var item in Model)
+                        @foreach (var item in cartItems)
                         {
                             <tr class="hue-cart-row" id="cart-row-@item.ProductId">
                                 <!-- Ảnh thu nhỏ -->
