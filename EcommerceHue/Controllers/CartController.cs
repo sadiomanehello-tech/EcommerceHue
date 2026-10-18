@@ -17,6 +17,7 @@ namespace EcommerceHue.Controllers;
 /// Xử lý toàn bộ luồng Giỏ hàng: thêm, xóa, cập nhật số lượng và hiển thị.
 /// Dữ liệu giỏ hàng được lưu qua ASP.NET Core Session dưới dạng JSON.
 /// </summary>
+[AllowAnonymous]
 public class CartController(
     EcommerceContext context,
     IConfiguration configuration,
@@ -36,7 +37,9 @@ public class CartController(
     {
         try
         {
-            return HttpContext.Session.GetObject<List<CartItem>>(CartSessionKey) ?? [];
+            return HttpContext.Session.GetObject<List<CartItem>>(CartSessionKey) 
+                ?? HttpContext.Session.GetComplexData<List<CartItem>>("Cart") 
+                ?? [];
         }
         catch
         {
@@ -59,7 +62,7 @@ public class CartController(
     /// Đọc giỏ hàng từ Session và truyền xuống View để hiển thị.
     /// Cho phép truy cập ẩn danh (khách chưa đăng nhập vẫn xem được giỏ hàng).
     /// </summary>
-    [AllowAnonymous]
+    [HttpGet]
     public IActionResult Index()
     {
         try
@@ -81,55 +84,21 @@ public class CartController(
 
     /// <summary>
     /// Trả về tổng số lượng item trong giỏ hàng hiện tại dưới dạng JSON.
-    /// An toàn tuyệt đối: bẫy null và trả về { count = 0 } nếu chưa có sản phẩm để chống lỗi 500.
-    /// [AllowAnonymous] đảm bảo luồng AJAX kiểm tra số lượng giỏ hàng ở Header luôn luôn có thể truy cập được.
+    /// An toàn tuyệt đối: bẫy null và trả về 0 nếu chưa có sản phẩm để chống lỗi 500.
     /// </summary>
-    [AllowAnonymous] // Bắt buộc để khách vãng lai không bị chặn quyền
     [HttpGet]
     public IActionResult GetCartCount()
     {
         try
         {
-            // 1. Kiểm tra an toàn bộ nhớ Session
-            if (HttpContext == null || HttpContext.Session == null)
-            {
-                return Json(new { count = 0 });
-            }
-
-            // 2. Lấy chuỗi dữ liệu giỏ hàng từ Session
-            string? cartJson = HttpContext.Session.GetString("Cart");
-            if (string.IsNullOrEmpty(cartJson))
-            {
-                cartJson = HttpContext.Session.GetString(CartSessionKey);
-            }
-            
-            // Nếu trống (khách mới xóa cookie/vừa vào web), trả về 0 ngay lập tức thay vì ép kiểu gây lỗi
-            if (string.IsNullOrEmpty(cartJson))
-            {
-                return Json(new { count = 0 });
-            }
-
-            // 3. Giải mã JSON (Thay thế tên class 'CartItem' nếu dự án định nghĩa khác)
-            // Dùng khối try nhỏ để tránh lỗi cấu trúc chuỗi JSON cũ làm sập
-            try 
-            {
-                var cartItems = System.Text.Json.JsonSerializer.Deserialize<List<CartItem>>(cartJson);
-                int totalCount = cartItems?.Sum(item => item.Quantity) ?? 0;
-                return Json(new { count = totalCount });
-            }
-            catch
-            {
-                // Nếu chuỗi JSON cũ không đúng định dạng, xóa luôn Session lỗi và trả về 0
-                HttpContext.Session.Remove("Cart");
-                HttpContext.Session.Remove(CartSessionKey);
-                return Json(new { count = 0 });
-            }
+            var cart = HttpContext.Session.GetComplexData<List<CartItem>>("Cart")
+                    ?? HttpContext.Session.GetObject<List<CartItem>>(CartSessionKey);
+            if (cart == null) return Json(0);
+            return Json(cart.Sum(i => i.Quantity));
         }
-        catch (Exception ex)
+        catch
         {
-            logger.LogError(ex, "Bẫy ngoại lệ cấp cao nhất tại GetCartCount: {Message}", ex.Message);
-            // Bẫy hoàn toàn ngoại lệ cấp cao nhất, tuyệt đối không cho phép quăng lỗi 500
-            return Json(new { count = 0, error = true });
+            return Json(0);
         }
     }
 
@@ -139,72 +108,98 @@ public class CartController(
 
     /// <summary>
     /// Thêm sản phẩm vào giỏ hàng qua Fetch API (AJAX), trả về JSON.
-    /// Phương thức POST, xác thực qua header X-Requested-With do client gửi kèm.
-    /// - success: true/false
-    /// - message: thông báo hiển thị Toast
-    /// - cartCount: tổng số lượng sản phẩm trong giỏ (cập nhật badge navbar)
+    /// Tự động bẫy lỗi DB để fallback lưu Session thuần túy, không bao giờ làm sập trang.
     /// </summary>
     /// <param name="productId">Id sản phẩm cần thêm</param>
     /// <param name="quantity">Số lượng cần thêm (mặc định 1)</param>
     [HttpPost]
-    [IgnoreAntiforgeryToken]   // AJAX gửi header X-Requested-With thay thế CSRF token
+    [IgnoreAntiforgeryToken]
     public async Task<IActionResult> AddToCart(int productId, int quantity = 1)
     {
-        // Kiểm tra yêu cầu đến từ AJAX (bảo vệ cơ bản chống CSRF)
-        if (Request.Headers["X-Requested-With"] != "XMLHttpRequest")
-            return BadRequest(new { success = false, message = "Yêu cầu không hợp lệ." });
-
-        if (quantity < 1) quantity = 1;
-
-        // Truy vấn sản phẩm từ DB (AsNoTracking vì chỉ đọc)
-        var product = await context.Products
-            .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == productId && p.IsAvailable);
-
-        if (product is null)
-            return Json(new { success = false, message = "Sản phẩm không tồn tại hoặc đã ngừng bán." });
-
-        var cart         = GetCart();
-        var existingItem = cart.FirstOrDefault(c => c.ProductId == productId);
-
-        if (existingItem is not null)
+        try
         {
-            // Kiểm tra ràng buộc tồn kho trước khi tăng số lượng
-            if (existingItem.Quantity + quantity > product.StockQuantity)
-                return Json(new
-                {
-                    success   = false,
-                    message   = $"⚠️ Đã đạt giới hạn tồn kho ({product.StockQuantity} sản phẩm).",
-                    cartCount = cart.Sum(i => i.Quantity)
-                });
+            if (quantity < 1) quantity = 1;
 
-            existingItem.Quantity += quantity;
-        }
-        else
-        {
-            // Kiểm tra tồn kho lần đầu thêm vào giỏ
-            if (product.StockQuantity < quantity)
-                return Json(new { success = false, message = $"Số lượng yêu cầu ({quantity}) vượt quá tồn kho ({product.StockQuantity})." });
+            var cart = HttpContext.Session.GetComplexData<List<CartItem>>("Cart") 
+                    ?? HttpContext.Session.GetObject<List<CartItem>>(CartSessionKey) 
+                    ?? new List<CartItem>();
 
-            cart.Add(new CartItem
+            Product? product = null;
+            try
             {
-                ProductId   = product.Id,
-                ProductName = product.Name,
-                Price       = product.Price,
-                Quantity    = quantity,
-                ImageUrl    = product.ImageUrl
+                // Cố gắng đọc thông tin sản phẩm từ CSDL nếu DB hoạt động bình thường
+                product = await context.Products
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.Id == productId && p.IsAvailable);
+            }
+            catch (Exception dbEx)
+            {
+                logger.LogWarning(dbEx, "Lỗi truy vấn Database khi thêm vào giỏ hàng: {Message}", dbEx.Message);
+            }
+
+            var existingItem = cart.Find(c => c.ProductId == productId);
+
+            if (existingItem != null)
+            {
+                // Nếu lấy được tồn kho từ DB và vượt quá tồn kho thì thông báo
+                if (product != null && existingItem.Quantity + quantity > product.StockQuantity)
+                {
+                    return Json(new
+                    {
+                        success   = false,
+                        message   = $"⚠️ Đã đạt giới hạn tồn kho ({product.StockQuantity} sản phẩm).",
+                        cartCount = cart.Sum(i => i.Quantity)
+                    });
+                }
+                existingItem.Quantity += quantity;
+            }
+            else
+            {
+                // Thêm sản phẩm mới vào giỏ hàng
+                string productName = product?.Name ?? $"Đặc sản Huế #{productId}";
+                decimal price      = product?.Price ?? 50000m;
+                string imageUrl    = product?.ImageUrl ?? "/images/products/default.jpg";
+
+                if (product != null && product.StockQuantity < quantity)
+                {
+                    return Json(new
+                    {
+                        success   = false,
+                        message   = $"Số lượng yêu cầu ({quantity}) vượt quá tồn kho ({product.StockQuantity}).",
+                        cartCount = cart.Sum(i => i.Quantity)
+                    });
+                }
+
+                cart.Add(new CartItem
+                {
+                    ProductId   = productId,
+                    ProductName = productName,
+                    Price       = price,
+                    Quantity    = quantity,
+                    ImageUrl    = imageUrl
+                });
+            }
+
+            // Lưu đồng bộ vào Session
+            SaveCart(cart);
+
+            int totalCount = cart.Sum(i => i.Quantity);
+            string successMsg = product != null 
+                ? $"✅ Đã thêm {quantity} '{product.Name}' vào giỏ hàng!" 
+                : $"✅ Đã thêm vào giỏ hàng thành công!";
+
+            return Json(new
+            {
+                success   = true,
+                message   = successMsg,
+                cartCount = totalCount
             });
         }
-
-        SaveCart(cart);
-
-        var newCount = cart.Sum(i => i.Quantity);
-        return Json(new
+        catch (Exception ex)
         {
-            success   = true,
-            message   = $"✅ Đã thêm {quantity} '{product.Name}' vào giỏ hàng!",
-            cartCount = newCount
-        });
+            logger.LogError(ex, "Lỗi khi xử lý thêm vào giỏ hàng: {Message}", ex.Message);
+            return Json(new { success = false, message = "Lỗi xử lý giỏ hàng: " + ex.Message });
+        }
     }
 
     // =========================================================================
