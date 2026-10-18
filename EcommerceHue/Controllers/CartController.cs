@@ -44,9 +44,12 @@ public class CartController(
         }
     }
 
-    /// <summary>Lưu danh sách CartItem vào Session.</summary>
+    /// <summary>Lưu danh sách CartItem vào Session (đồng bộ cả Cart và ShoppingCart).</summary>
     private void SaveCart(List<CartItem> cart)
-        => HttpContext.Session.SetObject(CartSessionKey, cart);
+    {
+        HttpContext.Session.SetObject(CartSessionKey, cart);
+        HttpContext.Session.SetComplexData("Cart", cart);
+    }
 
     // =========================================================================
     // ACTION: Hiển thị giỏ hàng – GET /Cart
@@ -83,23 +86,15 @@ public class CartController(
     {
         try
         {
-            // Đọc dữ liệu giỏ hàng từ Session
-            var cart = HttpContext.Session.GetComplexData<List<CartItem>>("Cart")
-                    ?? HttpContext.Session.GetComplexData<List<CartItem>>(CartSessionKey);
-            
-            // BẪY LỖI NULL: Nếu giỏ hàng trống hoặc chưa có gì, lập tức trả về số 0 ngay
-            if (cart == null || !cart.Any())
+            var cart = HttpContext.Session.GetComplexData<List<CartItem>>("Cart");
+            if (cart == null)
             {
                 return Json(0);
             }
-            
-            // Nếu có hàng, trả về tổng số lượng vật phẩm
-            return Json(cart.Sum(item => item.Quantity));
+            return Json(cart.Sum(i => i.Quantity));
         }
-        catch (Exception ex)
+        catch
         {
-            // Nếu có bất kỳ lỗi xung đột kiểu dữ liệu nào xảy ra, vẫn trả về số 0 để giữ an toàn cho trang web
-            Console.WriteLine("=== [GET CART COUNT ERROR]: " + ex.Message);
             return Json(0);
         }
     }

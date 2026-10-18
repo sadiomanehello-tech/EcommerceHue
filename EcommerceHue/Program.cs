@@ -104,13 +104,13 @@ builder.Services.AddSession(options =>
 
 var app = builder.Build();
 
-// --- Kích hoạt Forwarded Headers Middleware ở hàng đầu tiên (trước mọi Middleware khác) ---
-app.UseForwardedHeaders();
-
-// --- Bước 2: Kích hoạt Middleware Session ngay sau dòng builder.Build() ---
+// --- Kích hoạt Middleware Session ngay sau builder.Build() ---
 app.UseSession();
 
-// --- Bước 3: Nhúng bộ lọc Middleware cưỡng chế khóa toàn trang, bẫy từ khóa ngoại lệ Webhook payOS ---
+// --- Kích hoạt Forwarded Headers Middleware (cho ngrok / Reverse Proxy trên Cloud / Render) ---
+app.UseForwardedHeaders();
+
+// --- Nhúng bộ lọc Middleware cưỡng chế khóa toàn trang, bẫy từ khóa ngoại lệ Webhook payOS ---
 app.Use(async (context, next) =>
 {
     string path = context.Request.Path.Value?.ToLower() ?? string.Empty;
