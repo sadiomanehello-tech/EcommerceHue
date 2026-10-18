@@ -31,7 +31,8 @@ if (!Directory.Exists(keysFolder))
 
 builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(keysFolder))
-    .SetApplicationName("EcommerceHue");
+    .SetApplicationName("EcommerceHue")
+    .SetDefaultKeyLifetime(TimeSpan.FromDays(90)); // Ép giữ khóa giải mã trong 90 ngày
 
 
 builder.Services.AddDbContext<EcommerceContext>(options =>
@@ -169,19 +170,25 @@ app.Use(async (context, next) =>
 // TỰ ĐỘNG CẬP NHẬT DATABASE & SEED DỮ LIỆU (Migration Automation Check)
 // Tự động kiểm tra và vẽ cấu trúc bảng (Products, Orders, Customers...) lên Cloud DB
 // ============================================================================
-using (var scope = app.Services.CreateScope())
+// Chạy lệnh Seed Data dưới dạng tiến trình ngầm độc lập để tránh khóa file SQLite làm treo Deploy Render
+_ = Task.Run(async () =>
 {
-    var services = scope.ServiceProvider;
-    try
+    using (var scope = app.Services.CreateScope())
     {
-        await SeedData.Initialize(services);
-        Console.WriteLine("=== [SEED DATA] Đã nạp thành công 6 sản phẩm và tài khoản mẫu vào SQLite! ===");
+        var services = scope.ServiceProvider;
+        try
+        {
+            // Trì hoãn 3 giây để hệ thống ổn định cổng mạng trước khi chạm vào SQLite
+            await Task.Delay(3000); 
+            await SeedData.Initialize(services);
+            Console.WriteLine("=== [SYSTEM PRODUCTION] Đồng bộ hạt giống SQLite thành công! ===");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("=== [SYSTEM WARNING] Bỏ qua lỗi ngắt mạch DB: " + ex.Message);
+        }
     }
-    catch (Exception ex)
-    {
-        Console.WriteLine("=== [SEED DATA LỖI]: " + ex.Message);
-    }
-}
+});
 
 if (!app.Environment.IsDevelopment())
 {
