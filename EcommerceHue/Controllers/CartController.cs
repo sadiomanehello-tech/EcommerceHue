@@ -84,7 +84,7 @@ public class CartController(
     /// An toàn tuyệt đối: bẫy null và trả về { count = 0 } nếu chưa có sản phẩm để chống lỗi 500.
     /// [AllowAnonymous] đảm bảo luồng AJAX kiểm tra số lượng giỏ hàng ở Header luôn luôn có thể truy cập được.
     /// </summary>
-    [AllowAnonymous] // Bắt buộc phải có để không bị chặn quyền truy cập ngầm
+    [AllowAnonymous] // Bắt buộc để khách vãng lai không bị chặn quyền
     [HttpGet]
     public IActionResult GetCartCount()
     {
@@ -102,23 +102,34 @@ public class CartController(
             {
                 cartJson = HttpContext.Session.GetString(CartSessionKey);
             }
+            
+            // Nếu trống (khách mới xóa cookie/vừa vào web), trả về 0 ngay lập tức thay vì ép kiểu gây lỗi
             if (string.IsNullOrEmpty(cartJson))
             {
                 return Json(new { count = 0 });
             }
 
-            // 3. Giải mã JSON an toàn
-            var cartItems = System.Text.Json.JsonSerializer.Deserialize<List<CartItem>>(cartJson);
-            
-            // Tính tổng số lượng vật phẩm trong giỏ
-            int totalCount = cartItems?.Sum(item => item.Quantity) ?? 0;
-            return Json(new { count = totalCount });
+            // 3. Giải mã JSON (Thay thế tên class 'CartItem' nếu dự án định nghĩa khác)
+            // Dùng khối try nhỏ để tránh lỗi cấu trúc chuỗi JSON cũ làm sập
+            try 
+            {
+                var cartItems = System.Text.Json.JsonSerializer.Deserialize<List<CartItem>>(cartJson);
+                int totalCount = cartItems?.Sum(item => item.Quantity) ?? 0;
+                return Json(new { count = totalCount });
+            }
+            catch
+            {
+                // Nếu chuỗi JSON cũ không đúng định dạng, xóa luôn Session lỗi và trả về 0
+                HttpContext.Session.Remove("Cart");
+                HttpContext.Session.Remove(CartSessionKey);
+                return Json(new { count = 0 });
+            }
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Lỗi xử lý giỏ hàng ngầm: {Message}", ex.Message);
-            // Bẫy hoàn toàn ngoại lệ để không bao giờ quăng lỗi 500 làm sập trang web
-            return Json(new { count = 0, message = "Lỗi xử lý giỏ hàng ngầm." });
+            logger.LogError(ex, "Bẫy ngoại lệ cấp cao nhất tại GetCartCount: {Message}", ex.Message);
+            // Bẫy hoàn toàn ngoại lệ cấp cao nhất, tuyệt đối không cho phép quăng lỗi 500
+            return Json(new { count = 0, error = true });
         }
     }
 
