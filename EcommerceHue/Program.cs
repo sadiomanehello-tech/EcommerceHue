@@ -22,9 +22,8 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
     ?? "Data Source=ecommercehue.db";
 
 
-// --- CẤU HÌNH DATA PROTECTION & PERSISTENT KEYS (RENDER PRODUCTION) ---
-// Đảm bảo cookie xác thực và khóa bảo vệ Session không bị reset khi container Render khởi động lại
-var keysFolder = Path.Combine(builder.Environment.ContentRootPath, "temp-keys");
+// Sử dụng thư mục tạm của hệ điều hành để luôn có quyền ghi tệp tin trên Render
+var keysFolder = Path.Combine(Path.GetTempPath(), "ecommercehue-keys");
 if (!Directory.Exists(keysFolder))
 {
     Directory.CreateDirectory(keysFolder);
@@ -33,7 +32,6 @@ if (!Directory.Exists(keysFolder))
 builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(keysFolder))
     .SetApplicationName("EcommerceHue");
-// ----------------------------------------------------------------------
 
 
 builder.Services.AddDbContext<EcommerceContext>(options =>
