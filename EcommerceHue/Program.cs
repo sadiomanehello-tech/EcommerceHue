@@ -151,30 +151,14 @@ app.Use(async (context, next) =>
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
-    var logger = services.GetRequiredService<ILogger<Program>>();
     try
     {
-        var dbContext = services.GetRequiredService<EcommerceContext>();
-
-        // Tự động áp dụng Migration hoặc khởi tạo các bảng cho SQLite / Cloud DB
-        if (dbContext.Database.IsSqlite())
-        {
-            await dbContext.Database.EnsureCreatedAsync();
-            logger.LogInformation("=== [DATABASE] Tự động khởi tạo cấu trúc SQLite (ecommercehue.db) thành công ===");
-        }
-        else if (dbContext.Database.IsRelational())
-        {
-            await dbContext.Database.MigrateAsync();
-            logger.LogInformation("=== [DATABASE] Cập nhật Migration thành công! ===");
-        }
-
-        // Tự động seed dữ liệu mẫu các món đặc sản Huế, tài khoản quản trị
-        await DbInitializer.SeedAsync(dbContext);
-        logger.LogInformation("=== [DATABASE] Nạp dữ liệu mẫu ban đầu hoàn tất ===");
+        await SeedData.Initialize(services);
+        Console.WriteLine("=== [SEED DATA] Đã nạp thành công 6 sản phẩm và tài khoản mẫu vào SQLite! ===");
     }
     catch (Exception ex)
     {
-        logger.LogError(ex, "=== [DATABASE] Lỗi khi tự động thực thi Migrate/Seed Database: {Message}", ex.Message);
+        Console.WriteLine("=== [SEED DATA LỖI]: " + ex.Message);
     }
 }
 
