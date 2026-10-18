@@ -21,6 +21,8 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<EcommerceContext>(options =>
 {
     options.UseSqlite(connectionString);
+    options.ConfigureWarnings(warnings => 
+        warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
 
     // Chỉ bật sensitive data logging ở môi trường Development
     if (builder.Environment.IsDevelopment())

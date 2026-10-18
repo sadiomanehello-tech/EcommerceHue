@@ -24,6 +24,18 @@ public sealed class EcommerceContext(DbContextOptions<EcommerceContext> options)
     public DbSet<Coupon> Coupons => Set<Coupon>();
 
     // =========================================================================
+    // Cấu hình Warning & Options
+    // Bỏ qua cảnh báo PendingModelChangesWarning của EF Core 9 khi chạy trên Render
+    // =========================================================================
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        base.OnConfiguring(optionsBuilder);
+        optionsBuilder.ConfigureWarnings(warnings => 
+            warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+    }
+
+    // =========================================================================
     // Cấu hình Fluent API – mối quan hệ và ràng buộc
     // =========================================================================
 
