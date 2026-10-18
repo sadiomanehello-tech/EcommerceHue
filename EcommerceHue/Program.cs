@@ -108,9 +108,11 @@ builder.Services.AddSession(options =>
     // Session tự động hết hạn sau 30 phút không hoạt động
     options.IdleTimeout = TimeSpan.FromMinutes(30);
     // Cookie chỉ đọc được từ server (bảo vệ XSS)
-    options.Cookie.HttpOnly  = true;
-    // Đánh dấu Essential để hoạt động ngay cả khi user chưa đồng ý cookie banner
+    options.Cookie.HttpOnly = true;
+    // BẮT BUỘC DÒNG NÀY: Ép hệ thống cấp Session ID ngay cả khi khách chưa đăng nhập
     options.Cookie.IsEssential = true;
+    // Đồng bộ tiêu chuẩn mã hóa HTTPS của Render
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
     options.Cookie.Name = ".EcommerceHue.Session";
 });
 
@@ -120,11 +122,14 @@ builder.Services.AddSession(options =>
 
 var app = builder.Build();
 
-// --- Kích hoạt Middleware Session ngay sau builder.Build() ---
-app.UseSession();
-
 // --- Kích hoạt Forwarded Headers Middleware (cho ngrok / Reverse Proxy trên Cloud / Render) ---
 app.UseForwardedHeaders();
+
+// --- Phục vụ tệp tĩnh giao diện ---
+app.UseStaticFiles();
+
+// --- Kích hoạt Middleware Session ngay dưới StaticFiles và nằm TRÊN các bộ lọc khác ---
+app.UseSession();
 
 // --- Nhúng bộ lọc Middleware cưỡng chế khóa toàn trang, bẫy từ khóa ngoại lệ Webhook payOS ---
 app.Use(async (context, next) =>
