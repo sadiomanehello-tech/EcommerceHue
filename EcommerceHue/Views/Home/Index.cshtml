@@ -429,6 +429,9 @@ async function addToCart(btn) {
     const productId   = btn.dataset.productId;
     const productName = btn.dataset.productName;
 
+    // Đọc mã token ẩn chống giả mạo tự động sinh trên trang
+    const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+
     // Hiển thị trạng thái loading
     const textEl    = btn.querySelector('.btn-text');
     const spinnerEl = btn.querySelector('.btn-spinner');
@@ -441,13 +444,13 @@ async function addToCart(btn) {
             method : 'POST',
             headers: {
                 'Content-Type'     : 'application/x-www-form-urlencoded',
-                'X-Requested-With' : 'XMLHttpRequest'
+                'X-Requested-With' : 'XMLHttpRequest',
+                'RequestVerificationToken': token // BẮT BUỘC DÒNG NÀY: Vượt qua bộ lọc Antiforgery Server
             },
             body: `productId=${productId}`
         });
 
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
         const data = await response.json();
 
         if (data.success) {
@@ -460,7 +463,6 @@ async function addToCart(btn) {
         }
     } catch (err) {
         showToast('Có lỗi xảy ra. Vui lòng thử lại.', 'error');
-        console.error('[addToCart] Error:', err);
     } finally {
         setTimeout(() => {
             btn.disabled = false;
@@ -475,12 +477,14 @@ async function addToCart(btn) {
  * @@param {number} productId - Id sản phẩm
  */
 async function buyNow(productId) {
+    const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
     try {
         await fetch('/Cart/AddToCart', {
             method : 'POST',
             headers: {
                 'Content-Type'     : 'application/x-www-form-urlencoded',
-                'X-Requested-With' : 'XMLHttpRequest'
+                'X-Requested-With' : 'XMLHttpRequest',
+                'RequestVerificationToken': token
             },
             body: `productId=${productId}`
         });

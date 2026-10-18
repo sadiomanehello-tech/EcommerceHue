@@ -39,7 +39,8 @@ public static class SessionExtensions
                 }
             }
 
-            return JsonSerializer.Deserialize<T>(data);
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            return JsonSerializer.Deserialize<T>(data, options);
         }
         catch
         {
