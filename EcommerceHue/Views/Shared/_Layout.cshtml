@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-settable=no, user-scalable=no" />
     <meta name="description" content="@ViewData["Description"]" />
     <title>@ViewData["Title"] - Đặc sản Huế</title>
     <script type="importmap"></script>
@@ -13,7 +13,7 @@
 </head>
 <body>
     <header>
-        <nav class="navbar navbar-expand-sm navbar-dark hue-navbar border-bottom shadow-sm mb-4">
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark hue-navbar border-bottom shadow-sm mb-4">
             <div class="container">
                 <!-- Logo / Brand -->
                 <a class="navbar-brand fw-bold hue-brand" asp-area="" asp-controller="Home" asp-action="Index">
@@ -22,13 +22,13 @@
 
                 <!-- Toggle button (mobile) -->
                 <button class="navbar-toggler border-0" type="button"
-                        data-bs-toggle="collapse" data-bs-target=".navbar-collapse"
-                        aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                        data-bs-toggle="collapse" data-bs-target="#mainNavbarCollapse"
+                        aria-controls="mainNavbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
 
                 <!-- Nav links -->
-                <div class="navbar-collapse collapse">
+                <div class="collapse navbar-collapse" id="mainNavbarCollapse">
                     <ul class="navbar-nav me-auto">
                         <li class="nav-item">
                             <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Index">🏠 Trang chủ</a>
@@ -316,7 +316,7 @@
     <!-- ================================================================
          CỬA SỔ CHATBOT GIẢ LẬP THÔNG MINH (INTERACTIVE CHATBOT WINDOW)
          ================================================================ -->
-    <div id="hue-chatbot-window" class="hue-chatbot-window d-none" aria-hidden="true">
+    <div id="hue-chatbot-window" class="hue-chatbot-window chatbot-window d-none" aria-hidden="true">
         
         <!-- Header Chatbot -->
         <div class="hue-chatbot-header">
@@ -568,7 +568,16 @@
         }
 
         if (btnToggleChat) btnToggleChat.addEventListener('click', toggleChatbot);
-        if (btnCloseChat) btnCloseChat.addEventListener('click', toggleChatbot);
+        if (btnCloseChat) {
+            btnCloseChat.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (chatWindow) {
+                    chatWindow.classList.add('d-none');
+                    chatWindow.setAttribute('aria-hidden', 'true');
+                }
+            });
+        }
 
         // Cuộn xuống tin nhắn mới nhất
         function scrollToBottom() {
@@ -1180,6 +1189,62 @@
         .hue-btn-send:hover {
             background-color: #ffc107;
             border-color: #ffc107;
+        }
+
+        /* ================================================================
+           RESPONSIVE UI TỐI ƯU TOÀN DIỆN CHO THIẾT BỊ DI ĐỘNG (MOBILE & TABLET)
+           ================================================================ */
+        @@media (max-width: 991.98px) {
+            .navbar-collapse {
+                background: linear-gradient(135deg, #421600 0%, #70250a 100%) !important;
+                border-radius: 12px;
+                padding: 16px 20px;
+                margin-top: 12px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+                border: 1px solid rgba(255, 215, 0, 0.25);
+            }
+            .navbar-nav .nav-link {
+                padding: 10px 8px !important;
+                border-bottom: 1px solid rgba(255,255,255,0.06);
+            }
+            .navbar-nav .nav-item:last-child .nav-link {
+                border-bottom: none;
+            }
+            .hue-cart-nav {
+                display: inline-flex !important;
+                width: fit-content;
+                margin-top: 6px;
+            }
+        }
+
+        @@media (max-width: 576px) {
+            .chatbot-window,
+            .hue-chatbot-window {
+                width: 90% !important;
+                right: 5% !important;
+                bottom: 80px !important;
+                z-index: 9999 !important;
+                max-width: 90vw !important;
+                height: 460px !important;
+                max-height: 75vh !important;
+                border-radius: 14px !important;
+            }
+            .zalo-chat-button,
+            .hue-bubble-zalo,
+            .hue-chat-bubble {
+                bottom: 20px !important;
+                right: 20px !important;
+                width: 45px !important;
+                height: 45px !important;
+            }
+            .hue-multi-chat-container {
+                bottom: 20px !important;
+                right: 20px !important;
+                gap: 8px !important;
+            }
+            .hue-bubble-tooltip {
+                display: none !important;
+            }
         }
     </style>
 </body>

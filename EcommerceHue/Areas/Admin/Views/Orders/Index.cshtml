@@ -278,10 +278,10 @@
                                     }
                                     else if (statusVal == 4)
                                     {
-                                        <!-- Status == 4: Xanh ngọc 'Đã giao hàng thành công' -->
+                                        <!-- Status == 4: Badge màu xanh lá cây đậm sang trọng 'Đã giao thành công - Hoàn tất đơn' -->
                                         <span class="badge px-2.5 py-2 rounded-pill shadow-xs fw-semibold"
-                                              style="background-color: #059669; color: #ffffff; font-size: 0.78rem;">
-                                            ✨ Đã giao hàng thành công
+                                              style="background-color: #15803d; color: #ffffff; font-size: 0.78rem;">
+                                            ✅ Đã giao thành công - Hoàn tất đơn
                                         </span>
                                     }
                                     else if (statusVal == 5)
@@ -635,7 +635,7 @@
                 badgeHtml = `<span class="badge px-2.5 py-2 rounded-pill shadow-xs fw-semibold" style="background-color: #2563eb; color: #ffffff; font-size: 0.78rem;">🚚 Đang giao hàng</span>`;
                 break;
             case 4:
-                badgeHtml = `<span class="badge px-2.5 py-2 rounded-pill shadow-xs fw-semibold" style="background-color: #059669; color: #ffffff; font-size: 0.78rem;">✨ Đã giao hàng thành công</span>`;
+                badgeHtml = `<span class="badge px-2.5 py-2 rounded-pill shadow-xs fw-semibold" style="background-color: #15803d; color: #ffffff; font-size: 0.78rem;">✅ Đã giao thành công - Hoàn tất đơn</span>`;
                 break;
             case 5:
                 badgeHtml = `<span class="badge px-2.5 py-2 rounded-pill shadow-xs fw-semibold" style="background-color: #dc2626; color: #ffffff; font-size: 0.78rem;">❌ Đã hủy đơn</span>`;
