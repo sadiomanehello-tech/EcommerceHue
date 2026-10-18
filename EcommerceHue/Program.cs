@@ -16,20 +16,11 @@ var builder = WebApplication.CreateBuilder(args);
 //   - Biến môi trường               khi triển khai Production / Docker
 //     (tên biến: ConnectionStrings__DefaultConnection)
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException(
-        "Không tìm thấy connection string 'DefaultConnection'. " +
-        "Vui lòng cấu hình trong appsettings.Development.json hoặc biến môi trường.");
+    ?? "Data Source=ecommercehue.db";
 
 builder.Services.AddDbContext<EcommerceContext>(options =>
 {
-    options.UseSqlServer(connectionString, sqlOptions =>
-    {
-        // Tự động retry khi kết nối SQL Server bị ngắt tạm thời (transient fault)
-        sqlOptions.EnableRetryOnFailure(
-            maxRetryCount: 5,
-            maxRetryDelay: TimeSpan.FromSeconds(30),
-            errorNumbersToAdd: null);
-    });
+    options.UseSqlite(connectionString);
 
     // Chỉ bật sensitive data logging ở môi trường Development
     if (builder.Environment.IsDevelopment())
@@ -158,22 +149,29 @@ app.Use(async (context, next) =>
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
+    var logger = services.GetRequiredService<ILogger<Program>>();
     try
     {
         var dbContext = services.GetRequiredService<EcommerceContext>();
 
-        // Tự động áp dụng các Migration còn thiếu vào Database mới trên Server đám mây
-        if (dbContext.Database.IsRelational())
+        // Tự động áp dụng Migration hoặc khởi tạo các bảng cho SQLite / Cloud DB
+        if (dbContext.Database.IsSqlite())
+        {
+            await dbContext.Database.EnsureCreatedAsync();
+            logger.LogInformation("=== [DATABASE] Tự động khởi tạo cấu trúc SQLite (ecommercehue.db) thành công ===");
+        }
+        else if (dbContext.Database.IsRelational())
         {
             await dbContext.Database.MigrateAsync();
+            logger.LogInformation("=== [DATABASE] Cập nhật Migration thành công! ===");
         }
 
         // Tự động seed dữ liệu mẫu các món đặc sản Huế, tài khoản quản trị
         await DbInitializer.SeedAsync(dbContext);
+        logger.LogInformation("=== [DATABASE] Nạp dữ liệu mẫu ban đầu hoàn tất ===");
     }
     catch (Exception ex)
     {
-        var logger = services.GetRequiredService<ILogger<Program>>();
         logger.LogError(ex, "=== [DATABASE] Lỗi khi tự động thực thi Migrate/Seed Database: {Message}", ex.Message);
     }
 }

@@ -31,6 +31,9 @@ public sealed class EcommerceContext(DbContextOptions<EcommerceContext> options)
     {
         base.OnModelCreating(modelBuilder);
 
+        // Hỗ trợ linh hoạt cả SQLite (CURRENT_TIMESTAMP) và SQL Server (GETUTCDATE())
+        var defaultDateSql = Database.IsSqlite() ? "CURRENT_TIMESTAMP" : "GETUTCDATE()";
+
         // --------------------------------------------------------------------
         // Category
         // --------------------------------------------------------------------
@@ -93,11 +96,11 @@ public sealed class EcommerceContext(DbContextOptions<EcommerceContext> options)
 
             entity.Property(p => p.CreatedAt)
                   .IsRequired()
-                  .HasDefaultValueSql("GETUTCDATE()");
+                  .HasDefaultValueSql(defaultDateSql);
 
             entity.Property(p => p.UpdatedAt)
                   .IsRequired()
-                  .HasDefaultValueSql("GETUTCDATE()");
+                  .HasDefaultValueSql(defaultDateSql);
 
             // Index slug để tìm kiếm URL thân thiện
             entity.HasIndex(p => p.Slug)
@@ -166,11 +169,11 @@ public sealed class EcommerceContext(DbContextOptions<EcommerceContext> options)
 
             entity.Property(o => o.CreatedAt)
                   .IsRequired()
-                  .HasDefaultValueSql("GETUTCDATE()");
+                  .HasDefaultValueSql(defaultDateSql);
 
             entity.Property(o => o.UpdatedAt)
                   .IsRequired()
-                  .HasDefaultValueSql("GETUTCDATE()");
+                  .HasDefaultValueSql(defaultDateSql);
         });
 
         // --------------------------------------------------------------------
@@ -260,7 +263,7 @@ public sealed class EcommerceContext(DbContextOptions<EcommerceContext> options)
 
             entity.Property(pt => pt.ReceivedAt)
                   .IsRequired()
-                  .HasDefaultValueSql("GETUTCDATE()");
+                  .HasDefaultValueSql(defaultDateSql);
 
             // Index giúp truy vấn nhanh theo mã giao dịch VnPay
             entity.HasIndex(pt => pt.VnpTransactionNo)
@@ -314,7 +317,7 @@ public sealed class EcommerceContext(DbContextOptions<EcommerceContext> options)
 
             entity.Property(c => c.CreatedAt)
                   .IsRequired()
-                  .HasDefaultValueSql("GETUTCDATE()");
+                  .HasDefaultValueSql(defaultDateSql);
 
             // Username và Email phải duy nhất trong hệ thống
             entity.HasIndex(c => c.Username)
@@ -360,7 +363,7 @@ public sealed class EcommerceContext(DbContextOptions<EcommerceContext> options)
 
             entity.Property(p => p.CreatedDate)
                   .IsRequired()
-                  .HasDefaultValueSql("GETUTCDATE()");
+                  .HasDefaultValueSql(defaultDateSql);
 
             entity.Property(p => p.IsPublished)
                   .IsRequired()
@@ -394,7 +397,7 @@ public sealed class EcommerceContext(DbContextOptions<EcommerceContext> options)
 
             entity.Property(c => c.CreatedAt)
                   .IsRequired()
-                  .HasDefaultValueSql("GETUTCDATE()");
+                  .HasDefaultValueSql(defaultDateSql);
 
             // Đánh Index Unique cho Code để tra cứu nhanh và không trùng lặp mã
             entity.HasIndex(c => c.Code)

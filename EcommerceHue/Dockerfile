@@ -27,5 +27,8 @@ EXPOSE 8080
 # Sao chép gói phần mềm đã biên dịch từ Bước 1 sang Runtime
 COPY --from=build /app/publish .
 
+# Cấp quyền đọc/ghi toàn quyền cho thư mục /app để ứng dụng tự động tạo và ghi tệp SQLite (ecommercehue.db) trên Linux Render
+RUN chmod -R 777 /app
+
 # Lệnh khởi chạy ứng dụng chính
 ENTRYPOINT ["dotnet", "EcommerceHue.dll"]
