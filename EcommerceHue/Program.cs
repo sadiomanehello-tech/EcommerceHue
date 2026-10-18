@@ -2,6 +2,9 @@ using EcommerceHue.Data;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.DataProtection;
+using System.IO;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +20,20 @@ var builder = WebApplication.CreateBuilder(args);
 //     (tên biến: ConnectionStrings__DefaultConnection)
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? "Data Source=ecommercehue.db";
+
+
+// --- ĐOẠN CODE CẤU HÌNH DATA PROTECTION CẦN BỔ SUNG ---
+var keysFolder = Path.Combine(builder.Environment.ContentRootPath, "temp-keys");
+if (!Directory.Exists(keysFolder))
+{
+    Directory.CreateDirectory(keysFolder);
+}
+
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(keysFolder))
+    .SetApplicationName("EcommerceHue");
+// ------------------------------------------------------
+
 
 builder.Services.AddDbContext<EcommerceContext>(options =>
 {
