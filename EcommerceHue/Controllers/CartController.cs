@@ -57,7 +57,9 @@ public class CartController(
 
     /// <summary>
     /// Đọc giỏ hàng từ Session và truyền xuống View để hiển thị.
+    /// Cho phép truy cập ẩn danh (khách chưa đăng nhập vẫn xem được giỏ hàng).
     /// </summary>
+    [AllowAnonymous]
     public IActionResult Index()
     {
         try
@@ -79,23 +81,45 @@ public class CartController(
 
     /// <summary>
     /// Trả về tổng số lượng item trong giỏ hàng hiện tại dưới dạng JSON.
-    /// An toàn tuyệt đối: bẫy null và trả về 0 nếu chưa có sản phẩm để chống lỗi 500.
+    /// An toàn tuyệt đối: bẫy null và trả về { count = 0 } nếu chưa có sản phẩm để chống lỗi 500.
+    /// [AllowAnonymous] đảm bảo luồng AJAX kiểm tra số lượng giỏ hàng ở Header luôn luôn có thể truy cập được.
     /// </summary>
+    [AllowAnonymous]
     [HttpGet]
     public IActionResult GetCartCount()
     {
         try
         {
-            var cart = HttpContext.Session.GetComplexData<List<CartItem>>("Cart");
-            if (cart == null)
+            // 1. Kiểm tra xem HttpContext hoặc Session có bị null hay không
+            if (HttpContext?.Session == null)
             {
-                return Json(0);
+                return Json(new { count = 0 });
             }
-            return Json(cart.Sum(i => i.Quantity));
+
+            // 2. Lấy dữ liệu từ Session một cách an toàn (kiểm tra cả "Cart" và CartSessionKey thực tế)
+            var cartJson = HttpContext.Session.GetString("Cart");
+            if (string.IsNullOrEmpty(cartJson))
+            {
+                cartJson = HttpContext.Session.GetString(CartSessionKey);
+            }
+
+            if (string.IsNullOrEmpty(cartJson))
+            {
+                return Json(new { count = 0 });
+            }
+
+            // 3. Giải mã JSON an toàn
+            var cartItems = System.Text.Json.JsonSerializer.Deserialize<List<CartItem>>(cartJson);
+
+            int totalCount = cartItems?.Sum(item => item.Quantity) ?? 0;
+
+            return Json(new { count = totalCount });
         }
-        catch
+        catch (Exception ex)
         {
-            return Json(0);
+            // Ghi log lỗi nội bộ nếu cần nhưng không làm sập luồng hệ thống, luôn trả về JSON hợp lệ cho giao diện
+            logger.LogError(ex, "Lỗi khi lấy số lượng giỏ hàng: {Message}", ex.Message);
+            return Json(new { count = 0, error = "Không thể tải giỏ hàng" });
         }
     }
 
