@@ -32,26 +32,61 @@ public class CartController(
     // HELPER: Đọc / ghi giỏ hàng từ Session
     // =========================================================================
 
-    /// <summary>Đọc danh sách CartItem hiện tại từ Session an toàn.</summary>
+    /// <summary>Đọc danh sách CartItem hiện tại từ Session an toàn tuyệt đối.</summary>
     private List<CartItem> GetCart()
     {
         try
         {
-            return HttpContext.Session.GetObject<List<CartItem>>(CartSessionKey) 
-                ?? HttpContext.Session.GetComplexData<List<CartItem>>("Cart") 
-                ?? [];
+            if (HttpContext == null || HttpContext.Session == null)
+            {
+                return new List<CartItem>();
+            }
+
+            // Ưu tiên đọc key chính thức của dự án
+            string? cartJson = HttpContext.Session.GetString("ShoppingCart") 
+                           ?? HttpContext.Session.GetString("Cart");
+
+            if (string.IsNullOrEmpty(cartJson))
+            {
+                return new List<CartItem>();
+            }
+
+            // Bọc khối deserialize trong try-catch nhỏ để tránh chuỗi lỗi làm sập hệ thống
+            try
+            {
+                var items = System.Text.Json.JsonSerializer.Deserialize<List<CartItem>>(cartJson);
+                return items ?? new List<CartItem>();
+            }
+            catch
+            {
+                // Nếu chuỗi JSON cũ lỗi cấu trúc, làm sạch Session để tránh kẹt lỗi
+                HttpContext.Session.Remove("ShoppingCart");
+                HttpContext.Session.Remove("Cart");
+                return new List<CartItem>();
+            }
         }
         catch
         {
-            return [];
+            return new List<CartItem>();
         }
     }
 
-    /// <summary>Lưu danh sách CartItem vào Session (đồng bộ cả Cart và ShoppingCart).</summary>
+    /// <summary>Lưu danh sách CartItem vào Session đồng bộ.</summary>
     private void SaveCart(List<CartItem> cart)
     {
-        HttpContext.Session.SetObject(CartSessionKey, cart);
-        HttpContext.Session.SetComplexData("Cart", cart);
+        try
+        {
+            if (HttpContext != null && HttpContext.Session != null)
+            {
+                var cartJson = System.Text.Json.JsonSerializer.Serialize(cart);
+                HttpContext.Session.SetString("ShoppingCart", cartJson);
+                HttpContext.Session.SetString("Cart", cartJson);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Lỗi ghi nhận giỏ hàng vào Session.");
+        }
     }
 
     // =========================================================================
@@ -82,19 +117,15 @@ public class CartController(
     // Endpoint công khai cho JavaScript navbar cập nhật badge số lượng.
     // =========================================================================
 
-    /// <summary>
-    /// Trả về tổng số lượng item trong giỏ hàng hiện tại dưới dạng JSON.
-    /// An toàn tuyệt đối: bẫy null và trả về 0 nếu chưa có sản phẩm để chống lỗi 500.
-    /// </summary>
+    [AllowAnonymous]
     [HttpGet]
     public IActionResult GetCartCount()
     {
         try
         {
-            var cart = HttpContext.Session.GetComplexData<List<CartItem>>("Cart")
-                    ?? HttpContext.Session.GetObject<List<CartItem>>(CartSessionKey);
-            if (cart == null) return Json(0);
-            return Json(cart.Sum(i => i.Quantity));
+            var cart = GetCart();
+            int totalCount = cart?.Sum(i => i.Quantity) ?? 0;
+            return Json(totalCount);
         }
         catch
         {
