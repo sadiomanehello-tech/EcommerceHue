@@ -152,15 +152,30 @@ app.Use(async (context, next) =>
 });
 
 // ============================================================================
-// KHỞI TẠO DỮ LIỆU MẪU (Seed Data) – CHỈ CHẠY Ở MÔI TRƯỜNG DEVELOPMENT
-// DbInitializer.SeedAsync kiểm tra DB trước khi chèn, an toàn khi restart nhiều lần.
+// TỰ ĐỘNG CẬP NHẬT DATABASE & SEED DỮ LIỆU (Migration Automation Check)
+// Tự động kiểm tra và vẽ cấu trúc bảng (Products, Orders, Customers...) lên Cloud DB
 // ============================================================================
-if (app.Environment.IsDevelopment())
+using (var scope = app.Services.CreateScope())
 {
-    // Tạo scope riêng để lấy Scoped service (EcommerceContext) đúng vòng đời DI
-    using var scope = app.Services.CreateScope();
-    var dbContext = scope.ServiceProvider.GetRequiredService<EcommerceContext>();
-    await DbInitializer.SeedAsync(dbContext);
+    var services = scope.ServiceProvider;
+    try
+    {
+        var dbContext = services.GetRequiredService<EcommerceContext>();
+
+        // Tự động áp dụng các Migration còn thiếu vào Database mới trên Server đám mây
+        if (dbContext.Database.IsRelational())
+        {
+            await dbContext.Database.MigrateAsync();
+        }
+
+        // Tự động seed dữ liệu mẫu các món đặc sản Huế, tài khoản quản trị
+        await DbInitializer.SeedAsync(dbContext);
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "=== [DATABASE] Lỗi khi tự động thực thi Migrate/Seed Database: {Message}", ex.Message);
+    }
 }
 
 if (!app.Environment.IsDevelopment())

@@ -1,0 +1,32 @@
+# ==============================================================================
+# Multi-stage Build Dockerfile dành cho ASP.NET Core (.NET 9 SDK & Runtime)
+# Tối ưu hóa dung lượng image triển khai trên Render / Railway Cloud
+# ==============================================================================
+
+# BƯỚC 1: Build & Publish (Sử dụng .NET 9 SDK)
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+
+# Sao chép tệp dự án và khôi phục các gói phụ thuộc (Restore Dependencies)
+COPY ["EcommerceHue/EcommerceHue.csproj", "EcommerceHue/"]
+RUN dotnet restore "EcommerceHue/EcommerceHue.csproj"
+
+# Sao chép toàn bộ mã nguồn dự án và biên dịch phát hành (Publish)
+COPY . .
+WORKDIR "/src/EcommerceHue"
+RUN dotnet publish "EcommerceHue.csproj" -c Release -o /app/publish /p:UseAppHost=false
+
+# BƯỚC 2: Runtime (Sử dụng ASP.NET Core 9 Runtime gọn nhẹ, tối ưu bảo mật)
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
+WORKDIR /app
+
+# Cấu hình mở cổng mạng 8080 mặc định cho Render & Railway tự động ánh xạ link HTTPS
+ENV ASPNETCORE_HTTP_PORTS=8080
+ENV ASPNETCORE_ENVIRONMENT=Production
+EXPOSE 8080
+
+# Sao chép gói phần mềm đã biên dịch từ Bước 1 sang Runtime
+COPY --from=build /app/publish .
+
+# Lệnh khởi chạy ứng dụng chính
+ENTRYPOINT ["dotnet", "EcommerceHue.dll"]
