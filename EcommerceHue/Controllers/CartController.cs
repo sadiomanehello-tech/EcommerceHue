@@ -632,15 +632,21 @@ public class CartController(
 
         logger.LogInformation("[payOS] Sinh link thanh toán thành công: {CheckoutUrl}", result.checkoutUrl);
 
-        // 9. Tự động gửi Email xác nhận đặt hàng về hòm thư khách hàng
+        // 1. Tạo đường link ảnh QR động thông qua API mở của VietQR dựa trên thông tin thật của đơn hàng
+        string qrImageSrc = $"https://img.vietqr.io/image/BIDV-8811843594-compact2.png?amount={order.TotalAmount}&addInfo=DH{order.Id}%20{order.OrderCode}&accountName=HO%20ANH%20TAI";
+
+        // 2. Cấu hình bọc khối lệnh gửi Email Đặt hàng bằng try-catch cô lập để tránh nghẽn luồng
         try
         {
             if (!string.IsNullOrWhiteSpace(order.CustomerEmail))
             {
                 var emailSubject = $"[EcommerceHue] Xác nhận đặt hàng thành công đơn hàng #{order.Id}";
-                var emailHtml = BuildOrderConfirmationEmailHtml(order, paymentContent, result.checkoutUrl);
+                
+                // Biên soạn template HTML nhúng link ảnh QR động vừa tạo ở Bước 1
+                var emailHtml = BuildOrderConfirmationEmailHtml(order, result.checkoutUrl, qrImageSrc);
+                
                 await emailService.SendOrderEmailAsync(order.CustomerEmail, emailSubject, emailHtml);
-                logger.LogInformation("[Email] Đã gửi thư xác nhận đặt hàng tới {Email} cho đơn hàng #{OrderId}", order.CustomerEmail, order.Id);
+                logger.LogInformation("=== [SMTP] Đã bắn thành công Email mã QR cho đơn hàng #{OrderId}", order.Id);
             }
             else
             {
@@ -649,8 +655,8 @@ public class CartController(
         }
         catch (Exception ex)
         {
-            Console.WriteLine("=== LỖI SMTP GỬI MAIL (Đặt hàng): " + ex.Message);
-            logger.LogError(ex, "[CartController] Lỗi gửi email xác nhận đặt hàng cho đơn #{OrderId}", order.Id);
+            logger.LogError(ex, "=== [SMTP LỖI NGHẼN MAIL]: " + ex.Message);
+            // Cho dù lỗi gửi thư xảy ra, hệ thống vẫn phải chạy tiếp luồng phía dưới để Redirect khách sang payOS
         }
 
         // Nếu là yêu cầu AJAX từ frontend
@@ -1002,10 +1008,22 @@ public class CartController(
 
     /// <summary>
     /// Tạo mẫu email HTML chuyên nghiệp xác nhận đơn hàng, liệt kê chi tiết đặc sản đã đặt,
-    /// thông tin thanh toán VietQR và địa chỉ giao hàng kèm thời gian dự kiến.
+    /// thông tin thanh toán VietQR động và địa chỉ giao hàng kèm thời gian dự kiến.
     /// </summary>
-    private static string BuildOrderConfirmationEmailHtml(Order order, string paymentContent, string qrUrl)
+    private static string BuildOrderConfirmationEmailHtml(
+        Order order,
+        string checkoutUrl,
+        string qrImageSrc)
     {
+        var payUrl = !string.IsNullOrWhiteSpace(checkoutUrl) ? checkoutUrl : "#";
+        var accountNumber = "8811843594";
+        var accountName = "HO ANH TAI";
+        var paymentContent = $"DH{order.Id} {order.OrderCode}";
+        if (paymentContent.Length > 25)
+        {
+            paymentContent = paymentContent.Substring(0, 25);
+        }
+
         var itemsHtml = new System.Text.StringBuilder();
         var index = 1;
         foreach (var item in order.OrderDetails)
@@ -1092,19 +1110,20 @@ public class CartController(
                         <h3 style="color: #8b3012; margin: 0 0 10px 0; font-size: 17px;">
                             💳 Hướng Dẫn Thanh Toán Chuyển Khoản VietQR Tự Động
                         </h3>
-                        <p style="font-size: 13px; color: #666; margin: 0 0 15px 0;">
-                            Quý khách vui lòng mở App Ngân hàng quét mã QR dưới đây hoặc chuyển khoản theo đúng nội dung để đơn hàng được tự động kích hoạt.
-                        </p>
-
-                        <div style="display: inline-block; padding: 8px; background: #ffffff; border-radius: 10px; border: 1px solid #ffd8a8; margin-bottom: 15px;">
-                            <img src="{qrUrl}" alt="Mã VietQR Đơn Hàng" style="max-width: 250px; width: 100%; height: auto; display: block; margin: 0 auto; border-radius: 6px;" />
+                        
+                        <!-- Vùng hiển thị trực diện mã VietQR động payOS và nút mở trang thanh toán -->
+                        <div style="text-align: center; margin: 20px 0;">
+                            <p style="font-weight: bold; color: #555;">Bạn có thể quét mã VietQR dưới đây để thanh toán nhanh:</p>
+                            <img src="{qrImageSrc}" alt="Mã VietQR Thanh Toán" style="max-width: 250px; border: 1px solid #ddd; padding: 10px; background: #fff; border-radius: 8px;" />
+                            <br/>
+                            <a href="{payUrl}" target="_blank" style="display: inline-block; margin-top: 15px; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Mở trang thanh toán an toàn payOS</a>
                         </div>
 
                         <!-- Bảng chi tiết tài khoản -->
                         <div style="text-align: left; background: #ffffff; border-radius: 6px; padding: 12px 16px; border: 1px solid #ffe0b2; font-size: 13px; line-height: 1.8;">
                             <div><strong>Ngân hàng thụ hưởng:</strong> BIDV (Ngân hàng TMCP Đầu tư và Phát triển Việt Nam)</div>
-                            <div><strong>Số tài khoản:</strong> <span style="font-size: 15px; font-weight: bold; color: #1565c0;">8811843594</span></div>
-                            <div><strong>Chủ tài khoản:</strong> <strong>HO ANH TAI</strong></div>
+                            <div><strong>Số tài khoản:</strong> <span style="font-size: 15px; font-weight: bold; color: #1565c0;">{accountNumber}</span></div>
+                            <div><strong>Chủ tài khoản:</strong> <strong>{accountName}</strong></div>
                             <div><strong>Số tiền:</strong> <span style="font-size: 15px; font-weight: bold; color: #b71c1c;">{order.TotalAmount:N0} ₫</span></div>
                             <div><strong>Nội dung chuyển khoản:</strong> <span style="font-size: 15px; font-weight: bold; color: #b71c1c; font-family: monospace; background: #fff0f0; padding: 2px 6px; border-radius: 4px;">{paymentContent}</span></div>
                         </div>

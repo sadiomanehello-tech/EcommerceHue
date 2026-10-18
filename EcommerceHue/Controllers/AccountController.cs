@@ -199,7 +199,12 @@ public class AccountController(
     [HttpGet]
     public async Task GoogleLogin(string? returnUrl = null)
     {
-        var redirectUrl = Url.Action(nameof(GoogleResponse), "Account", new { returnUrl });
+        // Nhận diện cấu trúc scheme bảo mật (ưu tiên https từ Forwarded Headers của ngrok / proxy)
+        var scheme = Request.Headers.TryGetValue("X-Forwarded-Proto", out var proto) && !string.IsNullOrEmpty(proto)
+            ? proto.ToString()
+            : Request.Scheme;
+
+        var redirectUrl = Url.Action(nameof(GoogleResponse), "Account", new { returnUrl }, scheme);
         var properties = new AuthenticationProperties { RedirectUri = redirectUrl };
         await HttpContext.ChallengeAsync(GoogleDefaults.AuthenticationScheme, properties);
     }

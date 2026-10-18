@@ -1,5 +1,6 @@
 using EcommerceHue.Data;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -75,7 +76,17 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
             ?? throw new InvalidOperationException("Chưa cấu hình Authentication:Google:ClientId.");
         options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"]
             ?? throw new InvalidOperationException("Chưa cấu hình Authentication:Google:ClientSecret.");
+        options.CorrelationCookie.SameSite = SameSiteMode.Lax;
+        options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
     });
+
+// --- Cấu hình nhận diện Header chuyển tiếp (Forwarded Headers) cho ngrok / Reverse Proxy ---
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 // --- Bộ nhớ đệm phân tán (In-Memory) – cần thiết cho Session ---
 // Dùng MemoryCache nội bộ cho môi trường Development.
@@ -99,6 +110,9 @@ builder.Services.AddSession(options =>
 // ============================================================================
 
 var app = builder.Build();
+
+// --- Kích hoạt Forwarded Headers Middleware ở hàng đầu tiên (trước mọi Middleware khác) ---
+app.UseForwardedHeaders();
 
 // ============================================================================
 // KHỞI TẠO DỮ LIỆU MẪU (Seed Data) – CHỈ CHẠY Ở MÔI TRƯỜNG DEVELOPMENT
