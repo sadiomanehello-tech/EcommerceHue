@@ -31,9 +31,17 @@ public static class SessionExtensions
     /// <returns>Đối tượng được deserialize hoặc default(T)</returns>
     public static T? GetObject<T>(this ISession session, string key)
     {
-        var json = session.GetString(key);
-        return json is null
-            ? default
-            : JsonSerializer.Deserialize<T>(json);
+        try
+        {
+            var json = session.GetString(key);
+            if (string.IsNullOrWhiteSpace(json))
+                return default;
+
+            return JsonSerializer.Deserialize<T>(json);
+        }
+        catch
+        {
+            return default;
+        }
     }
 }

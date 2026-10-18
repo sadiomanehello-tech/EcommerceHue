@@ -31,9 +31,18 @@ public class CartController(
     // HELPER: Đọc / ghi giỏ hàng từ Session
     // =========================================================================
 
-    /// <summary>Đọc danh sách CartItem hiện tại từ Session.</summary>
+    /// <summary>Đọc danh sách CartItem hiện tại từ Session an toàn.</summary>
     private List<CartItem> GetCart()
-        => HttpContext.Session.GetObject<List<CartItem>>(CartSessionKey) ?? [];
+    {
+        try
+        {
+            return HttpContext.Session.GetObject<List<CartItem>>(CartSessionKey) ?? [];
+        }
+        catch
+        {
+            return [];
+        }
+    }
 
     /// <summary>Lưu danh sách CartItem vào Session.</summary>
     private void SaveCart(List<CartItem> cart)
@@ -59,14 +68,27 @@ public class CartController(
 
     /// <summary>
     /// Trả về tổng số lượng item trong giỏ hàng hiện tại dưới dạng JSON.
+    /// An toàn tuyệt đối: bẫy null và trả về 0 nếu chưa có sản phẩm để chống lỗi 500.
     /// </summary>
     [HttpGet]
     public IActionResult GetCartCount()
     {
-        var cart  = GetCart();
-        // Tổng số lượng (không phải số dòng): ví dụ 2 cái áo + 3 cái quần = 5
-        var count = cart.Sum(i => i.Quantity);
-        return Json(new { count });
+        try
+        {
+            var cart = GetCart();
+            if (cart == null || cart.Count == 0)
+            {
+                return Json(0); // Trả về số lượng bằng 0 an toàn để bẻ gãy lỗi 500
+            }
+
+            var count = cart.Sum(i => i.Quantity);
+            return Json(count);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Lỗi khi lấy số lượng giỏ hàng từ Session: {Message}", ex.Message);
+            return Json(0);
+        }
     }
 
     // =========================================================================

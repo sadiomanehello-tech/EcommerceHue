@@ -429,8 +429,12 @@
     function fetchCartCount() {
         fetch('/Cart/GetCartCount')
             .then(r => r.json())
-            .then(data => updateCartBadge(data.count))
-            .catch(() => {}); // Lỗi mạng – bỏ qua, không phải tính năng quan trọng
+            .then(data => {
+                // Đón nhận cả giá trị số 0 trực tiếp hoặc object { count: 0 }
+                const count = (typeof data === 'object' && data !== null) ? (data.count ?? 0) : (Number(data) || 0);
+                updateCartBadge(count);
+            })
+            .catch(() => updateCartBadge(0)); // Lỗi mạng hoặc session – hiển thị 0 an toàn
     }
 
     /**
