@@ -366,15 +366,10 @@ public sealed class ShipperController(
         }
 
         // Phân loại ghi chú tiền COD
-        string codNoticeHtml;
-        if ((int)order.Status == 1 || order.Status == OrderStatus.Paid || order.TotalAmount <= 0)
-        {
-            codNoticeHtml = "<span style='color: #16a34a; font-weight: bold;'>0 VNĐ (ĐÃ THANH TOÁN TRƯỚC - KHÔNG THU TIỀN)</span>";
-        }
-        else
-        {
-            codNoticeHtml = $"<span style='color: #dc2626; font-weight: bold;'>{order.TotalAmount:N0} VNĐ (Tiền thu hộ COD khi nhận hàng)</span>";
-        }
+        int codAmount = ((int)order.Status == 1 || order.Status == OrderStatus.Paid || order.TotalAmount <= 0) ? 0 : (int)order.TotalAmount;
+        string codNoticeHtml = codAmount == 0
+            ? "<strong>0 VNĐ</strong> <span style='color: #16a34a; font-weight: bold;'>(ĐÃ THANH TOÁN TRƯỚC - KHÔNG THU TIỀN)</span>"
+            : $"<span style='color: #dc2626; font-weight: bold;'><strong>{codAmount:N0} VNĐ</strong> (Tiền thu hộ COD khi nhận hàng)</span>";
 
         return $@"
 <!DOCTYPE html>

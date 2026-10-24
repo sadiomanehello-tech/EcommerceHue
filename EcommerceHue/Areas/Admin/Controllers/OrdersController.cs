@@ -208,8 +208,9 @@ public class OrdersController : Controller
             {
                 if (newStatus == OrderStatus.Shipping) // KHI ADMIN CHUYỂN SANG ĐANG GIAO (STATUS = 3)
                 {
+                    int codAmount = (order.Status == OrderStatus.Paid || oldStatus == OrderStatus.Paid) ? 0 : (int)order.TotalAmount;
                     string subject3 = $"[EcommerceHue] Shipper GHN đang đi giao đơn hàng #{order.Id} tới bạn!";
-                    string html3 = $"<h3>Đơn hàng #{order.Id} của bạn đang trên đường giao!</h3><p>Vui lòng chuẩn bị điện thoại để đối tác shipper liên hệ bàn giao kiện hàng đặc sản.</p>";
+                    string html3 = $"<h3>Đơn hàng #{order.Id} của bạn đang trên đường giao!</h3><p>Vui lòng chuẩn bị điện thoại để đối tác shipper liên hệ bàn giao kiện hàng đặc sản.</p><p>Tiền thu hộ (COD) khi nhận: <strong>{codAmount.ToString("N0")} VNĐ</strong></p>";
                     _ = Task.Run(async () => {
                         try {
                             await _emailService.SendOrderEmailAsync(order.CustomerEmail, subject3, html3);
@@ -286,7 +287,17 @@ public class OrdersController : Controller
             using var httpClient = new HttpClient();
             httpClient.Timeout = TimeSpan.FromSeconds(15);
 
-            // 1. Đóng gói dữ liệu JSON gửi sang GHN (khớp thông tin đơn hàng)
+            // 1. Phân định số tiền thu hộ COD dựa trên trạng thái thanh toán thực tế của đơn hàng
+            int codAmount = 0;
+            int paymentTypeId = 2; // Người bán trả tiền trước
+
+            if (order.Status != OrderStatus.Paid) 
+            {
+                codAmount = (int)order.TotalAmount;
+                paymentTypeId = 1; // Khách trả tiền COD khi nhận hàng
+            }
+
+            // Đóng gói dữ liệu JSON gửi sang GHN (khớp thông tin đơn hàng)
             var payload = new
             {
                 to_name = order.CustomerName,
@@ -297,7 +308,8 @@ public class OrdersController : Controller
                 width = 10,
                 height = 10,
                 service_type_id = 2,
-                payment_type_id = 1,
+                payment_type_id = paymentTypeId, // Cập nhật biến động
+                cod_amount = codAmount,           // Ép về 0đ nếu đơn đã Paid thanh toán xong
                 required_note = "KHONGCHOXEMHANG"
             };
 

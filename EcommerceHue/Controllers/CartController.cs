@@ -1156,13 +1156,6 @@ public class CartController(
         string qrImageSrc)
     {
         var payUrl = !string.IsNullOrWhiteSpace(checkoutUrl) ? checkoutUrl : "#";
-        var accountNumber = "8811843594";
-        var accountName = "HO ANH TAI";
-        var paymentContent = $"DH{order.Id} {order.OrderCode}";
-        if (paymentContent.Length > 25)
-        {
-            paymentContent = paymentContent.Substring(0, 25);
-        }
 
         var itemsHtml = new System.Text.StringBuilder();
         var index = 1;
@@ -1251,24 +1244,9 @@ public class CartController(
                             💳 Hướng Dẫn Thanh Toán Chuyển Khoản VietQR Tự Động
                         </h3>
                         
-                        <!-- Vùng hiển thị trực diện mã VietQR động payOS và nút mở trang thanh toán -->
-                        <div style="text-align: center; margin: 20px 0;">
-                            <p style="font-weight: bold; color: #555;">Bạn có thể quét mã VietQR dưới đây để thanh toán nhanh:</p>
-                            <img src="{qrImageSrc}" alt="Mã VietQR Thanh Toán" style="max-width: 250px; border: 1px solid #ddd; padding: 10px; background: #fff; border-radius: 8px;" />
-                            <br/>
-                            <a href="{payUrl}" target="_blank" style="display: inline-block; margin-top: 15px; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Mở trang thanh toán an toàn payOS</a>
-                        </div>
-
-                        <!-- Bảng chi tiết tài khoản -->
-                        <div style="text-align: left; background: #ffffff; border-radius: 6px; padding: 12px 16px; border: 1px solid #ffe0b2; font-size: 13px; line-height: 1.8;">
-                            <div><strong>Ngân hàng thụ hưởng:</strong> BIDV (Ngân hàng TMCP Đầu tư và Phát triển Việt Nam)</div>
-                            <div><strong>Số tài khoản:</strong> <span style="font-size: 15px; font-weight: bold; color: #1565c0;">{accountNumber}</span></div>
-                            <div><strong>Chủ tài khoản:</strong> <strong>{accountName}</strong></div>
-                            <div><strong>Số tiền:</strong> <span style="font-size: 15px; font-weight: bold; color: #b71c1c;">{order.TotalAmount:N0} ₫</span></div>
-                            <div><strong>Nội dung chuyển khoản:</strong> <span style="font-size: 15px; font-weight: bold; color: #b71c1c; font-family: monospace; background: #fff0f0; padding: 2px 6px; border-radius: 4px;">{paymentContent}</span></div>
-                        </div>
-                        <div style="font-size: 12px; color: #c62828; margin-top: 10px; font-style: italic;">
-                            * Vui lòng ghi chính xác nội dung chuyển khoản <strong>{paymentContent}</strong> để hệ thống tự động gạch nợ đơn hàng cho bạn nhanh chóng nhất.
+                        <div style="text-align: center; margin: 25px 0;">
+                            <p style="font-weight: bold; color: #555; font-size: 15px;">Vui lòng nhấp vào nút bảo mật dưới đây để quét mã VietQR động đối soát tự động của hệ thống:</p>
+                            <a href="{payUrl}" target="_blank" style="display: inline-block; padding: 14px 28px; background-color: #2e7d32; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">💳 Mở Trang Thanh Toán An Toàn payOS (VietQR Pro)</a>
                         </div>
                     </div>
 
@@ -1333,6 +1311,16 @@ public class CartController(
             using var httpClient = new HttpClient();
             httpClient.Timeout = TimeSpan.FromSeconds(15);
 
+            // Phân định số tiền thu hộ COD dựa trên trạng thái thanh toán thực tế của đơn hàng
+            int codAmount = 0;
+            int paymentTypeId = 2; // Người bán trả tiền trước
+
+            if (order.Status != OrderStatus.Paid) 
+            {
+                codAmount = (int)order.TotalAmount;
+                paymentTypeId = 1; // Khách trả tiền COD khi nhận hàng
+            }
+
             var payload = new
             {
                 to_name = order.CustomerName,
@@ -1343,7 +1331,8 @@ public class CartController(
                 width = 10,
                 height = 10,
                 service_type_id = 2,
-                payment_type_id = 1,
+                payment_type_id = paymentTypeId, // Cập nhật biến động
+                cod_amount = codAmount,           // Ép về 0đ nếu đơn đã Paid thanh toán xong
                 required_note = "KHONGCHOXEMHANG"
             };
 
