@@ -348,6 +348,10 @@ public sealed class ShipperController(
     // HELPER: Biên soạn mẫu HTML Email thứ 3 – Thông báo bưu kiện đang giao
     // =========================================================================
 
+        // =========================================================================
+    // HELPER: Biên soạn mẫu HTML Email thứ 3 – Thông báo bưu kiện đang giao
+    // ĐÃ SỬA: Tự động chuyển tiền thu hộ COD về 0 VNĐ nếu đơn đã thanh toán trực tuyến
+    // =========================================================================
     private static string GenerateShippingNotificationEmailHtml(Order order, string trackingCode, string trackingUrl)
     {
         var itemsHtml = string.Empty;
@@ -365,8 +369,19 @@ public sealed class ShipperController(
             }
         }
 
-        // Phân loại ghi chú tiền COD
-        int codAmount = ((int)order.Status == 1 || order.Status == OrderStatus.Paid || order.TotalAmount <= 0) ? 0 : (int)order.TotalAmount;
+        // --- ĐOẠN CẢI TIẾN: Chuyển đổi trạng thái đơn hàng sang chuỗi văn bản để kiểm tra an toàn ---
+        string currentStatus = order.Status?.ToString()?.Trim() ?? string.Empty;
+        
+        // Kiểm tra nếu trạng thái thuộc nhóm đã thanh toán (bằng chữ hoặc bằng mã số hệ thống)
+        bool isPaid = currentStatus.Equals("Paid", StringComparison.OrdinalIgnoreCase) 
+                   || currentStatus.Equals("Completed", StringComparison.OrdinalIgnoreCase)
+                   || currentStatus == "1" 
+                   || order.TotalAmount <= 0;
+
+        // Nếu đã thanh toán trực tuyến qua QR/payOS thì tiền COD thu hộ bắt buộc bằng 0
+        int codAmount = isPaid ? 0 : (int)order.TotalAmount;
+        
+        // Biên soạn khối mã HTML hiển thị động ra giao diện thư gửi khách
         string codNoticeHtml = codAmount == 0
             ? "<strong>0 VNĐ</strong> <span style='color: #16a34a; font-weight: bold;'>(ĐÃ THANH TOÁN TRƯỚC - KHÔNG THU TIỀN)</span>"
             : $"<span style='color: #dc2626; font-weight: bold;'><strong>{codAmount:N0} VNĐ</strong> (Tiền thu hộ COD khi nhận hàng)</span>";
@@ -454,6 +469,114 @@ public sealed class ShipperController(
 </body>
 </html>";
     }
+
+
+    // private static string GenerateShippingNotificationEmailHtml(Order order, string trackingCode, string trackingUrl)
+    // {
+    //     var itemsHtml = string.Empty;
+    //     if (order.OrderDetails != null && order.OrderDetails.Any())
+    //     {
+    //         foreach (var item in order.OrderDetails)
+    //         {
+    //             var productName = item.Product?.Name ?? item.ProductName ?? "Đặc sản Huế";
+    //             itemsHtml += $@"
+    //             <tr style='border-bottom: 1px solid #e2e8f0;'>
+    //                 <td style='padding: 10px 0; color: #1e293b; font-weight: 500;'>{productName}</td>
+    //                 <td style='padding: 10px 0; text-align: center; color: #64748b; font-weight: 600;'>x{item.Quantity}</td>
+    //                 <td style='padding: 10px 0; text-align: right; color: #1e293b; font-weight: 600;'>{item.UnitPrice:N0} ₫</td>
+    //             </tr>";
+    //         }
+    //     }
+
+        // Phân loại ghi chú tiền COD
+//         int codAmount = ((int)order.Status == 1 || order.Status == OrderStatus.Paid || order.TotalAmount <= 0) ? 0 : (int)order.TotalAmount;
+//         string codNoticeHtml = codAmount == 0
+//             ? "<strong>0 VNĐ</strong> <span style='color: #16a34a; font-weight: bold;'>(ĐÃ THANH TOÁN TRƯỚC - KHÔNG THU TIỀN)</span>"
+//             : $"<span style='color: #dc2626; font-weight: bold;'><strong>{codAmount:N0} VNĐ</strong> (Tiền thu hộ COD khi nhận hàng)</span>";
+
+//         return $@"
+// <!DOCTYPE html>
+// <html lang='vi'>
+// <head>
+//     <meta charset='utf-8'/>
+// </head>
+// <body style='margin: 0; padding: 20px; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, ""Segoe UI"", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6;'>
+//     <div style='max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;'>
+//         <!-- HEADER THƯƠNG HIỆU -->
+//         <div style='background: linear-gradient(135deg, #581c87, #7e22ce); padding: 30px 24px; text-align: center; color: #ffffff;'>
+//             <div style='font-size: 26px; font-weight: 800; letter-spacing: 0.5px;'>🚚 BƯU KIỆN ĐANG ĐƯỢC GIAO</div>
+//             <div style='font-size: 14px; opacity: 0.9; margin-top: 6px;'>EcommerceHue – Tinh Hoa Đặc Sản Cố Đô</div>
+//         </div>
+
+//         <div style='padding: 28px 24px;'>
+//             <p style='font-size: 16px; color: #1e293b; margin-top: 0;'>
+//                 Xin chào <strong>{order.CustomerName}</strong>,
+//             </p>
+//             <p style='color: #475569; font-size: 15px;'>
+//                 Kiện hàng đặc sản Huế của bạn cho đơn hàng <strong>#{order.OrderCode}</strong> đã được <strong>Shipper Giao Hàng Nhanh (GHN)</strong> quét mã tiếp nhận thành công và đang trên đường vận chuyển tới địa chỉ của bạn!
+//             </p>
+
+//             <!-- HỘP THÔNG TIN VẬN CHUYỂN -->
+//             <div style='background-color: #f1f5f9; border-left: 4px solid #7e22ce; padding: 16px; border-radius: 8px; margin: 20px 0;'>
+//                 <div style='font-size: 14px; color: #64748b; margin-bottom: 4px;'>Mã vận đơn bưu cục (GHN):</div>
+//                 <div style='font-size: 20px; font-weight: 800; color: #581c87; font-family: monospace; letter-spacing: 1px;'>
+//                     {trackingCode}
+//                 </div>
+//                 <div style='font-size: 13px; color: #475569; margin-top: 8px;'>
+//                     📦 <strong>Đơn vị vận chuyển:</strong> Giao Hàng Nhanh (GHN Express)<br/>
+//                     📍 <strong>Địa chỉ giao:</strong> {order.ShippingAddress}<br/>
+//                     📞 <strong>Số điện thoại:</strong> {order.CustomerPhone}<br/>
+//                     💰 <strong>Tiền cần thanh toán khi nhận:</strong> {codNoticeHtml}
+//                 </div>
+//             </div>
+
+//             <!-- NÚT TRA CỨU HÀNH TRÌNH BƯU CỤC -->
+//             <div style='text-align: center; margin: 28px 0;'>
+//                 <a href='{trackingUrl}' target='_blank' style='display: inline-block; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #ffffff; text-decoration: none; font-size: 15px; font-weight: bold; padding: 14px 28px; border-radius: 8px; box-shadow: 0 4px 10px rgba(37,99,235,0.3);'>
+//                     🔍 Bấm Vào Đây Để Tra Cứu Hành Trình GHN
+//                 </a>
+//                 <div style='font-size: 12px; color: #94a3b8; margin-top: 8px;'>
+//                     Hoặc truy cập: <a href='{trackingUrl}' style='color: #2563eb;'>{trackingUrl}</a>
+//                 </div>
+//             </div>
+
+//             <!-- DANH SÁCH MẶT HÀNG -->
+//             <div style='margin-top: 24px;'>
+//                 <div style='font-weight: 700; color: #1e293b; font-size: 15px; margin-bottom: 10px;'>
+//                     Chi tiết sản phẩm đóng gói:
+//                 </div>
+//                 <table style='width: 100%; border-collapse: collapse; font-size: 14px;'>
+//                     <thead>
+//                         <tr style='border-bottom: 2px solid #cbd5e1; color: #64748b; font-size: 12px; text-transform: uppercase;'>
+//                             <th style='padding: 8px 0; text-align: left;'>Món đặc sản</th>
+//                             <th style='padding: 8px 0; text-align: center;'>SL</th>
+//                             <th style='padding: 8px 0; text-align: right;'>Đơn giá</th>
+//                         </tr>
+//                     </thead>
+//                     <tbody>
+//                         {itemsHtml}
+//                     </tbody>
+//                 </table>
+//             </div>
+
+//             <!-- LỜI DẶN DÒ -->
+//             <div style='margin-top: 24px; padding: 14px; background-color: #fffbeb; border: 1px dashed #f59e0b; border-radius: 8px; font-size: 13px; color: #92400e;'>
+//                 💡 <strong>Lưu ý nhận hàng:</strong> Quý khách vui lòng giữ máy điện thoại để Shipper tiện liên hệ. Kiểm tra tình trạng kiện hàng trước khi ký nhận.
+//             </div>
+
+//             <p style='color: #64748b; font-size: 14px; margin-top: 24px;'>
+//                 Cảm ơn quý khách đã tin tưởng và ủng hộ hương vị quê hương xứ Huế!<br/>
+//                 <strong>Ban Quản Trị EcommerceHue</strong>
+//             </p>
+//         </div>
+
+//         <div style='background-color: #f1f5f9; padding: 16px; text-align: center; font-size: 12px; color: #94a3b8;'>
+//             Email tự động từ hệ thống Cổng Đặc Sản Huế · Vui lòng không trả lời thư này trực tiếp.
+//         </div>
+//     </div>
+// </body>
+// </html>";
+//     }
 
     // =========================================================================
     // HELPER: Biên soạn mẫu HTML Email thứ 4 – Tri ân & Thông báo giao hàng thành công
