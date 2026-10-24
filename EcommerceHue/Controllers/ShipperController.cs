@@ -348,6 +348,18 @@ public sealed class ShipperController(
     // HELPER: Biên soạn mẫu HTML Email thứ 3 – Thông báo bưu kiện đang giao
     // =========================================================================
 
+
+
+    // 1. Thực hiện logic chuyển trạng thái đơn hàng sang Đang giao (hoặc Đã thanh toán)
+order.Status = OrderStatus.Paid; // Hoặc gán bằng chuỗi "Paid" tùy thuộc vào kiểu dữ liệu của bạn
+
+// 2. Lưu lại vào cơ sở dữ liệu để đồng bộ
+await _context.SaveChangesAsync();
+
+// 3. Sau đó mới gọi hàm sinh HTML Email để gửi đi
+string emailHtml = GenerateShippingNotificationEmailHtml(order, trackingCode, trackingUrl);
+
+
         // =========================================================================
     // HELPER: Biên soạn mẫu HTML Email thứ 3 – Thông báo bưu kiện đang giao
     // ĐÃ SỬA: Tự động chuyển tiền thu hộ COD về 0 VNĐ nếu đơn đã thanh toán trực tuyến
