@@ -738,8 +738,9 @@ public class CartController(
                 // Biên soạn template HTML nhúng link ảnh QR động vừa tạo ở Bước 1
                 var emailHtml = BuildOrderConfirmationEmailHtml(order, result.checkoutUrl, qrImageSrc);
                 
+                // Gọi qua emailService DI (primary constructor) để thông suốt luồng bộ nhớ đám mây
                 await emailService.SendOrderEmailAsync(order.CustomerEmail, emailSubject, emailHtml);
-                logger.LogInformation("=== [SMTP] Đã bắn thành công Email mã QR cho đơn hàng #{OrderId}", order.Id);
+                logger.LogInformation("=== [BREVO HTTP API] Đã kích nổ bắn thành công Email mã QR cho đơn hàng #{OrderId}", order.Id);
             }
             else
             {
@@ -748,7 +749,7 @@ public class CartController(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "=== [SMTP LỖI NGHẼN MAIL]: " + ex.Message);
+            logger.LogError(ex, "=== [BREVO LỖI NGHẼN MAIL]: " + ex.Message);
             // Cho dù lỗi gửi thư xảy ra, hệ thống vẫn phải chạy tiếp luồng phía dưới để Redirect khách sang payOS
         }
 
