@@ -348,21 +348,39 @@ public sealed class ShipperController(
     // HELPER: Biên soạn mẫu HTML Email thứ 3 – Thông báo bưu kiện đang giao
     // =========================================================================
 
+    // =========================================================================
+    // ACTION: Cập nhật trạng thái giao hàng (Ví dụ cho phương thức của bạn)
+    // Bạn hãy đặt 3 dòng lệnh xử lý vào bên trong một phương thức cụ thể như thế này:
+    // =========================================================================
+    [HttpPost]
+    public async Task<IActionResult> ShipOrderConfirm(int orderId, string trackingCode, string trackingUrl)
+    {
+        var order = await _context.Orders
+            .Include(o => o.OrderDetails)
+            .ThenInclude(d => d.Product)
+            .FirstOrDefaultAsync(o => o.Id == orderId);
+
+        if (order == null) return NotFound();
+
+        // 1. Thực hiện logic chuyển trạng thái đơn hàng sang Đang giao (hoặc Đã thanh toán)
+        order.Status = OrderStatus.Paid; // Hoặc gán bằng chuỗi "Paid" tùy thuộc vào kiểu dữ liệu của bạn
+
+        // 2. Lưu lại vào cơ sở dữ liệu để đồng bộ
+        await _context.SaveChangesAsync();
+
+        // 3. Sau đó mới gọi hàm sinh HTML Email để gửi đi
+        string emailHtml = GenerateShippingNotificationEmailHtml(order, trackingCode, trackingUrl);
+
+        // 4. Gọi dịch vụ gửi email của bạn qua cổng REST API của Brevo
+        await _emailService.SendOrderEmailAsync(order.CustomerEmail, "[EcommerceHue] Bưu kiện của bạn đang được giao", emailHtml);
+
+        return RedirectToAction(nameof(Index));
+    }
 
 
-    // 1. Thực hiện logic chuyển trạng thái đơn hàng sang Đang giao (hoặc Đã thanh toán)
-order.Status = OrderStatus.Paid; // Hoặc gán bằng chuỗi "Paid" tùy thuộc vào kiểu dữ liệu của bạn
-
-// 2. Lưu lại vào cơ sở dữ liệu để đồng bộ
-await _context.SaveChangesAsync();
-
-// 3. Sau đó mới gọi hàm sinh HTML Email để gửi đi
-string emailHtml = GenerateShippingNotificationEmailHtml(order, trackingCode, trackingUrl);
-
-
-        // =========================================================================
+    // =========================================================================
     // HELPER: Biên soạn mẫu HTML Email thứ 3 – Thông báo bưu kiện đang giao
-    // ĐÃ SỬA: Tự động chuyển tiền thu hộ COD về 0 VNĐ nếu đơn đã thanh toán trực tuyến
+    // Đã cấu trúc lại nằm gọn gàng độc lập trong thân Class
     // =========================================================================
     private static string GenerateShippingNotificationEmailHtml(Order order, string trackingCode, string trackingUrl)
     {
@@ -381,9 +399,8 @@ string emailHtml = GenerateShippingNotificationEmailHtml(order, trackingCode, tr
             }
         }
 
-        // --- ĐOẠN CẢI TIẾN: Chuyển đổi trạng thái đơn hàng sang chuỗi văn bản để kiểm tra an toàn ---
-        // string currentStatus = order.Status?.ToString()?.Trim() ?? string.Empty;
-        string currentStatus = order?.Status.ToString()?.Trim() ?? string.Empty;
+        // --- ĐOẠN XỬ LÝ TRẠNG THÁI: Chuyển đổi trạng thái đơn hàng sang chuỗi văn bản ---
+        string currentStatus = order.Status?.ToString()?.Trim() ?? string.Empty;
         
         // Kiểm tra nếu trạng thái thuộc nhóm đã thanh toán (bằng chữ hoặc bằng mã số hệ thống)
         bool isPaid = currentStatus.Equals("Paid", StringComparison.OrdinalIgnoreCase) 
@@ -482,6 +499,7 @@ string emailHtml = GenerateShippingNotificationEmailHtml(order, trackingCode, tr
 </body>
 </html>";
     }
+
 
 
     // private static string GenerateShippingNotificationEmailHtml(Order order, string trackingCode, string trackingUrl)
