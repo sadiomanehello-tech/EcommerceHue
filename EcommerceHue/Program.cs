@@ -167,28 +167,24 @@ app.Use(async (context, next) =>
 });
 
 // ============================================================================
-// TỰ ĐỘNG CẬP NHẬT DATABASE & SEED DỮ LIỆU (Migration Automation Check)
-// Tự động kiểm tra và vẽ cấu trúc bảng (Products, Orders, Customers...) lên Cloud DB
 // ============================================================================
-// Chạy lệnh Seed Data dưới dạng tiến trình ngầm độc lập để tránh khóa file SQLite làm treo Deploy Render
-_ = Task.Run(async () =>
+// TỰ ĐỘNG CẬP NHẬT DATABASE & SEED DỮ LIỆU (Migration Automation Check)
+// Đã sửa lỗi: Khởi động đồng bộ để tránh xung đột luồng gây khóa file SQLite
+// ============================================================================
+using (var scope = app.Services.CreateScope())
 {
-    using (var scope = app.Services.CreateScope())
+    var services = scope.ServiceProvider;
+    try
     {
-        var services = scope.ServiceProvider;
-        try
-        {
-            // Trì hoãn 3 giây để hệ thống ổn định cổng mạng trước khi chạm vào SQLite
-            await Task.Delay(3000); 
-            await SeedData.Initialize(services);
-            Console.WriteLine("=== [SYSTEM PRODUCTION] Đồng bộ hạt giống SQLite thành công! ===");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("=== [SYSTEM WARNING] Bỏ qua lỗi ngắt mạch DB: " + ex.Message);
-        }
+        // Thực thi cấu trúc bảng và hạt giống dữ liệu trực tiếp trong luồng khởi động
+        await SeedData.Initialize(services);
+        Console.WriteLine("=== [SYSTEM PRODUCTION] Đồng bộ hạt giống SQLite thành công! ===");
     }
-});
+    catch (Exception ex)
+    {
+        Console.WriteLine("=== [SYSTEM WARNING] Bỏ qua lỗi ngắt mạch DB: " + ex.Message);
+    }
+}
 
 if (!app.Environment.IsDevelopment())
 {
@@ -196,6 +192,7 @@ if (!app.Environment.IsDevelopment())
     // HSTS mặc định 30 ngày – điều chỉnh cho Production khi cần
     app.UseHsts();
 }
+
 
 app.UseHttpsRedirection();
 app.UseRouting();
