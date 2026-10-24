@@ -348,31 +348,39 @@ public sealed class ShipperController(
     // HELPER: Biên soạn mẫu HTML Email thứ 3 – Thông báo bưu kiện đang giao
     // =========================================================================
 
-    // =========================================================================
-    // ACTION: Cập nhật trạng thái giao hàng (Ví dụ cho phương thức của bạn)
-    // Bạn hãy đặt 3 dòng lệnh xử lý vào bên trong một phương thức cụ thể như thế này:
+        // =========================================================================
+    // ACTION: Cập nhật trạng thái giao hàng (Đã sửa lỗi không tìm thấy biến)
     // =========================================================================
     [HttpPost]
     public async Task<IActionResult> ShipOrderConfirm(int orderId, string trackingCode, string trackingUrl)
     {
-        var order = await _context.Orders
+        // Tự động trích xuất kết nối Database sạch trực tiếp từ hệ thống Scoped Services của ứng dụng
+        var context = (DataContext)HttpContext.RequestServices.GetService(typeof(DataContext));
+        var emailService = (IEmailService)HttpContext.RequestServices.GetService(typeof(IEmailService));
+
+        if (context == null || emailService == null)
+        {
+            return BadRequest("Hệ thống không thể khởi tạo dịch vụ kết nối.");
+        }
+
+        var order = await context.Orders
             .Include(o => o.OrderDetails)
             .ThenInclude(d => d.Product)
             .FirstOrDefaultAsync(o => o.Id == orderId);
 
         if (order == null) return NotFound();
 
-        // 1. Thực hiện logic chuyển trạng thái đơn hàng sang Đang giao (hoặc Đã thanh toán)
-        order.Status = OrderStatus.Paid; // Hoặc gán bằng chuỗi "Paid" tùy thuộc vào kiểu dữ liệu của bạn
+        // 1. Thực hiện logic chuyển trạng thái đơn hàng sang Đang giao/Đã thanh toán
+        order.Status = OrderStatus.Paid; 
 
-        // 2. Lưu lại vào cơ sở dữ liệu để đồng bộ
-        await _context.SaveChangesAsync();
+        // 2. Lưu lại vào cơ sở dữ liệu để đồng bộ gạch nợ
+        await context.SaveChangesAsync();
 
         // 3. Sau đó mới gọi hàm sinh HTML Email để gửi đi
         string emailHtml = GenerateShippingNotificationEmailHtml(order, trackingCode, trackingUrl);
 
         // 4. Gọi dịch vụ gửi email của bạn qua cổng REST API của Brevo
-        await _emailService.SendOrderEmailAsync(order.CustomerEmail, "[EcommerceHue] Bưu kiện của bạn đang được giao", emailHtml);
+        await emailService.SendOrderEmailAsync(order.CustomerEmail, "[EcommerceHue] Bưu kiện của bạn đang được giao", emailHtml);
 
         return RedirectToAction(nameof(Index));
     }
@@ -380,7 +388,7 @@ public sealed class ShipperController(
 
     // =========================================================================
     // HELPER: Biên soạn mẫu HTML Email thứ 3 – Thông báo bưu kiện đang giao
-    // Đã cấu trúc lại nằm gọn gàng độc lập trong thân Class
+    // ĐÃ XÓA BỎ HOÀN TOÀN dấu ? tại dòng 403 để chặn lỗi hệ thống
     // =========================================================================
     private static string GenerateShippingNotificationEmailHtml(Order order, string trackingCode, string trackingUrl)
     {
@@ -399,19 +407,16 @@ public sealed class ShipperController(
             }
         }
 
-        // --- ĐOẠN XỬ LÝ TRẠNG THÁI: Chuyển đổi trạng thái đơn hàng sang chuỗi văn bản ---
-        string currentStatus = order.Status?.ToString()?.Trim() ?? string.Empty;
+        // --- ĐOẠN XỬ LÝ TRẠNG THÁI: Chuyển đổi trạng thái đơn hàng sang chuỗi văn bản an toàn ---
+        string currentStatus = order.Status.ToString().Trim(); // Đã xóa bỏ dấu ? tại đây để chặn lỗi CS0023
         
-        // Kiểm tra nếu trạng thái thuộc nhóm đã thanh toán (bằng chữ hoặc bằng mã số hệ thống)
         bool isPaid = currentStatus.Equals("Paid", StringComparison.OrdinalIgnoreCase) 
                    || currentStatus.Equals("Completed", StringComparison.OrdinalIgnoreCase)
                    || currentStatus == "1" 
                    || order.TotalAmount <= 0;
 
-        // Nếu đã thanh toán trực tuyến qua QR/payOS thì tiền COD thu hộ bắt buộc bằng 0
         int codAmount = isPaid ? 0 : (int)order.TotalAmount;
         
-        // Biên soạn khối mã HTML hiển thị động ra giao diện thư gửi khách
         string codNoticeHtml = codAmount == 0
             ? "<strong>0 VNĐ</strong> <span style='color: #16a34a; font-weight: bold;'>(ĐÃ THANH TOÁN TRƯỚC - KHÔNG THU TIỀN)</span>"
             : $"<span style='color: #dc2626; font-weight: bold;'><strong>{codAmount:N0} VNĐ</strong> (Tiền thu hộ COD khi nhận hàng)</span>";
@@ -499,6 +504,7 @@ public sealed class ShipperController(
 </body>
 </html>";
     }
+
 
 
 
