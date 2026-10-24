@@ -370,7 +370,8 @@ public sealed class ShipperController(
         }
 
         // --- ĐOẠN CẢI TIẾN: Chuyển đổi trạng thái đơn hàng sang chuỗi văn bản để kiểm tra an toàn ---
-        string currentStatus = order.Status?.ToString()?.Trim() ?? string.Empty;
+        // string currentStatus = order.Status?.ToString()?.Trim() ?? string.Empty;
+        string currentStatus = order?.Status.ToString()?.Trim() ?? string.Empty;
         
         // Kiểm tra nếu trạng thái thuộc nhóm đã thanh toán (bằng chữ hoặc bằng mã số hệ thống)
         bool isPaid = currentStatus.Equals("Paid", StringComparison.OrdinalIgnoreCase) 
