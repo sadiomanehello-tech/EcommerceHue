@@ -704,8 +704,13 @@ public class CartController(
         var returnUrl = $"{baseUrl}/Cart/OrderSuccess?orderCode={order.OrderCode}";
         var cancelUrl = $"{baseUrl}/Cart/Checkout";
 
+        // Sinh mã payOS duy nhất: UnixTimestamp(10 chữ số) * 100000 + order.Id(tối đa 5 chữ số)
+        // Tổng = 15 chữ số, luôn nằm trong phạm vi long.MaxValue (19 chữ số) → an toàn tuyệt đối
+        // Webhook bóc tách ngược: orderId = uniqueOrderCode % 100000
+        long uniqueOrderCode = DateTimeOffset.UtcNow.ToUnixTimeSeconds() * 100000L + order.Id;
+
         var paymentData = new PaymentData(
-            orderCode: order.Id,
+            orderCode: uniqueOrderCode,
             amount: (int)totalAmount,
             description: paymentContent,
             items: items,
@@ -717,8 +722,8 @@ public class CartController(
             buyerAddress: order.ShippingAddress
         );
 
-        logger.LogInformation("[payOS] Khởi tạo link thanh toán động đơn hàng #{OrderId} - {OrderCode}, Nội dung CK: {PaymentContent}, Số tiền: {Amount}",
-            order.Id, order.OrderCode, paymentContent, totalAmount);
+        logger.LogInformation("[payOS] Khởi tạo link thanh toán động đơn hàng #{OrderId} - {OrderCode} | UniqueCode: {UniqueCode}, Nội dung CK: {PaymentContent}, Số tiền: {Amount}",
+            order.Id, order.OrderCode, uniqueOrderCode, paymentContent, totalAmount);
 
         // Gọi hàm sinh link thanh toán động từ SDK payOS
         CreatePaymentResult result = await payOS.createPaymentLink(paymentData);
@@ -1032,14 +1037,19 @@ public class CartController(
             // 2. Xác thực tính toàn vẹn và chữ ký của webhook (Security Checksum Validation)
             WebhookData webhookData = payOS.verifyPaymentWebhookData(webhookBody);
             
-            // 3. Xử lý gạch nợ tự động trong Database theo khóa chính để đạt tốc độ tối đa
-            int orderId = (int)webhookData.orderCode;
+            // 3. Bóc tách ngược orderId từ uniqueOrderCode:
+            // Công thức gốc: uniqueOrderCode = UnixTimestamp * 100000 + order.Id
+            // Bóc ngược:    orderId = uniqueOrderCode % 100000
+            int orderId = (int)(webhookData.orderCode % 100000L);
+            logger.LogInformation("[payOS Webhook] Nhận orderCode: {UniqueCode} → bóc tách orderId DB: {OrderId}", webhookData.orderCode, orderId);
+
             var order = await context.Orders.FindAsync(orderId);
 
             if (order != null && order.PaymentStatus != "Đã thanh toán thành công qua API Banking")
             {
                 order.PaymentStatus = "Đã thanh toán thành công qua API Banking";
                 order.Status = OrderStatus.Paid;
+                order.UpdatedAt = DateTime.UtcNow;
                 
                 // 4. Bắn Email tự động thứ 2 xác nhận đã hoàn tất giao dịch
                 string subject = "[EcommerceHue] Xác nhận đã thanh toán thành công đơn hàng #" + order.Id;
@@ -1047,6 +1057,7 @@ public class CartController(
                 await emailService.SendOrderEmailAsync(order.Email, subject, htmlPaidContent);
                 
                 await context.SaveChangesAsync();
+                logger.LogInformation("[payOS Webhook] Đã gạch nợ thành công đơn hàng #{OrderId} - {OrderCode}", order.Id, order.OrderCode);
             }
             return Ok();
         }
