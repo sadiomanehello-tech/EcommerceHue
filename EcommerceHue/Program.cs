@@ -53,7 +53,7 @@ builder.Services.AddDbContext<EcommerceContext>(options =>
 builder.Services.AddControllersWithViews();
 
 // --- Đăng ký Dịch vụ gửi Email (MailKit / Gmail SMTP) ---
-builder.Services.AddScoped<EcommerceHue.Services.IEmailService, EcommerceHue.Services.EmailService>();
+builder.Services.AddSingleton<EcommerceHue.Services.IEmailService, EcommerceHue.Services.EmailService>();
 
 // --- Đăng ký PayOS SDK (Open Banking) ---
 builder.Services.AddSingleton(sp =>

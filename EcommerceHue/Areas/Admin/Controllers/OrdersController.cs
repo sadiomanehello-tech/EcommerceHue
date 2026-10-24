@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using EcommerceHue.Data;
 using EcommerceHue.Models;
+using EcommerceHue.Services;
 
 namespace EcommerceHue.Areas.Admin.Controllers;
 
@@ -13,10 +14,18 @@ namespace EcommerceHue.Areas.Admin.Controllers;
 [Area("Admin")]
 [Authorize(Roles = "Admin")]
 [Route("Admin/[controller]/[action]")]
-public class OrdersController(
-    EcommerceContext context,
-    ILogger<OrdersController> logger) : Controller
+public class OrdersController : Controller
 {
+    private readonly EcommerceContext context;
+    private readonly ILogger<OrdersController> logger;
+    private readonly IEmailService _emailService;
+
+    public OrdersController(EcommerceContext context, ILogger<OrdersController> logger, IEmailService emailService)
+    {
+        this.context = context;
+        this.logger = logger;
+        this._emailService = emailService;
+    }
     // =========================================================================
     // 1. ACTION: Danh sách đơn hàng – GET /Admin/Orders hoặc /Admin/Orders/Index
     // =========================================================================
@@ -191,6 +200,32 @@ public class OrdersController(
 
         order.Status = newStatus;
         order.UpdatedAt = DateTime.UtcNow;
+
+        // --- LUỒNG BẮN EMAIL TỰ ĐỘNG THEO TIẾN ĐỘ ---
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(order.CustomerEmail))
+            {
+                if (newStatus == OrderStatus.Shipping) // KHI ADMIN CHUYỂN SANG ĐANG GIAO (STATUS = 3)
+                {
+                    string subject3 = $"[EcommerceHue] Shipper GHN đang đi giao đơn hàng #{order.Id} tới bạn!";
+                    string html3 = $"<h3>Đơn hàng #{order.Id} của bạn đang trên đường giao!</h3><p>Vui lòng chuẩn bị điện thoại để đối tác shipper liên hệ bàn giao kiện hàng đặc sản.</p>";
+                    await _emailService.SendOrderEmailAsync(order.CustomerEmail, subject3, html3);
+                    logger.LogInformation("=== [BREVO] Đã bắn thành công Email lộ trình chặng 3 cho đơn #{OrderId}", order.Id);
+                }
+                else if (newStatus == OrderStatus.Delivered) // KHI SHIPPER CHỐT ĐƠN THÀNH CÔNG (STATUS = 4)
+                {
+                    string subject4 = $"[EcommerceHue] Đơn hàng #{order.Id} đã giao thành công - Chân thành cảm ơn bạn!";
+                    string html4 = $"<h3>Đơn hàng #{order.Id} đã hoàn tất giao nhận!</h3><p>EcommerceHue chân thành cảm ơn bạn đã lựa chọn ẩm thực Huế làm quà tặng. Chúc bạn và gia đình ngon miệng!</p>";
+                    await _emailService.SendOrderEmailAsync(order.CustomerEmail, subject4, html4);
+                    logger.LogInformation("=== [BREVO] Đã bắn thành công Email tri ân chặng 4 bế mạc đơn #{OrderId}", order.Id);
+                }
+            }
+        }
+        catch (Exception exMail)
+        {
+            logger.LogError("=== [BREVO ADMIN ERROR] Lỗi bắn thư tiến độ đơn: " + exMail.Message);
+        }
 
         await context.SaveChangesAsync();
 
