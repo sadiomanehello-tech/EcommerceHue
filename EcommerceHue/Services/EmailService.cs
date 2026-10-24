@@ -56,7 +56,7 @@ namespace EcommerceHue.Services
                 // Định dạng cấu trúc gói tin JSON theo đúng chuẩn tài liệu kỹ thuật của Brevo
                 var payload = new
                 {
-                    sender = new { name = "EcommerceHue - Đặc Sản Huế", email = "ecommercedacsanhue@gmail.com" },
+                    sender = new { name = "EcommerceHue - Đặc Sản Huế", email = "sadiomanehello@gmail.com" },
                     to = new[] { new { email = recipientEmail } },
                     subject = subject,
                     htmlContent = htmlContent
