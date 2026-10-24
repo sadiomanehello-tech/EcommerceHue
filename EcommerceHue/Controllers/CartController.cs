@@ -25,6 +25,8 @@ public class CartController(
     IEmailService emailService,
     PayOS payOS) : Controller
 {
+    private readonly IEmailService _emailService = emailService;
+
     // Khóa Session duy nhất cho giỏ hàng
     private const string CartSessionKey = "ShoppingCart";
 
@@ -746,7 +748,7 @@ public class CartController(
                 // Sử dụng Task.Run Fire-and-Forget để email tự do truyền đi xuyên không gian mạng mà không bị ngắt luồng khi Redirect
                 _ = Task.Run(async () => {
                     try {
-                        await emailService.SendOrderEmailAsync(order.CustomerEmail, emailSubject, emailHtml);
+                        await _emailService.SendOrderEmailAsync(order.CustomerEmail, emailSubject, emailHtml);
                     } catch (Exception exBg) {
                         Console.WriteLine("=== LỖI BẮN THƯ NỀN PLACEORDER: " + exBg.Message);
                     }
@@ -1064,7 +1066,7 @@ public class CartController(
                 
                 _ = Task.Run(async () => {
                     try {
-                        await emailService.SendOrderEmailAsync(order.Email, subjectPaid, htmlPaidContent);
+                        await _emailService.SendOrderEmailAsync(order.Email, subjectPaid, htmlPaidContent);
                     } catch (Exception exBg) {
                         Console.WriteLine("=== LỖI BẮN THƯ NỀN WEBHOOK: " + exBg.Message);
                     }

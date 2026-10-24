@@ -210,15 +210,27 @@ public class OrdersController : Controller
                 {
                     string subject3 = $"[EcommerceHue] Shipper GHN đang đi giao đơn hàng #{order.Id} tới bạn!";
                     string html3 = $"<h3>Đơn hàng #{order.Id} của bạn đang trên đường giao!</h3><p>Vui lòng chuẩn bị điện thoại để đối tác shipper liên hệ bàn giao kiện hàng đặc sản.</p>";
-                    await _emailService.SendOrderEmailAsync(order.CustomerEmail, subject3, html3);
-                    logger.LogInformation("=== [BREVO] Đã bắn thành công Email lộ trình chặng 3 cho đơn #{OrderId}", order.Id);
+                    _ = Task.Run(async () => {
+                        try {
+                            await _emailService.SendOrderEmailAsync(order.CustomerEmail, subject3, html3);
+                        } catch (Exception exBg) {
+                            Console.WriteLine("=== LỖI BẮN THƯ NỀN SHIPPING: " + exBg.Message);
+                        }
+                    });
+                    logger.LogInformation("=== [BREVO] Đã kích nổ bắn Email lộ trình chặng 3 cho đơn #{OrderId}", order.Id);
                 }
                 else if (newStatus == OrderStatus.Delivered) // KHI SHIPPER CHỐT ĐƠN THÀNH CÔNG (STATUS = 4)
                 {
                     string subject4 = $"[EcommerceHue] Đơn hàng #{order.Id} đã giao thành công - Chân thành cảm ơn bạn!";
                     string html4 = $"<h3>Đơn hàng #{order.Id} đã hoàn tất giao nhận!</h3><p>EcommerceHue chân thành cảm ơn bạn đã lựa chọn ẩm thực Huế làm quà tặng. Chúc bạn và gia đình ngon miệng!</p>";
-                    await _emailService.SendOrderEmailAsync(order.CustomerEmail, subject4, html4);
-                    logger.LogInformation("=== [BREVO] Đã bắn thành công Email tri ân chặng 4 bế mạc đơn #{OrderId}", order.Id);
+                    _ = Task.Run(async () => {
+                        try {
+                            await _emailService.SendOrderEmailAsync(order.CustomerEmail, subject4, html4);
+                        } catch (Exception exBg) {
+                            Console.WriteLine("=== LỖI BẮN THƯ NỀN DELIVERED: " + exBg.Message);
+                        }
+                    });
+                    logger.LogInformation("=== [BREVO] Đã kích nổ bắn Email tri ân chặng 4 bế mạc đơn #{OrderId}", order.Id);
                 }
             }
         }

@@ -22,6 +22,7 @@ namespace EcommerceHue.Services
 
     /// <summary>
     /// Dịch vụ gửi email thông qua Brevo HTTP REST API (Cổng HTTPS 443)
+    /// Đã loại bỏ hoàn toàn các thư viện SMTP cũ (SmtpClient, MailKit, MimeKit, Port 587/465).
     /// </summary>
     public class EmailService : IEmailService
     {
@@ -35,8 +36,10 @@ namespace EcommerceHue.Services
             _httpClient = new HttpClient();
             
             // Đọc cấu hình mã bảo mật an toàn từ biến môi trường của Render
-            _apiKey = configuration["Brevo:ApiKey"] 
-                   ?? configuration["Brevo__ApiKey"] // BẮT BUỘC DÒNG NÀY: Đọc trực tiếp biến môi trường gạch dưới kép của Render
+            _apiKey = configuration["Brevo__ApiKey"] 
+                   ?? configuration["Brevo:ApiKey"] 
+                   ?? Environment.GetEnvironmentVariable("Brevo__ApiKey")
+                   ?? Environment.GetEnvironmentVariable("Brevo:ApiKey")
                    ?? string.Empty;
         }
 
@@ -45,6 +48,7 @@ namespace EcommerceHue.Services
             if (string.IsNullOrWhiteSpace(_apiKey))
             {
                 _logger.LogError("=== [BREVO API ERROR]: Chưa cấu hình API Key trong biến môi trường Render.");
+                Console.WriteLine("=== [BREVO API ERROR]: Chưa cấu hình API Key trong biến môi trường Render. Vui lòng thiết lập Brevo__ApiKey trên Render Dashboard!");
                 return;
             }
 
@@ -71,6 +75,7 @@ namespace EcommerceHue.Services
                 _httpClient.DefaultRequestHeaders.Add("api-key", _apiKey);
 
                 _logger.LogInformation("=== [BREVO HTTP API] Đang chuẩn bị bắn thư qua cổng 443 tới: {Email}", recipientEmail);
+                Console.WriteLine($"=== [BREVO HTTP API] Đang chuẩn bị bắn thư qua cổng 443 tới: {recipientEmail}");
 
                 // Thực hiện lệnh kích nổ bắn yêu cầu HTTPS truyền qua tường lửa Render công khai
                 var response = await _httpClient.PostAsync(url, requestContent);
@@ -78,16 +83,19 @@ namespace EcommerceHue.Services
                 if (response.IsSuccessStatusCode)
                 {
                     _logger.LogInformation("=== [BREVO SUCCESS] Thư đã bay qua cổng 443 xuyên tường lửa Render thành công vèo vèo!");
+                    Console.WriteLine($"=== [BREVO SUCCESS] Thư đã bay qua cổng 443 tới {recipientEmail} thành công! Status: {response.StatusCode}");
                 }
                 else
                 {
                     var errorDetails = await response.Content.ReadAsStringAsync();
                     _logger.LogError("=== [BREVO API REFUSED]: Mã lỗi {StatusCode} - Chi tiết: {Details}", response.StatusCode, errorDetails);
+                    Console.WriteLine($"=== [BREVO API REFUSED]: Mã lỗi {response.StatusCode} - Chi tiết: {errorDetails}");
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "=== [BREVO CRITICAL CRASH]: Lỗi mạng ngầm khi kết nối HTTP API: {Message}", ex.Message);
+                Console.WriteLine($"=== [BREVO CRITICAL CRASH]: Lỗi mạng ngầm khi kết nối HTTP API: {ex.Message}");
             }
         }
     }

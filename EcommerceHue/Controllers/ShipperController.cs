@@ -322,7 +322,7 @@ public sealed class ShipperController(
         try
         {
             await emailService.SendOrderEmailAsync(order.Email, subject, htmlSuccessContent);
-            logger.LogInformation("=== [SMTP] Đã bắn thành công Email cảm ơn bế mạc đơn hàng #{OrderId}", order.Id);
+            logger.LogInformation("=== [BREVO HTTP API] Đã bắn thành công Email cảm ơn bế mạc đơn hàng #{OrderId}", order.Id);
         }
         catch (Exception ex)
         {
