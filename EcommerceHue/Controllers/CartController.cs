@@ -743,9 +743,16 @@ public class CartController(
                 // Biên soạn template HTML nhúng link ảnh QR động vừa tạo ở Bước 1
                 var emailHtml = BuildOrderConfirmationEmailHtml(order, result.checkoutUrl, qrImageSrc);
                 
-                // Gọi qua emailService DI (primary constructor) để thông suốt luồng bộ nhớ đám mây
-                await emailService.SendOrderEmailAsync(order.CustomerEmail, emailSubject, emailHtml);
-                logger.LogInformation("=== [BREVO HTTP API] Đã kích nổ bắn thành công Email mã QR cho đơn hàng #{OrderId}", order.Id);
+                // Sử dụng Task.Run Fire-and-Forget để email tự do truyền đi xuyên không gian mạng mà không bị ngắt luồng khi Redirect
+                _ = Task.Run(async () => {
+                    try {
+                        await emailService.SendOrderEmailAsync(order.CustomerEmail, emailSubject, emailHtml);
+                    } catch (Exception exBg) {
+                        Console.WriteLine("=== LỖI BẮN THƯ NỀN PLACEORDER: " + exBg.Message);
+                    }
+                });
+                
+                logger.LogInformation("=== [FIRE-AND-FORGET] Đã kích nổ tiến trình ngầm bắn Email 1 cho đơn #{OrderId}", order.Id);
             }
             else
             {
@@ -754,7 +761,7 @@ public class CartController(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "=== [BREVO LỖI NGHẼN MAIL]: " + ex.Message);
+            logger.LogError(ex, "=== [SMTP LỖI NGHẼN MAIL]: " + ex.Message);
             // Cho dù lỗi gửi thư xảy ra, hệ thống vẫn phải chạy tiếp luồng phía dưới để Redirect khách sang payOS
         }
 
@@ -1051,10 +1058,17 @@ public class CartController(
                 order.Status = OrderStatus.Paid;
                 order.UpdatedAt = DateTime.UtcNow;
                 
-                // 4. Bắn Email tự động thứ 2 xác nhận đã hoàn tất giao dịch
-                string subject = "[EcommerceHue] Xác nhận đã thanh toán thành công đơn hàng #" + order.Id;
+                // 4. Kích nổ Email thứ 2 thông báo gạch nợ thành công dạng Fire-and-Forget
+                string subjectPaid = "[EcommerceHue] Xác nhận đã thanh toán thành công đơn hàng #" + order.Id;
                 string htmlPaidContent = "<h3>Cảm ơn bạn đã thanh toán thành công!</h3><p>Đơn hàng mã số #" + order.Id + " đã được chuyển sang trạng thái chờ giao nhận.</p>";
-                await emailService.SendOrderEmailAsync(order.Email, subject, htmlPaidContent);
+                
+                _ = Task.Run(async () => {
+                    try {
+                        await emailService.SendOrderEmailAsync(order.Email, subjectPaid, htmlPaidContent);
+                    } catch (Exception exBg) {
+                        Console.WriteLine("=== LỖI BẮN THƯ NỀN WEBHOOK: " + exBg.Message);
+                    }
+                });
                 
                 await context.SaveChangesAsync();
                 logger.LogInformation("[payOS Webhook] Đã gạch nợ thành công đơn hàng #{OrderId} - {OrderCode}", order.Id, order.OrderCode);
