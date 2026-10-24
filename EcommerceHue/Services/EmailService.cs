@@ -35,7 +35,9 @@ namespace EcommerceHue.Services
             _httpClient = new HttpClient();
             
             // Đọc cấu hình mã bảo mật an toàn từ biến môi trường của Render
-            _apiKey = configuration["Brevo:ApiKey"] ?? string.Empty;
+            _apiKey = configuration["Brevo:ApiKey"] 
+                   ?? configuration["Brevo__ApiKey"] // BẮT BUỘC DÒNG NÀY: Đọc trực tiếp biến môi trường gạch dưới kép của Render
+                   ?? string.Empty;
         }
 
         public async Task SendOrderEmailAsync(string recipientEmail, string subject, string htmlContent)
