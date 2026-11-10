@@ -23,7 +23,8 @@ public class CartController(
     IConfiguration configuration,
     ILogger<CartController> logger,
     IEmailService emailService,
-    PayOS payOS) : Controller
+    PayOS payOS,
+    DatabaseBackupService backupService) : Controller
 {
     private readonly IEmailService _emailService = emailService;
 
@@ -681,6 +682,9 @@ public class CartController(
         await context.Orders.AddAsync(order);
         await context.SaveChangesAsync();
 
+        // KÍCH HOẠT SAO LƯU: Đẩy file SQLite lên mây ngay khi tạo đơn thành công
+        await backupService.UploadDatabaseAsync();
+
         // 7. Xóa sạch giỏ hàng và session sau khi đặt hàng thành công
         HttpContext.Session.Remove(CartSessionKey);
         HttpContext.Session.Remove("CouponCode");
@@ -1005,6 +1009,9 @@ public class CartController(
 
             await context.SaveChangesAsync();
 
+            // KÍCH HOẠT SAO LƯU: Cập nhật trạng thái hoàn kho lên mây
+            await backupService.UploadDatabaseAsync();
+
             return Json(new
             {
                 success = true,
@@ -1073,6 +1080,9 @@ public class CartController(
                 });
                 
                 await context.SaveChangesAsync();
+
+                // KÍCH HOẠT SAO LƯU: Ghi nhận trạng thái ĐÃ THANH TOÁN lên mây lập tức
+                await backupService.UploadDatabaseAsync();
                 logger.LogInformation("[payOS Webhook] Đã gạch nợ thành công đơn hàng #{OrderId} - {OrderCode}", order.Id, order.OrderCode);
             }
             return Ok();
@@ -1421,6 +1431,9 @@ public class CartController(
             order.UpdatedAt = DateTime.UtcNow;
 
             await context.SaveChangesAsync();
+
+            // KÍCH HOẠT SAO LƯU: Lưu lại mã vận đơn GHN phòng trường hợp container reset
+            await backupService.UploadDatabaseAsync();
 
             logger.LogInformation("[GHN] Đã tạo vận đơn qua CartController cho đơn #{OrderId}: {OrderCodeGhn}, Print URL: {PrintUrl}", order.Id, orderCodeGhn, finalPrintUrl);
 
