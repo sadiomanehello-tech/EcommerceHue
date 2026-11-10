@@ -3,6 +3,7 @@ using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Configuration;
 
 namespace EcommerceHue.Services
@@ -12,30 +13,43 @@ namespace EcommerceHue.Services
         private readonly HttpClient _httpClient;
         private readonly string _supabaseUrl;
         private readonly string _supabaseKey;
-        private readonly string _bucketName = "sqlite-backup"; // Tên Bucket bạn vừa tạo trên Supabase
+        private readonly string _bucketName = "sqlite-backup"; // Tên Bucket trên Supabase Storage
         private readonly string _fileName = "ecommercehue.db";
         private readonly string _localFilePath;
 
-        // Hàm khởi tạo (Constructor): Tự động chạy khi ứng dụng nạp dịch vụ
+        // Hàm khởi tạo: Tự động chạy khi ứng dụng nạp dịch vụ
         public DatabaseBackupService(IConfiguration configuration)
         {
             _httpClient = new HttpClient();
-            
-            // Đọc cấu hình bảo mật thông tin từ môi trường đám mây Render
-            _supabaseUrl = configuration["Supabase__Url"]?.TrimEnd('/');
-            _supabaseKey = configuration["Supabase__Key"];
 
-            // Tự động phân tách chuỗi kết nối để tìm ra đường dẫn file SQLite thực tế
-            var connectionString = configuration.GetConnectionString("DefaultConnection") ?? "Data Source=ecommercehue.db";
+            // Đọc cấu hình linh hoạt cả hai định dạng cấu hình phân cấp (dấu hai chấm) và biến môi trường thô
+            _supabaseUrl = (configuration["Supabase:Url"] 
+                         ?? configuration["Supabase__Url"] 
+                         ?? Environment.GetEnvironmentVariable("Supabase__Url") 
+                         ?? Environment.GetEnvironmentVariable("Supabase:Url") 
+                         ?? "").TrimEnd('/');
+
+            _supabaseKey = configuration["Supabase:Key"] 
+                        ?? configuration["Supabase__Key"] 
+                        ?? Environment.GetEnvironmentVariable("Supabase__Key") 
+                        ?? Environment.GetEnvironmentVariable("Supabase:Key") 
+                        ?? "";
+
+            // Tự động phân tách chuỗi kết nối để tìm ra đường dẫn file SQLite thực tế, fallback chuẩn /tmp/ecommercehue.db
+            var connectionString = configuration.GetConnectionString("DefaultConnection") 
+                                ?? configuration["ConnectionStrings__DefaultConnection"] 
+                                ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection") 
+                                ?? "Data Source=/tmp/ecommercehue.db";
+
             _localFilePath = ParseFilePathFromConnectionString(connectionString);
         }
 
         /// <summary>
-        /// HÀM 1: Tải file dữ liệu cũ từ Supabase về máy chủ Render khi ứng dụng thức dậy
+        /// HÀM 1: Tải file dữ liệu cũ từ Supabase về máy chủ khi ứng dụng khởi động
         /// </summary>
         public async Task DownloadDatabaseAsync()
         {
-            // Kiểm tra xem bạn đã cấu hình các biến bảo mật trên Render chưa
+            // Kiểm tra cấu hình URL / Key
             if (string.IsNullOrEmpty(_supabaseUrl) || string.IsNullOrEmpty(_supabaseKey))
             {
                 Console.WriteLine("=== [SUPABASE BACKUP] Thiếu cấu hình Supabase URL/Key. Bỏ qua bước khôi phục dữ liệu. ===");
@@ -44,35 +58,35 @@ namespace EcommerceHue.Services
 
             try
             {
-                // Đường dẫn URL API gọi trực tiếp đến file lưu trữ trên Supabase
+                // Endpoint tải file private từ Supabase Storage
                 var requestUrl = $"{_supabaseUrl}/storage/v1/object/authenticated/{_bucketName}/{_fileName}";
                 var request = new HttpRequestMessage(HttpMethod.Get, requestUrl);
-                
-                // Đính kèm mã token để Supabase xác minh quyền truy cập (vì Bucket của bạn là Private)
+
+                // Đính kèm apikey và Bearer token
                 request.Headers.Add("apikey", _supabaseKey);
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _supabaseKey);
 
                 var response = await _httpClient.SendAsync(request);
 
-                // Nếu tìm thấy file backup cũ thành công
                 if (response.IsSuccessStatusCode)
                 {
                     var fileBytes = await response.Content.ReadAsByteArrayAsync();
-                    
-                    // Tạo thư mục (ví dụ như thư mục hệ thống /tmp) nếu nó chưa tồn tại trên Render
+
+                    // Đảm bảo thư mục đích tồn tại
                     var directory = Path.GetDirectoryName(_localFilePath);
                     if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
                     {
                         Directory.CreateDirectory(directory);
                     }
 
-                    // Ghi đè các byte dữ liệu tải về thành file .db cục bộ để ứng dụng dùng
+                    // Ghi đè file SQLite cục bộ
                     await File.WriteAllBytesAsync(_localFilePath, fileBytes);
-                    Console.WriteLine("=== [SUPABASE BACKUP] Phục hồi tệp dữ liệu SQLite cũ thành công từ Supabase Storage! ===");
+                    Console.WriteLine($"=== [SUPABASE BACKUP] Phục hồi tệp dữ liệu SQLite ({fileBytes.Length:N0} bytes) thành công về '{_localFilePath}'!");
                 }
                 else
                 {
-                    Console.WriteLine($"=== [SUPABASE BACKUP] Chưa có bản sao lưu trước đó trên đám mây ({response.StatusCode}). Tạo mới DB trống.");
+                    var errBody = await response.Content.ReadAsStringAsync();
+                    Console.WriteLine($"=== [SUPABASE BACKUP] Chưa có bản sao lưu trước đó trên đám mây ({response.StatusCode}: {errBody}). Tạo mới DB trống.");
                 }
             }
             catch (Exception ex)
@@ -82,45 +96,69 @@ namespace EcommerceHue.Services
         }
 
         /// <summary>
-        /// HÀM 2: Đẩy file SQLite từ Render lên lưu trữ trên Supabase khi web có biến động dữ liệu
+        /// HÀM 2: Đẩy file SQLite lên lưu trữ trên Supabase khi có biến động dữ liệu (Đơn hàng, Khách hàng, Thanh toán)
         /// </summary>
         public async Task UploadDatabaseAsync()
         {
-            if (string.IsNullOrEmpty(_supabaseUrl) || string.IsNullOrEmpty(_supabaseKey)) return;
+            if (string.IsNullOrEmpty(_supabaseUrl) || string.IsNullOrEmpty(_supabaseKey))
+            {
+                Console.WriteLine("=== [SUPABASE BACKUP ERROR] Thiếu cấu hình Supabase__Url hoặc Supabase__Key!");
+                return;
+            }
 
             try
             {
-                // Kiểm tra chắc chắn xem file .db cục bộ có tồn tại trên Render để upload không
+                // Kiểm tra file SQLite cục bộ có tồn tại không
                 if (!File.Exists(_localFilePath))
                 {
-                    Console.WriteLine("=== [SUPABASE BACKUP] Không tìm thấy tệp tin cơ sở dữ liệu để tiến hành sao lưu.");
+                    Console.WriteLine($"=== [SUPABASE BACKUP] Không tìm thấy tệp tin cơ sở dữ liệu '{_localFilePath}' để tiến hành sao lưu.");
                     return;
                 }
 
-                var requestUrl = $"{_supabaseUrl}/storage/v1/object/authenticated/{_bucketName}/{_fileName}";
+                // Xả toàn bộ dữ liệu từ bộ nhớ đệm WAL xuống file chính và giải phóng connection pool
+                try
+                {
+                    using (var connection = new SqliteConnection($"Data Source={_localFilePath}"))
+                    {
+                        await connection.OpenAsync();
+                        using (var command = connection.CreateCommand())
+                        {
+                            command.CommandText = "PRAGMA wal_checkpoint(TRUNCATE);";
+                            await command.ExecuteNonQueryAsync();
+                        }
+                    }
+                    SqliteConnection.ClearAllPools();
+                }
+                catch (Exception walEx)
+                {
+                    Console.WriteLine($"=== [SUPABASE BACKUP WARNING] Lỗi checkpoint WAL: {walEx.Message}");
+                }
+
+                // Endpoint upload chuẩn của Supabase Storage: /storage/v1/object/{bucket}/{file}
+                var requestUrl = $"{_supabaseUrl}/storage/v1/object/{_bucketName}/{_fileName}";
                 var fileBytes = await File.ReadAllBytesAsync(_localFilePath);
-                
+
                 var byteArrayContent = new ByteArrayContent(fileBytes);
-                // Định nghĩa định dạng tệp tin gửi lên là chuẩn dữ liệu SQLite
                 byteArrayContent.Headers.ContentType = new MediaTypeHeaderValue("application/x-sqlite3");
 
                 var request = new HttpRequestMessage(HttpMethod.Post, requestUrl);
                 request.Headers.Add("apikey", _supabaseKey);
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _supabaseKey);
-                
-                // ĐIỀU KIỆN QUAN TRỌNG: Báo cho Supabase biết sẽ ghi đè (Upsert) lên file cũ nếu đã có file trùng tên
-                request.Headers.Add("x-upsert", "true"); 
+
+                // Cho phép ghi đè (Upsert) file đã tồn tại
+                request.Headers.Add("x-upsert", "true");
                 request.Content = byteArrayContent;
 
                 var response = await _httpClient.SendAsync(request);
 
                 if (response.IsSuccessStatusCode)
                 {
-                    Console.WriteLine("=== [SUPABASE BACKUP] Đã gửi bản sao lưu SQLite lên bộ nhớ đám mây an toàn!");
+                    Console.WriteLine($"=== [SUPABASE BACKUP SUCCESS] Đã gửi bản sao lưu SQLite ({fileBytes.Length:N0} bytes) lên Supabase Storage '{_bucketName}/{_fileName}' thành công!");
                 }
                 else
                 {
-                    Console.WriteLine($"=== [SUPABASE BACKUP] Gửi bản sao lưu thất bại với mã lỗi: {response.StatusCode} ===");
+                    var errBody = await response.Content.ReadAsStringAsync();
+                    Console.WriteLine($"=== [SUPABASE BACKUP FAILED] Status: {response.StatusCode} | Detail: {errBody}");
                 }
             }
             catch (Exception ex)
@@ -129,12 +167,11 @@ namespace EcommerceHue.Services
             }
         }
 
-        // Hàm bổ trợ: Bóc tách đường dẫn file từ Connection String (Ví dụ: "Data Source=/tmp/db.db" -> "/tmp/db.db")
+        // Hàm bổ trợ: Bóc tách đường dẫn file từ Connection String
         private string ParseFilePathFromConnectionString(string connectionString)
         {
             try
             {
-                // Phân tách chuỗi dựa trên cả dấu chấm phẩy lẫn dấu bằng một cách an toàn
                 var parts = connectionString.Split(';', StringSplitOptions.RemoveEmptyEntries);
                 foreach (var part in parts)
                 {
@@ -144,7 +181,6 @@ namespace EcommerceHue.Services
                         var index = trimmedPart.IndexOf('=');
                         if (index != -1 && index < trimmedPart.Length - 1)
                         {
-                            // Lấy chính xác chuỗi đường dẫn nằm phía sau dấu "=" (Ví dụ: /tmp/ecommercehue.db)
                             return trimmedPart.Substring(index + 1).Trim();
                         }
                     }
@@ -154,10 +190,9 @@ namespace EcommerceHue.Services
             {
                 Console.WriteLine($"=== [SUPABASE BACKUP WARNING] Lỗi bóc tách ConnectionString: {ex.Message}");
             }
-            
-            // Nếu có lỗi xảy ra hoặc không tìm thấy, ép hệ thống trỏ về đúng thư mục tạm /tmp
+
+            // Fallback mặc định đồng bộ tuyệt đối với /tmp/ecommercehue.db trên Render
             return "/tmp/ecommercehue.db";
         }
-
     }
 }

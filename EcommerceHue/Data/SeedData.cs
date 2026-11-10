@@ -187,30 +187,8 @@ public static class SeedData
             await context.SaveChangesAsync();
         }
 
-        // 4. LÀM SẠCH DỮ LIỆU ĐỒNG BỘ THEO THỨ TỰ KHÓA NGOẠI (Foreign Key Cascade Cleanup)
-        // Xóa sạch bảng con trước (Giao dịch, Chi tiết đơn hàng), sau đó đến Đơn hàng tổng và Khách hàng cũ
-        // để loại bỏ hoàn toàn nguy cơ xung đột Foreign Key Constraint trên SQLite/SQL Server.
-        if (await context.PaymentTransactions.AnyAsync())
-        {
-            context.PaymentTransactions.RemoveRange(context.PaymentTransactions);
-        }
-
-        if (await context.OrderDetails.AnyAsync())
-        {
-            context.OrderDetails.RemoveRange(context.OrderDetails);
-        }
-
-        if (await context.Orders.AnyAsync())
-        {
-            context.Orders.RemoveRange(context.Orders);
-        }
-
-        if (await context.Customers.AnyAsync())
-        {
-            context.Customers.RemoveRange(context.Customers);
-        }
-
-        await context.SaveChangesAsync();
+        // 4. BẢO TOÀN DỮ LIỆU ĐƠN HÀNG VÀ KHÁCH HÀNG
+        // Đã xóa bỏ hoàn toàn khối lệnh RemoveRange để đảm bảo không xóa dữ liệu đơn hàng và khách hàng khi restart.
 
         // 5. Khởi tạo mã giảm giá mẫu nếu chưa có
         if (!await context.Coupons.AnyAsync(c => c.Code == "HUEWELCOME10"))

@@ -33,7 +33,8 @@ public sealed class ConfirmDeliveryRequest
 public sealed class ShipperController(
     EcommerceContext context,
     IEmailService emailService,
-    ILogger<ShipperController> logger) : Controller
+    ILogger<ShipperController> logger,
+    DatabaseBackupService backupService) : Controller
 {
     // =========================================================================
     // 1. ACTION: Giao diện ứng dụng Shipper quét mã bưu kiện – GET /Shipper/Scan
@@ -205,6 +206,9 @@ public sealed class ShipperController(
 
         await context.SaveChangesAsync();
 
+        // KÍCH HOẠT SAO LƯU: Cập nhật trạng thái giao hàng thành công lên Supabase Storage
+        await backupService.UploadDatabaseAsync();
+
         logger.LogInformation(
             "[Shipper-Stage1] Đơn #{OrderId} ({OrderCode}) đã được lấy từ kho. Đổi từ '{OldStatus}' sang 'Shipping (3)'.",
             order.Id, order.OrderCode, oldStatus);
@@ -314,6 +318,9 @@ public sealed class ShipperController(
 
         // Lưu cứng trạng thái hoàn tất vào Database trước khi gửi mail và trả về Json
         await context.SaveChangesAsync();
+
+        // KÍCH HOẠT SAO LƯU: Cập nhật trạng thái giao hàng thành công lên Supabase Storage
+        await backupService.UploadDatabaseAsync();
 
         // 4. Kích hoạt gửi Email thứ 4: Thư cảm ơn tri ân & Thông báo giao hàng thành công bế mạc đơn
         string subject = "[EcommerceHue] Đơn hàng #" + order.Id + " đã giao thành công - Cảm ơn quý khách!";

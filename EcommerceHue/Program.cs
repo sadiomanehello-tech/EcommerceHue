@@ -24,7 +24,9 @@ builder.Services.AddSingleton<DatabaseBackupService>();
 //   - Biến môi trường               khi triển khai Production / Docker
 //     (tên biến: ConnectionStrings__DefaultConnection)
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "Data Source=ecommercehue.db";
+    ?? builder.Configuration["ConnectionStrings__DefaultConnection"]
+    ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+    ?? "Data Source=/tmp/ecommercehue.db";
 
 
 // Sử dụng thư mục tạm của hệ điều hành để luôn có quyền ghi tệp tin trên Render

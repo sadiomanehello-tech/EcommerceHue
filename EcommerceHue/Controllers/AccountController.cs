@@ -20,9 +20,11 @@ namespace EcommerceHue.Controllers;
 public class AccountController(
     EcommerceContext context,
     ILogger<AccountController> logger,
-    IEmailService emailService) : Controller
+    IEmailService emailService,
+    DatabaseBackupService backupService) : Controller
 {
     private readonly IEmailService _emailService = emailService;
+    private readonly DatabaseBackupService _backupService = backupService;
 
     // =========================================================================
     // ĐĂNG KÝ – GET /Account/Register
@@ -107,6 +109,9 @@ public class AccountController(
 
         context.Customers.Add(customer);
         await context.SaveChangesAsync();
+
+        // KÍCH HOẠT SAO LƯU: Đồng bộ tài khoản khách hàng mới lên Supabase Storage
+        await _backupService.UploadDatabaseAsync();
 
         logger.LogInformation(
             "Khách hàng mới đăng ký thành công: {Username} (Email: {Email}, SĐT: {Phone}, Id: {CustomerId})",
@@ -292,6 +297,9 @@ public class AccountController(
 
             context.Customers.Add(customer);
             await context.SaveChangesAsync();
+
+            // KÍCH HOẠT SAO LƯU: Đồng bộ tài khoản Google OAuth mới lên Supabase Storage
+            await _backupService.UploadDatabaseAsync();
 
             logger.LogInformation(
                 "[GoogleAuth] Tự động tạo khách hàng mới qua Google: {Username} (Email: {Email}, Id: {CustomerId})",
@@ -492,6 +500,7 @@ public class AccountController(
                     CreatedAt = DateTime.UtcNow
                 });
                 await context.SaveChangesAsync();
+                await _backupService.UploadDatabaseAsync();
             }
         }
         catch (Exception ex)

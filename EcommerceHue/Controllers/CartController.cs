@@ -890,6 +890,9 @@ public class CartController(
             await context.PaymentTransactions.AddAsync(transaction);
             await context.SaveChangesAsync();
 
+            // KÍCH HOẠT SAO LƯU: Ghi nhận trạng thái thanh toán VnPay thành công lên Supabase Storage
+            await backupService.UploadDatabaseAsync();
+
             TempData["CheckoutError"] = "⚠️ Chữ ký bảo mật không hợp lệ (Nghi vấn giả mạo dữ liệu). Giao dịch bị từ chối.";
             return RedirectToAction(nameof(Checkout));
         }
@@ -909,6 +912,9 @@ public class CartController(
 
             await context.PaymentTransactions.AddAsync(transaction);
             await context.SaveChangesAsync();
+
+            // KÍCH HOẠT SAO LƯU: Ghi nhận trạng thái thanh toán VnPay thành công lên Supabase Storage
+            await backupService.UploadDatabaseAsync();
 
             // Xóa sạch giỏ hàng và session sau khi thanh toán thành công
             HttpContext.Session.Remove(CartSessionKey);
@@ -951,6 +957,9 @@ public class CartController(
 
         await context.PaymentTransactions.AddAsync(transaction);
         await context.SaveChangesAsync();
+
+        // KÍCH HOẠT SAO LƯU: Cập nhật hoàn kho và trạng thái hủy đơn lên Supabase Storage
+        await backupService.UploadDatabaseAsync();
 
         logger.LogWarning("[VnPay] Thanh toán không thành công. Mã lỗi: {Code} cho đơn hàng: #{OrderId} - {OrderCode}",
             vnpResponseCode, order?.Id, order?.OrderCode ?? vnpTxnRef);
