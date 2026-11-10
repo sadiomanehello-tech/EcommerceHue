@@ -132,16 +132,32 @@ namespace EcommerceHue.Services
         // Hàm bổ trợ: Bóc tách đường dẫn file từ Connection String (Ví dụ: "Data Source=/tmp/db.db" -> "/tmp/db.db")
         private string ParseFilePathFromConnectionString(string connectionString)
         {
-            var parts = connectionString.Split(';', StringSplitOptions.RemoveEmptyEntries);
-            foreach (var part in parts)
+            try
             {
-                if (part.Trim().StartsWith("Data Source", StringComparison.OrdinalIgnoreCase))
+                // Phân tách chuỗi dựa trên cả dấu chấm phẩy lẫn dấu bằng một cách an toàn
+                var parts = connectionString.Split(';', StringSplitOptions.RemoveEmptyEntries);
+                foreach (var part in parts)
                 {
-                    var kv = part.Split('=', 2);
-                    if (kv.Length == 2) return kv[1].Trim();
+                    var trimmedPart = part.Trim();
+                    if (trimmedPart.StartsWith("Data Source", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var index = trimmedPart.IndexOf('=');
+                        if (index != -1 && index < trimmedPart.Length - 1)
+                        {
+                            // Lấy chính xác chuỗi đường dẫn nằm phía sau dấu "=" (Ví dụ: /tmp/ecommercehue.db)
+                            return trimmedPart.Substring(index + 1).Trim();
+                        }
+                    }
                 }
             }
-            return "ecommercehue.db";
+            catch (Exception ex)
+            {
+                Console.WriteLine($"=== [SUPABASE BACKUP WARNING] Lỗi bóc tách ConnectionString: {ex.Message}");
+            }
+            
+            // Nếu có lỗi xảy ra hoặc không tìm thấy, ép hệ thống trỏ về đúng thư mục tạm /tmp
+            return "/tmp/ecommercehue.db";
         }
+
     }
 }
