@@ -4,9 +4,14 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.DataProtection;
 using System.IO;
-
+using EcommerceHue.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+
+// --- Đăng ký dịch vụ Tự động sao lưu dữ liệu với Supabase Storage ---
+builder.Services.AddSingleton<DatabaseBackupService>();
+
 
 // ============================================================================
 // ĐĂNG KÝ DỊCH VỤ (Service Registration)
@@ -167,13 +172,17 @@ app.Use(async (context, next) =>
 });
 
 // ============================================================================
-// ============================================================================
 // TỰ ĐỘNG CẬP NHẬT DATABASE & SEED DỮ LIỆU (Migration Automation Check)
-// Đã sửa lỗi: Khởi động đồng bộ để tránh xung đột luồng gây khóa file SQLite
+// CHÈN THÊM LUỒNG TẢI FILE .DB TỪ SUPABASE STORAGE KHI WEB CONTAINER THỨC GIẤC
 // ============================================================================
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
+    var backupService = services.GetRequiredService<DatabaseBackupService>();
+
+    // Ép hệ thống bắt buộc đợi tải xong file SQLite cũ về thư mục tạm rồi mới xử lý tiếp
+    await backupService.DownloadDatabaseAsync();
+
     try
     {
         // Thực thi cấu trúc bảng và hạt giống dữ liệu trực tiếp trong luồng khởi động
@@ -185,6 +194,7 @@ using (var scope = app.Services.CreateScope())
         Console.WriteLine("=== [SYSTEM WARNING] Bỏ qua lỗi ngắt mạch DB: " + ex.Message);
     }
 }
+
 
 if (!app.Environment.IsDevelopment())
 {
