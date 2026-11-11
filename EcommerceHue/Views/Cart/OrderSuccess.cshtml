@@ -185,7 +185,16 @@
                     </div>
 
                     <!-- Nút hành động -->
-                    <div class="d-flex flex-wrap gap-2 justify-content-center pt-2">
+                    <div class="d-flex flex-wrap gap-3 justify-content-center pt-2">
+                        @if (Model.Status == EcommerceHue.Models.OrderStatus.PendingPayment)
+                        {
+                            <a asp-controller="Cart" asp-action="CancelAndReorder" asp-route-orderId="@Model.Id"
+                               class="btn btn-outline-danger fw-bold px-4 py-2 rounded-pill shadow-sm"
+                               onclick="return confirm('Bạn có chắc chắn muốn hủy đơn hàng này để quay lại trang thanh toán áp dụng thêm Voucher hoặc thay đổi giỏ hàng?')">
+                                🔄 Thay đổi đơn hàng / Áp dụng lại Voucher
+                            </a>
+                        }
+
                         <a asp-controller="Home" asp-action="Index" class="btn btn-warning fw-bold px-4 py-2 rounded-pill text-dark shadow-sm">
                             🏮 Tiếp tục mua sắm đặc sản Huế
                         </a>

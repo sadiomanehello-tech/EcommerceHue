@@ -327,6 +327,94 @@ public class CartController(
     }
 
     // =========================================================================
+    // HELPER: Tự động giải phóng đơn hàng cũ của chính khách (Self-Locking Inventory)
+    // =========================================================================
+
+    /// <summary>
+    /// Tự động kiểm tra và giải phóng đơn hàng đang chờ thanh toán (PendingPayment) cũ của chính khách hàng
+    /// nhằm tránh lỗi Self-Locking Inventory khi khách quay lại đặt lại hoặc đổi voucher.
+    /// Nếu restoreCartIfEmpty = true và giỏ hàng Session đang trống, tự động nạp lại mặt hàng từ đơn cũ.
+    /// </summary>
+    private async Task ReleaseCustomerPendingOrderAsync(string? customerEmail, bool restoreCartIfEmpty = false)
+    {
+        try
+        {
+            var pendingOrderId = HttpContext.Session.GetInt32("PendingOrderId");
+            var threshold = DateTime.UtcNow.AddMinutes(-15);
+
+            Order? oldOrder = null;
+            if (pendingOrderId.HasValue && pendingOrderId.Value > 0)
+            {
+                oldOrder = await context.Orders
+                    .Include(o => o.OrderDetails)
+                        .ThenInclude(od => od.Product)
+                    .FirstOrDefaultAsync(o => o.Id == pendingOrderId.Value && o.Status == OrderStatus.PendingPayment);
+            }
+
+            if (oldOrder == null && !string.IsNullOrWhiteSpace(customerEmail))
+            {
+                var cleanEmail = customerEmail.Trim().ToLowerInvariant();
+                oldOrder = await context.Orders
+                    .Include(o => o.OrderDetails)
+                        .ThenInclude(od => od.Product)
+                    .Where(o => o.CustomerEmail.ToLower() == cleanEmail 
+                             && o.Status == OrderStatus.PendingPayment 
+                             && o.CreatedAt >= threshold)
+                    .OrderByDescending(o => o.CreatedAt)
+                    .FirstOrDefaultAsync();
+            }
+
+            if (oldOrder != null)
+            {
+                oldOrder.Status = OrderStatus.Cancelled;
+                oldOrder.UpdatedAt = DateTime.UtcNow;
+                var note = "[Tự động hủy: Khách tạo đơn mới thay thế / Sửa đơn]";
+                oldOrder.Note = string.IsNullOrWhiteSpace(oldOrder.Note) ? note : $"{oldOrder.Note} | {note}";
+
+                foreach (var detail in oldOrder.OrderDetails)
+                {
+                    var product = detail.Product ?? await context.Products.FindAsync(detail.ProductId);
+                    if (product != null)
+                    {
+                        product.StockQuantity += detail.Quantity;
+                        product.IsAvailable = true;
+                        product.UpdatedAt = DateTime.UtcNow;
+                        logger.LogInformation(
+                            "[Self-Locking Auto Release] Đã hoàn trả {Quantity} '{ProductName}' (ID: {ProductId}) cho đơn cũ #{OrderId}. Tồn kho mới: {Stock}",
+                            detail.Quantity, product.Name, product.Id, oldOrder.Id, product.StockQuantity);
+                    }
+                }
+
+                if (restoreCartIfEmpty)
+                {
+                    var currentCart = GetCart();
+                    if (currentCart.Count == 0 && oldOrder.OrderDetails.Any())
+                    {
+                        var restoredCart = oldOrder.OrderDetails.Select(d => new CartItem
+                        {
+                            ProductId = d.ProductId,
+                            ProductName = d.ProductName,
+                            Price = d.UnitPrice,
+                            Quantity = d.Quantity,
+                            ImageUrl = d.Product?.ImageUrl ?? "/images/placeholder.jpg"
+                        }).ToList();
+                        SaveCart(restoredCart);
+                        logger.LogInformation("[Self-Locking Auto Release] Đã khôi phục {Count} sản phẩm từ đơn cũ #{OrderId} vào giỏ hàng Session.", restoredCart.Count, oldOrder.Id);
+                    }
+                }
+
+                await context.SaveChangesAsync();
+                HttpContext.Session.Remove("PendingOrderId");
+                Console.WriteLine($"=== [AUTO RELEASE STOCK] Đã tự động hủy đơn #{oldOrder.Id} ({oldOrder.OrderCode}) của khách để giải phóng kho đặt lại!");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "[Self-Locking Auto Release] Lỗi khi giải phóng đơn cũ của khách: {Message}", ex.Message);
+        }
+    }
+
+    // =========================================================================
     // ACTION: Trang Checkout – GET /Cart/Checkout
     // [Authorize]: Nếu chưa đăng nhập, tự động chuyển sang /Account/Login?returnUrl=/Cart/Checkout
     // =========================================================================
@@ -340,6 +428,10 @@ public class CartController(
     [IgnoreAntiforgeryToken]
     public async Task<IActionResult> CheckCartStock()
     {
+        // Tự động giải phóng đơn cũ nếu khách đang giữ kho
+        var userEmail = User.FindFirstValue(ClaimTypes.Email) ?? User.Identity?.Name;
+        await ReleaseCustomerPendingOrderAsync(userEmail, restoreCartIfEmpty: false);
+
         var cart = GetCart();
         if (cart.Count == 0)
         {
@@ -383,6 +475,11 @@ public class CartController(
     {
         try
         {
+            // Tự động giải phóng đơn cũ của chính khách (Self-Locking Inventory) nếu có
+            // và khôi phục giỏ hàng nếu giỏ hàng Session đang trống do vừa đặt đơn trước đó
+            var userEmail = User.FindFirstValue(ClaimTypes.Email) ?? User.Identity?.Name;
+            await ReleaseCustomerPendingOrderAsync(userEmail, restoreCartIfEmpty: true);
+
             var cart = GetCart();
 
             // Giỏ hàng trống – chuyển về trang giỏ hàng kèm thông báo
@@ -674,6 +771,13 @@ public class CartController(
     {
         try
         {
+            // 0. Tự động hủy đơn chờ thanh toán cũ của chính khách (Self-Locking Inventory) nếu có
+            // để giải phóng kho ngay lập tức trước khi kiểm tra tồn kho cho đơn mới
+            var checkEmail = !string.IsNullOrWhiteSpace(model.CustomerEmail)
+                ? model.CustomerEmail.Trim()
+                : (User.FindFirstValue(ClaimTypes.Email) ?? User.Identity?.Name);
+            await ReleaseCustomerPendingOrderAsync(checkEmail, restoreCartIfEmpty: false);
+
             var cart = GetCart();
 
         // 1. Kiểm tra giỏ hàng có rỗng không
@@ -800,6 +904,9 @@ public class CartController(
 
         await context.SaveChangesAsync();
 
+        // Lưu PendingOrderId vào Session để kiểm soát đơn đang chờ thanh toán của khách
+        HttpContext.Session.SetInt32("PendingOrderId", order.Id);
+
         // KÍCH HOẠT SAO LƯU: Đẩy file SQLite lên mây ngay khi tạo đơn thành công
         await backupService.UploadDatabaseAsync();
 
@@ -826,7 +933,8 @@ public class CartController(
 
         var baseUrl = $"{Request.Scheme}://{Request.Host}";
         var returnUrl = $"{baseUrl}/Cart/OrderSuccess?orderCode={order.OrderCode}";
-        var cancelUrl = $"{baseUrl}/Cart/Checkout";
+        // Đường dẫn hủy thanh toán payOS: Trỏ trực tiếp đến CancelAndReorder để hoàn kho và khôi phục giỏ hàng
+        var cancelUrl = $"{baseUrl}/Cart/CancelAndReorder?orderId={order.Id}";
 
         // Sinh mã payOS duy nhất: UnixTimestamp(10 chữ số) * 100000 + order.Id(tối đa 5 chữ số)
         // Tổng = 15 chữ số, luôn nằm trong phạm vi long.MaxValue (19 chữ số) → an toàn tuyệt đối
@@ -1153,6 +1261,89 @@ public class CartController(
             success = false,
             message = "Chỉ có thể hủy và hoàn kho đối với đơn hàng đang ở trạng thái 'Chờ thanh toán'."
         });
+    }
+
+    // =========================================================================
+    // ACTION: Hủy đơn chờ thanh toán & Khôi phục giỏ hàng về Checkout
+    // GET/POST /Cart/CancelAndReorder?orderId={id}
+    // =========================================================================
+
+    /// <summary>
+    /// Cho phép khách hàng hủy đơn hàng đang chờ thanh toán (PendingPayment), tự động hoàn trả tồn kho sản phẩm,
+    /// nạp lại toàn bộ mặt hàng vào giỏ hàng Session và đưa khách quay về trang Checkout để đổi voucher hoặc chỉnh sửa.
+    /// </summary>
+    [HttpGet]
+    [HttpPost]
+    [IgnoreAntiforgeryToken]
+    public async Task<IActionResult> CancelAndReorder(int orderId)
+    {
+        if (orderId <= 0)
+        {
+            return RedirectToAction(nameof(Checkout));
+        }
+
+        try
+        {
+            var order = await context.Orders
+                .Include(o => o.OrderDetails)
+                    .ThenInclude(od => od.Product)
+                .FirstOrDefaultAsync(o => o.Id == orderId);
+
+            if (order != null && order.Status == OrderStatus.PendingPayment)
+            {
+                order.Status = OrderStatus.Cancelled;
+                order.UpdatedAt = DateTime.UtcNow;
+                var cancelNote = "[Hủy để đặt lại đơn / Áp dụng lại voucher]";
+                order.Note = string.IsNullOrWhiteSpace(order.Note) ? cancelNote : $"{order.Note} | {cancelNote}";
+
+                foreach (var detail in order.OrderDetails)
+                {
+                    var prod = detail.Product ?? await context.Products.FindAsync(detail.ProductId);
+                    if (prod != null)
+                    {
+                        prod.StockQuantity += detail.Quantity;
+                        prod.IsAvailable = true;
+                        prod.UpdatedAt = DateTime.UtcNow;
+                        logger.LogInformation(
+                            "[CancelAndReorder] Đã hoàn {Quantity} '{ProductName}' (ID: {ProductId}). Tồn kho mới: {Stock}",
+                            detail.Quantity, prod.Name, prod.Id, prod.StockQuantity);
+                    }
+                }
+
+                // Phục hồi lại các mặt hàng trong đơn vào giỏ hàng Session
+                var restoredCart = order.OrderDetails.Select(d => new CartItem
+                {
+                    ProductId = d.ProductId,
+                    ProductName = d.ProductName,
+                    Price = d.UnitPrice,
+                    Quantity = d.Quantity,
+                    ImageUrl = d.Product?.ImageUrl ?? "/images/placeholder.jpg"
+                }).ToList();
+
+                SaveCart(restoredCart);
+                HttpContext.Session.Remove("PendingOrderId");
+
+                await context.SaveChangesAsync();
+
+                try
+                {
+                    await backupService.UploadDatabaseAsync();
+                }
+                catch (Exception exSync)
+                {
+                    logger.LogWarning(exSync, "[CancelAndReorder] Lỗi upload DB lên Supabase: {Message}", exSync.Message);
+                }
+
+                TempData["CartWarning"] = "ℹ️ Đã hủy đơn hàng cũ và hoàn lại số lượng tồn kho. Quý khách có thể chọn Voucher hoặc chỉnh sửa rồi bấm Đặt hàng!";
+                Console.WriteLine($"=== [AUTO RELEASE STOCK] Đã hủy đơn #{order.Id} theo yêu cầu đổi đơn/voucher và khôi phục giỏ hàng!");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "[CancelAndReorder] Lỗi khi xử lý hủy và đặt lại đơn #{OrderId}: {Message}", orderId, ex.Message);
+        }
+
+        return RedirectToAction(nameof(Checkout));
     }
 
     // =========================================================================
