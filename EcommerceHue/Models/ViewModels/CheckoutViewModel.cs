@@ -55,6 +55,9 @@ public sealed class CheckoutViewModel
     /// <summary>Số tiền được giảm giá (VNĐ)</summary>
     public decimal DiscountAmount { get; set; } = 0;
 
+    /// <summary>Danh sách mã giảm giá còn hiệu lực để khách chọn áp dụng nhanh (1-Click Apply)</summary>
+    public List<Coupon> AvailableCoupons { get; set; } = [];
+
     /// <summary>
     /// Phương thức thanh toán: "BankTransfer" (Chuyển khoản), "MoMo" (Quét mã MoMo), "VnPay" (Cổng VnPay)
     /// </summary>

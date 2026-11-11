@@ -429,6 +429,14 @@ public class CartController(
             var discountAmountStr = HttpContext.Session.GetString("DiscountAmount");
             decimal.TryParse(discountAmountStr, out var discountAmount);
 
+            // Tải danh sách mã giảm giá đang còn hiệu lực để hiển thị chọn nhanh
+            var nowUtc = DateTime.UtcNow;
+            var availableCoupons = await context.Coupons
+                .AsNoTracking()
+                .Where(c => c.IsActive && c.StartDate <= nowUtc && nowUtc <= c.EndDate && c.UsedCount < c.UsageLimit)
+                .OrderBy(c => c.MinOrderValue)
+                .ToListAsync();
+
             var model = new CheckoutViewModel
             {
                 // Tự động điền sẵn từ Claims – user có thể sửa trước khi gửi
@@ -440,7 +448,8 @@ public class CartController(
                 SubTotal           = cart.Sum(i => i.Total),
                 CouponCode         = couponCode,
                 DiscountPercentage = discountPercentage,
-                DiscountAmount     = discountAmount
+                DiscountAmount     = discountAmount,
+                AvailableCoupons   = availableCoupons
             };
 
             return View(model);
@@ -493,11 +502,29 @@ public class CartController(
         // Kiểm tra mã tồn tại trong CSDL và đang hoạt động
         var coupon = await context.Coupons
             .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.Code == cleanCode && c.IsActive);
+            .FirstOrDefaultAsync(c => c.Code == cleanCode);
 
-        if (coupon is null)
+        if (coupon is null || !coupon.IsActive)
         {
-            return Json(new { success = false, message = "Mã giảm giá không tồn tại hoặc đã hết hạn." });
+            return Json(new { success = false, message = $"Mã giảm giá '{cleanCode}' không tồn tại hoặc đã tạm khóa." });
+        }
+
+        // Kiểm tra thời hạn hiệu lực của mã
+        var now = DateTime.UtcNow;
+        if (now < coupon.StartDate)
+        {
+            return Json(new { success = false, message = $"Chương trình ưu đãi cho mã '{coupon.Code}' chưa bắt đầu (Có hiệu lực từ {coupon.StartDate.ToLocalTime():dd/MM/yyyy HH:mm})." });
+        }
+
+        if (now > coupon.EndDate)
+        {
+            return Json(new { success = false, message = $"Mã giảm giá '{coupon.Code}' đã hết hạn sử dụng vào ngày {coupon.EndDate.ToLocalTime():dd/MM/yyyy}." });
+        }
+
+        // Kiểm tra tổng số lượt sử dụng
+        if (coupon.UsageLimit > 0 && coupon.UsedCount >= coupon.UsageLimit)
+        {
+            return Json(new { success = false, message = $"Rất tiếc! Mã giảm giá '{coupon.Code}' đã đạt tối đa số lượt sử dụng ({coupon.UsageLimit} lượt)." });
         }
 
         // Kiểm tra giỏ hàng hiện tại
@@ -507,32 +534,53 @@ public class CartController(
             return Json(new { success = false, message = "Giỏ hàng của bạn đang trống." });
         }
 
-        // ---------------------------------------------------------------------
-        // Bước 2: Kiểm tra trong bảng Orders xem Email này đã có đơn hàng hợp lệ chưa
-        // Các trạng thái đơn hàng được coi là hợp lệ: Đã thanh toán, Đã xác nhận, Đang giao, Hoàn thành
-        // ---------------------------------------------------------------------
-        var hasValidOrders = await context.Orders
-            .AsNoTracking()
-            .AnyAsync(o => o.CustomerEmail.ToLower() == userEmail.ToLower()
-                        && (o.Status == OrderStatus.Paid
-                            || o.Status == OrderStatus.Confirmed
-                            || o.Status == OrderStatus.Shipping
-                            || o.Status == OrderStatus.Delivered));
+        var subTotal = cart.Sum(i => i.Total);
 
-        if (hasValidOrders)
+        // Kiểm tra giá trị đơn hàng tối thiểu
+        if (coupon.MinOrderValue > 0 && subTotal < coupon.MinOrderValue)
         {
+            var needMore = coupon.MinOrderValue - subTotal;
             return Json(new
             {
                 success = false,
-                message = "Mã giảm giá này chỉ áp dụng cho đơn hàng đầu tiên của bạn!"
+                message = $"Đơn hàng cần tối thiểu {coupon.MinOrderValue:N0}đ để áp dụng mã này. Hãy mua thêm {needMore:N0}đ nữa!"
             });
         }
 
+        // Nếu là mã HUEWELCOME10 (First Order Coupon), kiểm tra xem Email này đã có đơn hợp lệ trước đó chưa
+        if (cleanCode == "HUEWELCOME10")
+        {
+            var hasValidOrders = await context.Orders
+                .AsNoTracking()
+                .AnyAsync(o => o.CustomerEmail.ToLower() == userEmail.ToLower()
+                            && (o.Status == OrderStatus.Paid
+                                || o.Status == OrderStatus.Confirmed
+                                || o.Status == OrderStatus.Shipping
+                                || o.Status == OrderStatus.Delivered));
+
+            if (hasValidOrders)
+            {
+                return Json(new
+                {
+                    success = false,
+                    message = "Mã HUEWELCOME10 chỉ dành cho đơn hàng đầu tiên. Quý khách đã có đơn hàng hợp lệ trước đó!"
+                });
+            }
+        }
+
         // ---------------------------------------------------------------------
-        // Bước 3: Tính toán số tiền được giảm theo % của Coupon & Lưu vào Session
+        // Bước 3: Tính toán số tiền được giảm theo % của Coupon & Mức giảm tối đa (Capped)
         // ---------------------------------------------------------------------
-        var subTotal = cart.Sum(i => i.Total);
-        var discountAmount = Math.Round((subTotal * coupon.DiscountPercentage) / 100m, 0);
+        var rawDiscount = Math.Round((subTotal * coupon.DiscountPercentage) / 100m, 0);
+        var discountAmount = rawDiscount;
+        var isCapped = false;
+
+        if (coupon.MaxDiscountAmount.HasValue && coupon.MaxDiscountAmount.Value > 0 && rawDiscount > coupon.MaxDiscountAmount.Value)
+        {
+            discountAmount = coupon.MaxDiscountAmount.Value;
+            isCapped = true;
+        }
+
         var newTotal = Math.Max(0, subTotal - discountAmount);
 
         // Lưu thông tin vào Session để giữ trạng thái
@@ -540,10 +588,14 @@ public class CartController(
         HttpContext.Session.SetString("DiscountAmount", discountAmount.ToString());
         HttpContext.Session.SetInt32("DiscountPercentage", coupon.DiscountPercentage);
 
+        var successMessage = isCapped
+            ? $"Áp dụng mã '{coupon.Code}' thành công! Giảm {coupon.DiscountPercentage}% (Mức giảm tối đa {coupon.MaxDiscountAmount.Value:N0} ₫)."
+            : $"Áp dụng mã '{coupon.Code}' thành công! Bạn được giảm {coupon.DiscountPercentage}%.";
+
         return Json(new
         {
             success = true,
-            message = $"Áp dụng mã '{coupon.Code}' thành công! Bạn được giảm {coupon.DiscountPercentage}%.",
+            message = successMessage,
             couponCode = coupon.Code,
             discountPercentage = coupon.DiscountPercentage,
             discountAmount = discountAmount,
@@ -680,6 +732,20 @@ public class CartController(
 
         // 6. Lưu đơn hàng và cập nhật tồn kho sản phẩm vào cơ sở dữ liệu
         await context.Orders.AddAsync(order);
+
+        // Cập nhật số lượt sử dụng voucher nếu khách có áp dụng
+        var appliedCouponCode = HttpContext.Session.GetString("CouponCode");
+        if (!string.IsNullOrWhiteSpace(appliedCouponCode))
+        {
+            var couponObj = await context.Coupons.FirstOrDefaultAsync(c => c.Code == appliedCouponCode);
+            if (couponObj != null)
+            {
+                couponObj.UsedCount += 1;
+                logger.LogInformation("[Voucher] Tăng số lượt dùng cho mã {CouponCode}: {UsedCount}/{UsageLimit}",
+                    couponObj.Code, couponObj.UsedCount, couponObj.UsageLimit);
+            }
+        }
+
         await context.SaveChangesAsync();
 
         // KÍCH HOẠT SAO LƯU: Đẩy file SQLite lên mây ngay khi tạo đơn thành công

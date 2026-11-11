@@ -388,7 +388,7 @@ public sealed class EcommerceContext(DbContextOptions<EcommerceContext> options)
         });
 
         // --------------------------------------------------------------------
-        // Coupon – mã giảm giá cho đơn hàng đầu tiên / khuyến mãi
+        // Coupon – mã giảm giá thông minh cho đơn hàng đầu tiên / khuyến mãi sự kiện
         // --------------------------------------------------------------------
         modelBuilder.Entity<Coupon>(entity =>
         {
@@ -400,8 +400,36 @@ public sealed class EcommerceContext(DbContextOptions<EcommerceContext> options)
                   .IsRequired()
                   .HasMaxLength(50);
 
+            entity.Property(c => c.Description)
+                  .HasMaxLength(500);
+
             entity.Property(c => c.DiscountPercentage)
                   .IsRequired();
+
+            entity.Property(c => c.MinOrderValue)
+                  .HasPrecision(18, 2)
+                  .HasDefaultValue(0m);
+
+            entity.Property(c => c.MaxDiscountAmount)
+                  .HasPrecision(18, 2);
+
+            entity.Property(c => c.StartDate)
+                  .IsRequired()
+                  .HasDefaultValueSql(defaultDateSql);
+
+            entity.Property(c => c.EndDate)
+                  .IsRequired()
+                  .HasDefaultValueSql(defaultDateSql);
+
+            entity.Property(c => c.UsageLimit)
+                  .HasDefaultValue(100);
+
+            entity.Property(c => c.UsedCount)
+                  .HasDefaultValue(0);
+
+            entity.Property(c => c.EventTag)
+                  .HasMaxLength(50)
+                  .HasDefaultValue("Normal");
 
             entity.Property(c => c.IsActive)
                   .IsRequired()

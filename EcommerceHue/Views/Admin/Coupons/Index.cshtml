@@ -1,0 +1,621 @@
+@model IEnumerable<EcommerceHue.Models.Coupon>
+@{
+    ViewData["Title"] = "Quản Lý Voucher & Email Marketing";
+}
+
+<!-- NHÚNG TRỰC TIẾP BOOTSTRAP 5 VÀ ICON -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+
+<style>
+    .bg-hue-purple {
+        background: linear-gradient(135deg, #6610f2 0%, #4b0082 100%);
+        color: #fff;
+    }
+    .badge-event-doubleday {
+        background-color: #fd7e14;
+        color: #fff;
+    }
+    .badge-event-weekend {
+        background-color: #20c997;
+        color: #fff;
+    }
+    .badge-event-holiday {
+        background-color: #d63384;
+        color: #fff;
+    }
+    .badge-event-normal {
+        background-color: #6c757d;
+        color: #fff;
+    }
+    .coupon-code-pill {
+        font-family: 'Courier New', Courier, monospace;
+        font-weight: 700;
+        letter-spacing: 1px;
+        background-color: #f3e8ff;
+        color: #581c87;
+        border: 1px dashed #a855f7;
+        padding: 4px 10px;
+        border-radius: 6px;
+        display: inline-block;
+    }
+</style>
+
+<div class="container-fluid mt-4">
+    <!-- TIÊU ĐỀ & ĐIỀU HƯỚNG -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h3 class="fw-bold text-primary mb-1">
+                <i class="bi bi-ticket-perforated me-2"></i>QUẢN LÝ VOUCHER & CHIẾN DỊCH MARKETING
+            </h3>
+            <p class="text-muted small mb-0">Thiết lập mã giảm giá thông minh và gửi Email Marketing tự động qua Brevo API.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="/Admin/Orders" class="btn btn-outline-primary btn-sm"><i class="bi bi-receipt"></i> Đơn hàng</a>
+            <a href="/Admin/Products" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-seam"></i> Kho hàng</a>
+            <button class="btn btn-primary btn-sm fw-bold" data-bs-toggle="modal" data-bs-target="#createCouponModal">
+                <i class="bi bi-plus-circle me-1"></i> Tạo Voucher Mới
+            </button>
+        </div>
+    </div>
+
+    <!-- THÔNG BÁO FLASH MESSAGE TỪ SERVER -->
+    @if (TempData["AdminSuccess"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i>@TempData["AdminSuccess"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+    @if (TempData["AdminError"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>@TempData["AdminError"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <!-- 4 KHỐI THỐNG KÊ HÀNG NGANG -->
+    @{
+        var totalCoupons = Model.Count();
+        var activeCoupons = Model.Count(c => c.IsActive && c.EndDate >= DateTime.UtcNow);
+        var totalUsed = Model.Sum(c => c.UsedCount);
+        var campaignCoupons = Model.Count(c => c.EventTag != "Normal");
+    }
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-hue-purple shadow-sm h-100">
+                <div class="card-body">
+                    <h6><i class="bi bi-ticket-detailed"></i> Tổng số Voucher</h6>
+                    <h2 class="fw-bold mb-0">@totalCoupons</h2>
+                    <small class="opacity-75">Tất cả mã được cấu hình</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white shadow-sm h-100">
+                <div class="card-body">
+                    <h6><i class="bi bi-lightning-charge"></i> Đang kích hoạt</h6>
+                    <h2 class="fw-bold mb-0">@activeCoupons</h2>
+                    <small class="opacity-75">Sẵn sàng áp dụng giỏ hàng</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white shadow-sm h-100">
+                <div class="card-body">
+                    <h6><i class="bi bi-check2-all"></i> Lượt đã sử dụng</h6>
+                    <h2 class="fw-bold mb-0">@totalUsed</h2>
+                    <small class="opacity-75">Khách đã áp dụng thành công</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark shadow-sm h-100">
+                <div class="card-body">
+                    <h6><i class="bi bi-stars"></i> Chiến dịch đặc biệt</h6>
+                    <h2 class="fw-bold mb-0">@campaignCoupons</h2>
+                    <small>DoubleDay, Weekend, Holiday</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BẢNG DANH SÁCH MÃ GIẢM GIÁ -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-bold text-secondary"><i class="bi bi-list-stars me-2"></i>Danh Sách Mã Giảm Giá</h5>
+            <span class="badge bg-light text-dark border">Cập nhật thời gian thực</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 50px;">#</th>
+                        <th>Mã & Chiến dịch</th>
+                        <th>Mức giảm & Điều kiện</th>
+                        <th>Lượt sử dụng</th>
+                        <th>Thời hạn áp dụng</th>
+                        <th>Trạng thái</th>
+                        <th class="text-end" style="width: 250px;">Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Any())
+                    {
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">
+                                <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                                Chưa có mã giảm giá nào trong hệ thống. Hãy tạo mã đầu tiên!
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        int index = 1;
+                        foreach (var item in Model)
+                        {
+                            var isExpired = item.EndDate < DateTime.UtcNow;
+                            var isFull = item.UsedCount >= item.UsageLimit;
+                            var tagBadgeClass = item.EventTag switch
+                            {
+                                "DoubleDay" => "badge-event-doubleday",
+                                "Weekend" => "badge-event-weekend",
+                                "Holiday" => "badge-event-holiday",
+                                _ => "badge-event-normal"
+                            };
+
+                            <tr>
+                                <td>@(index++)</td>
+                                <td>
+                                    <span class="coupon-code-pill">@item.Code</span>
+                                    <span class="badge @tagBadgeClass ms-1">@item.EventTag</span>
+                                    @if (!string.IsNullOrWhiteSpace(item.Description))
+                                    {
+                                        <div class="small text-muted mt-1">@item.Description</div>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="fw-bold text-success fs-6">Giảm @item.DiscountPercentage%</div>
+                                    <div class="small text-muted">
+                                        Đơn tối thiểu: <strong>@item.MinOrderValue.ToString("N0") đ</strong>
+                                    </div>
+                                    @if (item.MaxDiscountAmount.HasValue && item.MaxDiscountAmount.Value > 0)
+                                    {
+                                        <div class="small text-danger">
+                                            Giảm tối đa: <strong>@item.MaxDiscountAmount.Value.ToString("N0") đ</strong>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="small text-muted">Không giới hạn trần giảm</div>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="fw-bold">@item.UsedCount / @item.UsageLimit</div>
+                                        @if (isFull)
+                                        {
+                                            <span class="badge bg-danger">Hết lượt</span>
+                                        }
+                                    </div>
+                                    @{
+                                        var percent = item.UsageLimit > 0 ? Math.Min(100, (int)((double)item.UsedCount / item.UsageLimit * 100)) : 0;
+                                    }
+                                    <div class="progress mt-1" style="height: 5px; width: 120px;">
+                                        <div class="progress-bar @(percent >= 100 ? "bg-danger" : "bg-primary")" role="progressbar" style="width: @percent%;"></div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="small">Từ: @item.StartDate.ToString("dd/MM/yyyy")</div>
+                                    <div class="small">Đến: @item.EndDate.ToString("dd/MM/yyyy")</div>
+                                    @if (isExpired)
+                                    {
+                                        <span class="badge bg-secondary mt-1">Đã hết hạn</span>
+                                    }
+                                    else
+                                    {
+                                        var daysLeft = (item.EndDate - DateTime.UtcNow).Days;
+                                        <span class="badge bg-light text-primary border mt-1">Còn @daysLeft ngày</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input toggle-status-switch" 
+                                               type="checkbox" 
+                                               role="switch" 
+                                               data-id="@item.Id" 
+                                               @(item.IsActive ? "checked" : "")>
+                                        <label class="form-check-label small" id="status-label-@item.Id">
+                                            @(item.IsActive ? "Đang bật" : "Đã tắt")
+                                        </label>
+                                    </div>
+                                </td>
+                                <td class="text-end">
+                                    <div class="btn-group" role="group">
+                                        <!-- Nút Gửi Email Marketing Brevo -->
+                                        <button class="btn btn-sm btn-outline-purple btn-marketing"
+                                                title="Gửi Email Marketing Brevo"
+                                                style="color: #6f42c1; border-color: #6f42c1;"
+                                                data-id="@item.Id"
+                                                data-code="@item.Code"
+                                                data-discount="@item.DiscountPercentage"
+                                                data-desc="@item.Description"
+                                                data-end="@item.EndDate.ToString("dd/MM/yyyy")"
+                                                @(item.IsActive && !isExpired ? "" : "disabled")>
+                                            <i class="bi bi-envelope-heart"></i>
+                                        </button>
+
+                                        <!-- Nút Sửa -->
+                                        <button class="btn btn-sm btn-outline-secondary btn-edit"
+                                                title="Chỉnh sửa mã"
+                                                data-id="@item.Id"
+                                                data-code="@item.Code"
+                                                data-desc="@item.Description"
+                                                data-discount="@item.DiscountPercentage"
+                                                data-min="@item.MinOrderValue"
+                                                data-max="@(item.MaxDiscountAmount ?? 0)"
+                                                data-start="@item.StartDate.ToString("yyyy-MM-ddTHH:mm")"
+                                                data-end="@item.EndDate.ToString("yyyy-MM-ddTHH:mm")"
+                                                data-limit="@item.UsageLimit"
+                                                data-tag="@item.EventTag"
+                                                data-active="@item.IsActive.ToString().ToLower()">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </button>
+
+                                        <!-- Nút Xóa -->
+                                        <button class="btn btn-sm btn-outline-danger btn-delete"
+                                                title="Xóa mã giảm giá"
+                                                data-id="@item.Id"
+                                                data-code="@item.Code">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODAL 1: THÊM MỚI VOUCHER -->
+<!-- ========================================== -->
+<div class="modal fade" id="createCouponModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form action="/Admin/CreateCoupon" method="post">
+                @Html.AntiForgeryToken()
+                <div class="modal-header bg-hue-purple">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle me-2"></i>Tạo Mã Giảm Giá Mới</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Mã Voucher (Code) <span class="text-danger">*</span></label>
+                        <input type="text" name="Code" class="form-control text-uppercase" placeholder="VD: SALE1212" required maxlength="50">
+                        <div class="form-text">Viết liền, không dấu (hệ thống sẽ tự động chuyển thành chữ hoa).</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Chiến dịch (EventTag)</label>
+                        <select name="EventTag" class="form-select">
+                            <option value="Normal">Normal (Thường ngày)</option>
+                            <option value="DoubleDay">DoubleDay (Siêu sale ngày đôi)</option>
+                            <option value="Weekend">Weekend (Cuối tuần rực rỡ)</option>
+                            <option value="Holiday">Holiday (Lễ Tết & Tri ân)</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-bold">Mô tả chương trình</label>
+                        <input type="text" name="Description" class="form-control" placeholder="VD: Siêu hội đặc sản Huế giảm 15% cho đơn từ 200.000đ" maxlength="255">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">% Giảm giá <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <input type="number" name="DiscountPercentage" class="form-control" min="1" max="100" value="10" required>
+                            <span class="input-group-text">%</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Đơn tối thiểu (VNĐ)</label>
+                        <input type="number" name="MinOrderValue" class="form-control" min="0" step="10000" value="0">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Giảm tối đa (VNĐ)</label>
+                        <input type="number" name="MaxDiscountAmount" class="form-control" min="0" step="5000" placeholder="Để trống nếu không giới hạn">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Ngày bắt đầu</label>
+                        <input type="datetime-local" name="StartDate" class="form-control" value="@DateTime.Now.ToString("yyyy-MM-ddTHH:mm")" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Ngày kết thúc</label>
+                        <input type="datetime-local" name="EndDate" class="form-control" value="@DateTime.Now.AddMonths(1).ToString("yyyy-MM-ddTHH:mm")" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Tổng lượt sử dụng</label>
+                        <input type="number" name="UsageLimit" class="form-control" min="1" value="100" required>
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check form-switch mt-2">
+                            <input class="form-check-input" type="checkbox" name="IsActive" value="true" checked id="createIsActive">
+                            <label class="form-check-label fw-bold" for="createIsActive">Kích hoạt áp dụng ngay lập tức</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary fw-bold"><i class="bi bi-save me-1"></i> Lưu Voucher & Sao Lưu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODAL 2: CHỈNH SỬA VOUCHER -->
+<!-- ========================================== -->
+<div class="modal fade" id="editCouponModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form action="/Admin/EditCoupon" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="Id" id="edit-id">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Chỉnh Sửa Mã Giảm Giá</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Mã Voucher (Code) <span class="text-danger">*</span></label>
+                        <input type="text" name="Code" id="edit-code" class="form-control text-uppercase" required maxlength="50">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Chiến dịch (EventTag)</label>
+                        <select name="EventTag" id="edit-tag" class="form-select">
+                            <option value="Normal">Normal (Thường ngày)</option>
+                            <option value="DoubleDay">DoubleDay (Siêu sale ngày đôi)</option>
+                            <option value="Weekend">Weekend (Cuối tuần rực rỡ)</option>
+                            <option value="Holiday">Holiday (Lễ Tết & Tri ân)</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-bold">Mô tả chương trình</label>
+                        <input type="text" name="Description" id="edit-desc" class="form-control" maxlength="255">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">% Giảm giá <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <input type="number" name="DiscountPercentage" id="edit-discount" class="form-control" min="1" max="100" required>
+                            <span class="input-group-text">%</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Đơn tối thiểu (VNĐ)</label>
+                        <input type="number" name="MinOrderValue" id="edit-min" class="form-control" min="0" step="10000">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Giảm tối đa (VNĐ)</label>
+                        <input type="number" name="MaxDiscountAmount" id="edit-max" class="form-control" min="0" step="5000">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Ngày bắt đầu</label>
+                        <input type="datetime-local" name="StartDate" id="edit-start" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Ngày kết thúc</label>
+                        <input type="datetime-local" name="EndDate" id="edit-end" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Tổng lượt sử dụng</label>
+                        <input type="number" name="UsageLimit" id="edit-limit" class="form-control" min="1" required>
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check form-switch mt-2">
+                            <input class="form-check-input" type="checkbox" name="IsActive" value="true" id="edit-active">
+                            <label class="form-check-label fw-bold" for="edit-active">Kích hoạt áp dụng</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary fw-bold"><i class="bi bi-save me-1"></i> Cập Nhật & Sao Lưu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODAL 3: GỬI EMAIL MARKETING QUA BREVO -->
+<!-- ========================================== -->
+<div class="modal fade" id="marketingEmailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-hue-purple">
+                <h5 class="modal-title fw-bold"><i class="bi bi-send-check me-2"></i>Gửi Email Marketing Brevo</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center p-4">
+                <div class="mb-3">
+                    <span class="fs-1 text-primary"><i class="bi bi-envelope-paper-heart"></i></span>
+                </div>
+                <h5 class="fw-bold mb-2">Gửi Voucher đến Toàn Bộ Khách Hàng</h5>
+                <p class="text-muted small mb-3">
+                    Hệ thống sẽ gửi email HTML thiết kế hoàng gia Huế tới toàn bộ khách hàng đã đăng ký qua Brevo API.
+                </p>
+                <div class="card bg-light border-0 p-3 mb-3 text-start">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Mã Voucher:</span>
+                        <strong class="text-primary" id="mkt-code">--</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Mức giảm:</span>
+                        <strong class="text-success" id="mkt-discount">--</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Hạn sử dụng:</span>
+                        <strong id="mkt-end">--</strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">Mô tả:</span>
+                        <small id="mkt-desc" class="text-muted">--</small>
+                    </div>
+                </div>
+
+                <div class="alert alert-warning small text-start mb-0">
+                    <i class="bi bi-shield-lock me-1"></i>
+                    <strong>Cơ chế chống Rate-Limit:</strong> Hệ thống tự động chèn độ trễ 200ms giữa mỗi email để đảm bảo gói Brevo Free hoạt động mượt mà và không bị gián đoạn.
+                </div>
+
+                <!-- Spinner và trạng thái gửi -->
+                <div id="mkt-sending-indicator" class="mt-3 d-none">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Đang gửi...</span>
+                    </div>
+                    <div class="small text-muted mt-2">Đang truyền tải qua Brevo API, vui lòng chờ trong giây lát...</div>
+                </div>
+                <div id="mkt-result-alert" class="mt-3 d-none alert"></div>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="mkt-btn-close">Đóng</button>
+                <button type="button" class="btn btn-primary fw-bold" id="mkt-btn-confirm">
+                    <i class="bi bi-send me-1"></i> Bắt Đầu Gửi Email
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SCRIPTS XỬ LÝ AJAX -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    // 1. Toggle bật/tắt kích hoạt mã
+    document.querySelectorAll(".toggle-status-switch").forEach(switchEl => {
+        switchEl.addEventListener("change", async function () {
+            const id = this.getAttribute("data-id");
+            const label = document.getElementById("status-label-" + id);
+            try {
+                const res = await fetch(`/Admin/ToggleCoupon/${id}`, { method: "POST" });
+                const data = await res.json();
+                if (data.success) {
+                    label.innerText = data.isActive ? "Đang bật" : "Đã tắt";
+                } else {
+                    alert(data.message || "Không thể cập nhật trạng thái");
+                    this.checked = !this.checked;
+                }
+            } catch (err) {
+                alert("Lỗi kết nối tới máy chủ.");
+                this.checked = !this.checked;
+            }
+        });
+    });
+
+    // 2. Điền form chỉnh sửa
+    const editModal = new bootstrap.Modal(document.getElementById("editCouponModal"));
+    document.querySelectorAll(".btn-edit").forEach(btn => {
+        btn.addEventListener("click", function () {
+            document.getElementById("edit-id").value = this.getAttribute("data-id");
+            document.getElementById("edit-code").value = this.getAttribute("data-code");
+            document.getElementById("edit-desc").value = this.getAttribute("data-desc");
+            document.getElementById("edit-discount").value = this.getAttribute("data-discount");
+            document.getElementById("edit-min").value = this.getAttribute("data-min");
+            document.getElementById("edit-max").value = this.getAttribute("data-max");
+            document.getElementById("edit-start").value = this.getAttribute("data-start");
+            document.getElementById("edit-end").value = this.getAttribute("data-end");
+            document.getElementById("edit-limit").value = this.getAttribute("data-limit");
+            document.getElementById("edit-tag").value = this.getAttribute("data-tag");
+            document.getElementById("edit-active").checked = (this.getAttribute("data-active") === "true");
+
+            editModal.show();
+        });
+    });
+
+    // 3. Xóa mã giảm giá
+    document.querySelectorAll(".btn-delete").forEach(btn => {
+        btn.addEventListener("click", async function () {
+            const id = this.getAttribute("data-id");
+            const code = this.getAttribute("data-code");
+            if (confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn mã giảm giá '${code}' không?\nDữ liệu đã xóa sẽ không thể phục hồi.`)) {
+                try {
+                    const res = await fetch(`/Admin/DeleteCoupon/${id}`, { method: "POST" });
+                    const data = await res.json();
+                    if (data.success) {
+                        alert(data.message);
+                        window.location.reload();
+                    } else {
+                        alert(data.message || "Không thể xóa mã giảm giá");
+                    }
+                } catch (err) {
+                    alert("Lỗi kết nối tới máy chủ.");
+                }
+            }
+        });
+    });
+
+    // 4. Mở modal gửi Email Marketing Brevo
+    let currentMarketingCouponId = null;
+    const marketingModal = new bootstrap.Modal(document.getElementById("marketingEmailModal"));
+    const mktSendingIndicator = document.getElementById("mkt-sending-indicator");
+    const mktResultAlert = document.getElementById("mkt-result-alert");
+    const mktBtnConfirm = document.getElementById("mkt-btn-confirm");
+    const mktBtnClose = document.getElementById("mkt-btn-close");
+
+    document.querySelectorAll(".btn-marketing").forEach(btn => {
+        btn.addEventListener("click", function () {
+            currentMarketingCouponId = this.getAttribute("data-id");
+            document.getElementById("mkt-code").innerText = this.getAttribute("data-code");
+            document.getElementById("mkt-discount").innerText = "Giảm " + this.getAttribute("data-discount") + "%";
+            document.getElementById("mkt-end").innerText = this.getAttribute("data-end");
+            document.getElementById("mkt-desc").innerText = this.getAttribute("data-desc") || "Không có";
+
+            mktSendingIndicator.classList.add("d-none");
+            mktResultAlert.classList.add("d-none");
+            mktBtnConfirm.disabled = false;
+            mktBtnClose.disabled = false;
+
+            marketingModal.show();
+        });
+    });
+
+    // Bấm xác nhận gửi Email
+    mktBtnConfirm.addEventListener("click", async function () {
+        if (!currentMarketingCouponId) return;
+
+        mktBtnConfirm.disabled = true;
+        mktBtnClose.disabled = true;
+        mktSendingIndicator.classList.remove("d-none");
+        mktResultAlert.classList.add("d-none");
+
+        try {
+            const res = await fetch(`/Admin/SendPromotionEmail?couponId=${currentMarketingCouponId}`, { method: "POST" });
+            const data = await res.json();
+
+            mktSendingIndicator.classList.add("d-none");
+            mktBtnClose.disabled = false;
+            mktResultAlert.classList.remove("d-none");
+
+            if (data.success) {
+                mktResultAlert.className = "mt-3 alert alert-success";
+                mktResultAlert.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> ${data.message}`;
+            } else {
+                mktResultAlert.className = "mt-3 alert alert-danger";
+                mktResultAlert.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i> ${data.message}`;
+                mktBtnConfirm.disabled = false;
+            }
+        } catch (err) {
+            mktSendingIndicator.classList.add("d-none");
+            mktBtnClose.disabled = false;
+            mktBtnConfirm.disabled = false;
+            mktResultAlert.classList.remove("d-none");
+            mktResultAlert.className = "mt-3 alert alert-danger";
+            mktResultAlert.innerHTML = `<i class="bi bi-x-circle-fill me-1"></i> Lỗi kết nối tới máy chủ khi gửi email.`;
+        }
+    });
+});
+</script>
+

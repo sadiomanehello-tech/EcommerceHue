@@ -197,11 +197,79 @@ public static class SeedData
             {
                 Code = "HUEWELCOME10",
                 DiscountPercentage = 10,
+                Description = "Mã ưu đãi 10% dành riêng cho đơn hàng đầu tiên của thành viên mới",
+                MinOrderValue = 0m,
+                MaxDiscountAmount = 50_000m,
+                StartDate = DateTime.UtcNow.AddDays(-1),
+                EndDate = DateTime.UtcNow.AddMonths(12),
+                UsageLimit = 1000,
+                UsedCount = 0,
+                EventTag = "Normal",
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow
             });
-            await context.SaveChangesAsync();
         }
+
+        // Mã SALE1111: Giảm 15%, đơn tối thiểu 200.000đ, giảm tối đa 50.000đ, EventTag = 'DoubleDay'
+        if (!await context.Coupons.AnyAsync(c => c.Code == "SALE1111"))
+        {
+            await context.Coupons.AddAsync(new Coupon
+            {
+                Code = "SALE1111",
+                DiscountPercentage = 15,
+                Description = "Siêu hội ngày đôi 11/11 - Giảm 15% cho đơn từ 200k (Tối đa 50k)",
+                MinOrderValue = 200_000m,
+                MaxDiscountAmount = 50_000m,
+                StartDate = DateTime.UtcNow.AddDays(-1),
+                EndDate = DateTime.UtcNow.AddMonths(1),
+                UsageLimit = 200,
+                UsedCount = 0,
+                EventTag = "DoubleDay",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
+        // Mã CUOITUAN10: Giảm 10%, đơn tối thiểu 150.000đ, EventTag = 'Weekend'
+        if (!await context.Coupons.AnyAsync(c => c.Code == "CUOITUAN10"))
+        {
+            await context.Coupons.AddAsync(new Coupon
+            {
+                Code = "CUOITUAN10",
+                DiscountPercentage = 10,
+                Description = "Rộn ràng cuối tuần - Giảm 10% cho đơn từ 150k",
+                MinOrderValue = 150_000m,
+                MaxDiscountAmount = null,
+                StartDate = DateTime.UtcNow.AddDays(-1),
+                EndDate = DateTime.UtcNow.AddMonths(2),
+                UsageLimit = 150,
+                UsedCount = 0,
+                EventTag = "Weekend",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
+        // Mã HUELOVE20: Giảm 20%, đơn tối thiểu 350.000đ, giảm tối đa 80.000đ, EventTag = 'Holiday'
+        if (!await context.Coupons.AnyAsync(c => c.Code == "HUELOVE20"))
+        {
+            await context.Coupons.AddAsync(new Coupon
+            {
+                Code = "HUELOVE20",
+                DiscountPercentage = 20,
+                Description = "Tri ân du khách - Giảm 20% cho đơn đặc sản từ 350k (Tối đa 80k)",
+                MinOrderValue = 350_000m,
+                MaxDiscountAmount = 80_000m,
+                StartDate = DateTime.UtcNow.AddDays(-1),
+                EndDate = DateTime.UtcNow.AddMonths(1),
+                UsageLimit = 100,
+                UsedCount = 0,
+                EventTag = "Holiday",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+        await context.SaveChangesAsync();
 
         // 6. Khởi tạo bài viết Blog ẩm thực Huế mẫu nếu chưa có
         if (!await context.Posts.AnyAsync())
