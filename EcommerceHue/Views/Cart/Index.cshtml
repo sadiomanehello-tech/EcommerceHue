@@ -323,26 +323,36 @@ else
             var result = await response.json();
             
             if (result.success) {
-                // Nếu kho đủ hàng, bẻ hướng sang link hóa đơn thanh toán của payOS hoặc Checkout
+                // Nếu kho đủ hàng, bẻ hướng sang trang Checkout
                 window.location.href = result.checkoutUrl || '/Cart/Checkout';
             } else {
-                // Nếu vượt quá tồn kho, kích hoạt Pop-up SweetAlert2 lớn ở giữa màn hình rung lắc mạnh dữ dội
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Vượt Quá Tồn Kho!',
-                    text: result.message, // Hiển thị chuỗi: "Sản phẩm hiện tại chỉ còn đúng 30 hũ trong kho..."
-                    confirmButtonText: 'Tôi đã hiểu & Để tôi sửa lại',
-                    confirmButtonColor: '#dc3545',
-                    showClass: { popup: 'animate__animated animate__shakeX' } // Hiệu ứng lắc động mạnh gây chú ý
-                });
-                
-                // Đồng thời chớp đỏ viền ô nhập số lượng bị lỗi
-                var targetId = result.productId ? ('quantity-input-' + result.productId) : null;
-                var inputErr = (targetId ? document.getElementById(targetId) : null) || document.querySelector('[id^="quantity-input-"]');
-                if (inputErr) {
-                    inputErr.classList.add('is-invalid', 'border-danger');
-                    inputErr.focus();
-                    inputErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                var isStockErr = result.productId || (result.message && (result.message.includes('kho') || result.message.includes('hũ') || result.message.includes('tồn')));
+                if (isStockErr) {
+                    // Nếu thực sự vượt quá tồn kho, kích hoạt Pop-up cảnh báo kho rung lắc
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Vượt Quá Tồn Kho!',
+                        text: result.message,
+                        confirmButtonText: 'Tôi đã hiểu & Để tôi sửa lại',
+                        confirmButtonColor: '#dc3545',
+                        showClass: { popup: 'animate__animated animate__shakeX' }
+                    });
+                    
+                    var targetId = result.productId ? ('quantity-input-' + result.productId) : null;
+                    var inputErr = (targetId ? document.getElementById(targetId) : null) || document.querySelector('[id^="quantity-input-"]');
+                    if (inputErr) {
+                        inputErr.classList.add('is-invalid', 'border-danger');
+                        inputErr.focus();
+                        inputErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                } else {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Thông Báo Đặt Hàng',
+                        text: result.message || 'Không thể mở trang thanh toán. Vui lòng thử lại!',
+                        confirmButtonText: 'Đã hiểu',
+                        confirmButtonColor: '#0d6efd'
+                    });
                 }
             }
         } catch (err) {

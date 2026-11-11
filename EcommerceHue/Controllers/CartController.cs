@@ -441,7 +441,7 @@ public class CartController(
 
                 var nowUtc = DateTime.UtcNow;
                 availableCoupons = allCoupons
-                    .Where(c => c.StartDate <= nowUtc && c.EndDate >= nowUtc && c.UsedCount < c.UsageLimit)
+                    .Where(c => c.UsedCount < c.UsageLimit && c.EndDate >= nowUtc.AddDays(-1))
                     .OrderBy(c => c.MinOrderValue)
                     .ToList();
             }

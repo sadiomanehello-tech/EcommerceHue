@@ -537,52 +537,174 @@ namespace EcommerceHue.Controllers
 
             try
             {
-                var products = await _context.Products
+                // 1. Tải danh mục về RAM để gán vào ViewBag phục vụ các modal thêm/sửa sản phẩm
+                ViewBag.Categories = await _context.Categories
+                    .AsNoTracking()
+                    .OrderBy(c => c.DisplayOrder)
+                    .ToListAsync();
+
+                // 2. Tải toàn bộ danh sách sản phẩm về RAM trước để tránh lỗi NotSupportedException của SQLite
+                var allProducts = await _context.Products
                     .Include(p => p.Category)
                     .AsNoTracking()
-                    .OrderBy(p => p.Id)
                     .ToListAsync();
+
+                // 3. Sắp xếp an toàn trên RAM C# (ưu tiên hết hàng / sắp hết lên trên)
+                var products = allProducts
+                    .OrderBy(p => p.StockQuantity)
+                    .ThenBy(p => p.Id)
+                    .ToList();
 
                 return View("~/Views/Admin/Products/Index.cshtml", products);
             }
             catch (Exception ex)
             {
-                Console.WriteLine("=== [ADMIN ERROR]: " + ex.ToString());
-                _logger.LogError(ex, "=== [ADMIN ERROR] Lỗi tải danh sách sản phẩm: {Message}", ex.Message);
+                Console.WriteLine("=== [ADMIN PRODUCTS ERROR]: " + ex.ToString());
+                _logger.LogError(ex, "=== [ADMIN PRODUCTS ERROR] Lỗi tải danh sách sản phẩm: {Message}", ex.Message);
+                ViewBag.Categories = new List<Category>();
                 return View("~/Views/Admin/Products/Index.cshtml", new List<Product>());
             }
         }
 
         [HttpPost("/Admin/Products/QuickRestock")]
+        [HttpPost("/Admin/Products/ImportStock")]
         public async Task<IActionResult> QuickRestock(int productId, int quantity)
         {
             if (!IsAdminAuthorized()) return StatusCode(403);
 
-            var product = await _context.Products.FindAsync(productId);
-            if (product == null)
+            try
             {
-                return Json(new { success = false, message = "Không tìm thấy sản phẩm." });
+                var product = await _context.Products.FindAsync(productId);
+                if (product == null)
+                {
+                    return Json(new { success = false, message = "Không tìm thấy sản phẩm." });
+                }
+
+                if (product.StockQuantity + quantity < 0)
+                {
+                    return Json(new { success = false, message = "Số lượng giảm vượt quá tồn kho hiện tại!" });
+                }
+
+                product.StockQuantity += quantity;
+                product.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+                await _backupService.UploadDatabaseAsync();
+
+                _logger.LogInformation("[Admin-Restock] Đã cập nhật tồn kho cho {Name}: {Old} -> {New}", product.Name, product.StockQuantity - quantity, product.StockQuantity);
+
+                return Json(new
+                {
+                    success = true,
+                    message = $"Đã cập nhật tồn kho '{product.Name}' thành công!",
+                    newStock = product.StockQuantity,
+                    newStockQuantity = product.StockQuantity
+                });
             }
-
-            if (product.StockQuantity + quantity < 0)
+            catch (Exception ex)
             {
-                return Json(new { success = false, message = "Số lượng giảm vượt quá tồn kho hiện tại!" });
+                Console.WriteLine("=== [ADMIN PRODUCTS ERROR]: " + ex.ToString());
+                _logger.LogError(ex, "=== [ADMIN PRODUCTS ERROR] Lỗi cập nhật tồn kho: {Message}", ex.Message);
+                return Json(new { success = false, message = "Lỗi hệ thống khi cập nhật tồn kho: " + ex.Message });
             }
+        }
 
-            product.StockQuantity += quantity;
-            product.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
-            await _backupService.UploadDatabaseAsync();
+        [HttpPost("/Admin/Products/Create")]
+        [HttpPost("/Admin/CreateProduct")]
+        public async Task<IActionResult> CreateProduct(Product product)
+        {
+            if (!IsAdminAuthorized()) return StatusCode(403);
 
-            _logger.LogInformation("[Admin-Restock] Đã cập nhật tồn kho cho {Name}: {Old} -> {New}", product.Name, product.StockQuantity - quantity, product.StockQuantity);
-
-            return Json(new
+            try
             {
-                success = true,
-                message = $"Đã cập nhật tồn kho '{product.Name}' thành công!",
-                newStock = product.StockQuantity,
-                newStockQuantity = product.StockQuantity
-            });
+                product.CreatedAt = DateTime.UtcNow;
+                product.UpdatedAt = DateTime.UtcNow;
+                if (string.IsNullOrWhiteSpace(product.Slug))
+                {
+                    product.Slug = (product.Name ?? "sp").ToLowerInvariant().Replace(" ", "-");
+                }
+
+                await _context.Products.AddAsync(product);
+                await _context.SaveChangesAsync();
+                await _backupService.UploadDatabaseAsync();
+
+                TempData["AdminSuccess"] = $"🎉 Đã thêm mới thành công sản phẩm '{product.Name}'!";
+                return RedirectToAction(nameof(Products));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("=== [ADMIN PRODUCTS ERROR]: " + ex.ToString());
+                _logger.LogError(ex, "=== [ADMIN PRODUCTS ERROR] Lỗi thêm sản phẩm: {Message}", ex.Message);
+                TempData["AdminError"] = "Lỗi khi thêm sản phẩm: " + ex.Message;
+                return RedirectToAction(nameof(Products));
+            }
+        }
+
+        [HttpPost("/Admin/Products/Edit")]
+        [HttpPost("/Admin/EditProduct")]
+        public async Task<IActionResult> EditProduct(Product model)
+        {
+            if (!IsAdminAuthorized()) return StatusCode(403);
+
+            try
+            {
+                var product = await _context.Products.FindAsync(model.Id);
+                if (product == null)
+                {
+                    TempData["AdminError"] = "Không tìm thấy sản phẩm.";
+                    return RedirectToAction(nameof(Products));
+                }
+
+                product.Name = model.Name;
+                product.Description = model.Description;
+                product.Price = model.Price;
+                product.StockQuantity = model.StockQuantity;
+                product.ExpiryDate = model.ExpiryDate;
+                product.CategoryId = model.CategoryId;
+                product.ImageUrl = model.ImageUrl;
+                product.IsAvailable = model.IsAvailable;
+                product.UpdatedAt = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+                await _backupService.UploadDatabaseAsync();
+
+                TempData["AdminSuccess"] = $"✅ Đã cập nhật sản phẩm '{product.Name}' thành công!";
+                return RedirectToAction(nameof(Products));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("=== [ADMIN PRODUCTS ERROR]: " + ex.ToString());
+                _logger.LogError(ex, "=== [ADMIN PRODUCTS ERROR] Lỗi cập nhật sản phẩm: {Message}", ex.Message);
+                TempData["AdminError"] = "Lỗi khi cập nhật sản phẩm: " + ex.Message;
+                return RedirectToAction(nameof(Products));
+            }
+        }
+
+        [HttpPost("/Admin/Products/Delete/{id:int}")]
+        [HttpPost("/Admin/DeleteProduct/{id:int}")]
+        public async Task<IActionResult> DeleteProduct(int id)
+        {
+            if (!IsAdminAuthorized()) return StatusCode(403);
+
+            try
+            {
+                var product = await _context.Products.FindAsync(id);
+                if (product == null)
+                {
+                    return Json(new { success = false, message = "Không tìm thấy sản phẩm." });
+                }
+
+                _context.Products.Remove(product);
+                await _context.SaveChangesAsync();
+                await _backupService.UploadDatabaseAsync();
+
+                return Json(new { success = true, message = $"Đã xóa sản phẩm '{product.Name}' thành công!" });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("=== [ADMIN PRODUCTS ERROR]: " + ex.ToString());
+                _logger.LogError(ex, "=== [ADMIN PRODUCTS ERROR] Lỗi xóa sản phẩm #{Id}: {Message}", id, ex.Message);
+                return Json(new { success = false, message = "Lỗi khi xóa sản phẩm: " + ex.Message });
+            }
         }
     }
 }

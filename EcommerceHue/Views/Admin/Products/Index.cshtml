@@ -1,6 +1,12 @@
 @model IEnumerable<EcommerceHue.Models.Product>
 @{
     ViewData["Title"] = "Điều Phối Tồn Kho Đặc Sản Huế";
+    var productList = Model?.ToList() ?? new List<EcommerceHue.Models.Product>();
+    var totalProducts = productList.Count;
+    var outOfStock = productList.Count(p => p.StockQuantity == 0);
+    var lowStock = productList.Count(p => p.StockQuantity > 0 && p.StockQuantity <= 10);
+    var totalStock = productList.Sum(p => p.StockQuantity);
+    var categories = ViewBag.Categories as IEnumerable<EcommerceHue.Models.Category> ?? new List<EcommerceHue.Models.Category>();
 }
 
 <!-- 1. NHÚNG TRỰC TIẾP BOOTSTRAP 5 VÀ ICON (SELF-CONTAINED UI) -->
@@ -10,25 +16,42 @@
 
 <!-- 2. CẤU TRÚC 4 KHỐI THỐNG KÊ HÀNG NGANG (BOOTSTRAP GRID) -->
 <div class="container-fluid mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div>
             <h3 class="fw-bold text-primary mb-1"><i class="bi bi-box-seam me-2"></i>QUẢN LÝ TỒN KHO ĐẶC SẢN HUẾ</h3>
             <p class="text-muted small mb-0">Hệ thống giám sát hạn dùng, điều phối nhập hàng và chống bán vượt mức (Overselling).</p>
         </div>
-        <div>
-            <a href="/Admin/Coupons" class="btn btn-outline-purple btn-sm me-1" style="color: #6f42c1; border-color: #6f42c1;"><i class="bi bi-ticket-perforated"></i> Voucher & Email</a>
-            <a href="/Admin/Orders" class="btn btn-outline-primary btn-sm me-1"><i class="bi bi-receipt"></i> Đơn hàng</a>
-            <a href="/Shipper/Scan" target="_blank" class="btn btn-warning btn-sm me-1 fw-bold text-dark"><i class="bi bi-upc-scan"></i> App Shipper</a>
+        <div class="d-flex align-items-center gap-1 flex-wrap">
+            <a href="/Admin/Coupons" class="btn btn-outline-purple btn-sm" style="color: #6f42c1; border-color: #6f42c1;"><i class="bi bi-ticket-perforated"></i> Voucher & Email</a>
+            <a href="/Admin/Orders" class="btn btn-outline-primary btn-sm"><i class="bi bi-receipt"></i> Đơn hàng</a>
+            <a href="/Shipper/Scan" target="_blank" class="btn btn-warning btn-sm fw-bold text-dark"><i class="bi bi-upc-scan"></i> App Shipper</a>
+            <button class="btn btn-primary btn-sm fw-semibold" data-bs-toggle="modal" data-bs-target="#createProductModal"><i class="bi bi-plus-circle"></i> Thêm sản phẩm</button>
             <button class="btn btn-outline-secondary btn-sm" onclick="window.location.reload();"><i class="bi bi-arrow-clockwise"></i> Làm mới</button>
         </div>
     </div>
+
+    <!-- THÔNG BÁO FLASH MESSAGE TỪ SERVER -->
+    @if (TempData["AdminSuccess"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i>@TempData["AdminSuccess"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+    @if (TempData["AdminError"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>@TempData["AdminError"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
 
     <div class="row g-3 mb-4">
         <div class="col-md-3">
             <div class="card bg-primary text-white shadow-sm h-100">
                 <div class="card-body">
                     <h6><i class="bi bi-box-seam"></i> Tổng mặt hàng</h6>
-                    <h2 class="fw-bold" id="stat-total-products">@Model.Count()</h2>
+                    <h2 class="fw-bold" id="stat-total-products">@totalProducts</h2>
                     <p class="mb-0 text-white-50 small">Đặc sản kinh doanh</p>
                 </div>
             </div>
@@ -37,7 +60,7 @@
             <div class="card bg-danger text-white shadow-sm h-100">
                 <div class="card-body">
                     <h6><i class="bi bi-exclamation-octagon"></i> Hết hàng (Cần nhập)</h6>
-                    <h2 class="fw-bold" id="stat-out-of-stock">@Model.Count(p => p.StockQuantity == 0)</h2>
+                    <h2 class="fw-bold" id="stat-out-of-stock">@outOfStock</h2>
                     <p class="mb-0 text-white-50 small">Số lượng tồn kho = 0</p>
                 </div>
             </div>
@@ -46,7 +69,7 @@
             <div class="card bg-warning text-dark shadow-sm h-100">
                 <div class="card-body">
                     <h6><i class="bi bi-bell"></i> Sắp hết hàng (&le; 10)</h6>
-                    <h2 class="fw-bold" id="stat-low-stock">@Model.Count(p => p.StockQuantity > 0 && p.StockQuantity <= 10)</h2>
+                    <h2 class="fw-bold" id="stat-low-stock">@lowStock</h2>
                     <p class="mb-0 text-dark-50 small">Cần chuẩn bị đóng gói</p>
                 </div>
             </div>
@@ -55,7 +78,7 @@
             <div class="card bg-success text-white shadow-sm h-100">
                 <div class="card-body">
                     <h6><i class="bi bi-graph-up-arrow"></i> Tổng số lượng tồn</h6>
-                    <h2 class="fw-bold" id="stat-total-stock">@Model.Sum(p => p.StockQuantity)</h2>
+                    <h2 class="fw-bold" id="stat-total-stock">@totalStock</h2>
                     <p class="mb-0 text-white-50 small">Đơn vị: Gói / Hũ / Bình</p>
                 </div>
             </div>
@@ -63,7 +86,10 @@
     </div>
 
     <div class="card shadow-sm border-0">
-        <div class="card-header bg-dark text-white fw-bold"><i class="bi bi-list-stars"></i> ĐIỀU PHỐI TỒN KHO ĐẶC SẢN HUẾ</div>
+        <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-list-stars me-1"></i> ĐIỀU PHỐI TỒN KHO ĐẶC SẢN HUẾ</span>
+            <span class="badge bg-secondary">Cập nhật thời gian thực</span>
+        </div>
         <div class="card-body p-0">
             <table class="table table-hover table-striped align-middle mb-0">
                 <thead class="table-dark">
@@ -77,32 +103,44 @@
                     </tr>
                 </thead>
                 <tbody id="productTableBody">
-                    @foreach (var item in Model) {
-                    <tr id="row-@item.Id" data-stock="@item.StockQuantity">
-                        <td>@item.Id</td>
-                        <td>
-                            <strong>@item.Name</strong>
-                            @if (item.Category != null) {
-                                <span class="badge bg-secondary ms-1">@item.Category.Name</span>
-                            }
-                        </td>
-                        <td>@item.Price.ToString("#,##0") đ</td>
-                        <td>@item.ExpiryDate.ToString("dd/MM/yyyy")</td>
-                        <td>
-                            @if (item.StockQuantity == 0) {
-                                <span class="badge bg-danger fs-6" id="stock-@item.Id">Hết hàng (0)</span>
-                            } else if (item.StockQuantity <= 10) {
-                                <span class="badge bg-warning text-dark fs-6" id="stock-@item.Id">Sắp hết (@item.StockQuantity)</span>
-                            } else {
-                                <span class="badge bg-success fs-6" id="stock-@item.Id">Còn @item.StockQuantity gói</span>
-                            }
-                        </td>
-                        <td class="text-center">
-                            <button class="btn btn-outline-primary btn-sm btn-restock" data-id="@item.Id" data-name="@item.Name" data-stock="@item.StockQuantity">
-                                <i class="bi bi-plus-circle"></i> Nhập thêm hàng
-                            </button>
-                        </td>
-                    </tr>
+                    @if (!productList.Any())
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">
+                                <i class="bi bi-box-seam fs-2 d-block mb-2"></i>
+                                Chưa có sản phẩm nào trong kho.
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var item in productList) {
+                        <tr id="row-@item.Id" data-stock="@item.StockQuantity">
+                            <td>@item.Id</td>
+                            <td>
+                                <strong>@(item.Name ?? "Không tên")</strong>
+                                @if (item.Category != null) {
+                                    <span class="badge bg-secondary ms-1">@(item.Category.Name ?? "")</span>
+                                }
+                            </td>
+                            <td>@item.Price.ToString("#,##0") đ</td>
+                            <td>@item.ExpiryDate.ToString("dd/MM/yyyy")</td>
+                            <td>
+                                @if (item.StockQuantity == 0) {
+                                    <span class="badge bg-danger fs-6" id="stock-@item.Id">Hết hàng (0)</span>
+                                } else if (item.StockQuantity <= 10) {
+                                    <span class="badge bg-warning text-dark fs-6" id="stock-@item.Id">Sắp hết (@item.StockQuantity)</span>
+                                } else {
+                                    <span class="badge bg-success fs-6" id="stock-@item.Id">Còn @item.StockQuantity gói</span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                <button class="btn btn-outline-primary btn-sm btn-restock" data-id="@item.Id" data-name="@(item.Name ?? "")" data-stock="@item.StockQuantity">
+                                    <i class="bi bi-plus-circle"></i> Nhập thêm hàng
+                                </button>
+                            </td>
+                        </tr>
+                        }
                     }
                 </tbody>
             </table>
@@ -153,6 +191,92 @@
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy bỏ</button>
         <button type="button" class="btn btn-primary fw-bold px-4" id="btnConfirmRestock"><i class="bi bi-check-circle"></i> Xác Nhận Điều Chỉnh</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL THÊM SẢN PHẨM MỚI (TUÂN THỦ QUY CHUẨN ĐẶC SẢN HUẾ)
+     ============================================================ -->
+<div class="modal fade" id="createProductModal" tabindex="-1" aria-labelledby="createProductModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content shadow border-0 rounded-4 overflow-hidden">
+      <form asp-action="CreateProduct" method="post">
+        @Html.AntiForgeryToken()
+        <div class="modal-header bg-primary text-white py-3">
+          <h5 class="modal-title fw-bold" id="createProductModalLabel">
+            <i class="bi bi-plus-circle me-1"></i> Thêm Mới Đặc Sản Huế
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label class="form-label fw-semibold">Tên đặc sản <span class="text-danger">*</span></label>
+              <input type="text" name="Name" class="form-control" placeholder="Ví dụ: Mè xửng Thiên Hương đặc biệt" required />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Danh mục <span class="text-danger">*</span></label>
+              <select name="CategoryId" class="form-select" required>
+                @if (categories != null && categories.Any())
+                {
+                    foreach (var cat in categories)
+                    {
+                        <option value="@cat.Id">@cat.Name</option>
+                    }
+                }
+                else
+                {
+                    <option value="1">Mè xửng</option>
+                    <option value="2">Tôm chua</option>
+                    <option value="3">Trà cung đình Huế</option>
+                }
+              </select>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Giá bán (VNĐ) <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <input type="number" name="Price" class="form-control fw-bold text-danger" placeholder="45000" min="0" step="1000" required />
+                <span class="input-group-text">₫</span>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Số lượng tồn kho <span class="text-danger">*</span></label>
+              <input type="number" name="StockQuantity" class="form-control fw-bold" placeholder="100" min="0" value="50" required />
+              <small class="text-muted">Bắt buộc theo quy chuẩn thực phẩm</small>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Hạn sử dụng (Expiry Date) <span class="text-danger">*</span></label>
+              <input type="date" name="ExpiryDate" class="form-control fw-bold" value="@DateTime.Now.AddMonths(6).ToString("yyyy-MM-dd")" required />
+              <small class="text-muted">Bắt buộc cho đặc sản Huế</small>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label fw-semibold">Đường dẫn hình ảnh (URL)</label>
+              <input type="url" name="ImageUrl" class="form-control" placeholder="https://images.unsplash.com/..." />
+            </div>
+
+            <div class="col-12">
+              <label class="form-label fw-semibold">Mô tả đặc sản</label>
+              <textarea name="Description" class="form-control" rows="3" placeholder="Giới thiệu xuất xứ, hương vị, nét văn hóa cung đình Huế..."></textarea>
+            </div>
+
+            <div class="col-12">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="IsAvailable" value="true" id="switchAvailable" checked />
+                <label class="form-check-label fw-semibold" for="switchAvailable">Mở bán ngay trên gian hàng</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer bg-light py-2">
+          <button type="button" class="btn btn-secondary rounded-pill px-3" data-bs-dismiss="modal">Hủy bỏ</button>
+          <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold">
+            <i class="bi bi-save me-1"></i> Lưu Sản Phẩm Mới
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 </div>
