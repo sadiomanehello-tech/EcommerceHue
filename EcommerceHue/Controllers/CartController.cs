@@ -430,12 +430,22 @@ public class CartController(
             decimal.TryParse(discountAmountStr, out var discountAmount);
 
             // Tải danh sách mã giảm giá đang còn hiệu lực để hiển thị chọn nhanh
-            var nowUtc = DateTime.UtcNow;
-            var availableCoupons = await context.Coupons
-                .AsNoTracking()
-                .Where(c => c.IsActive && c.StartDate <= nowUtc && nowUtc <= c.EndDate && c.UsedCount < c.UsageLimit)
-                .OrderBy(c => c.MinOrderValue)
-                .ToListAsync();
+            List<Coupon> availableCoupons = new();
+            try
+            {
+                var nowUtc = DateTime.UtcNow;
+                availableCoupons = await context.Coupons
+                    .AsNoTracking()
+                    .Where(c => c.IsActive && c.StartDate <= nowUtc && nowUtc <= c.EndDate && c.UsedCount < c.UsageLimit)
+                    .OrderBy(c => c.MinOrderValue)
+                    .ToListAsync();
+            }
+            catch (Exception cEx)
+            {
+                Console.WriteLine("=== [CHECKOUT GET COUPON QUERY ERROR]: " + cEx.ToString());
+                logger.LogWarning(cEx, "[CHECKOUT] Không thể tải danh sách Coupon: {Message}", cEx.Message);
+                availableCoupons = new List<Coupon>();
+            }
 
             var model = new CheckoutViewModel
             {
@@ -456,12 +466,13 @@ public class CartController(
         }
         catch (Exception ex)
         {
+            Console.WriteLine("=== [CHECKOUT GET ERROR]: " + ex.ToString());
             logger.LogError(ex, "=== [CHECKOUT ERROR]: {Message}", ex.Message);
             if (Request.Method == "POST" || Request.Headers["X-Requested-With"] == "XMLHttpRequest")
             {
                 return Json(new { success = false, message = "Lỗi khi xử lý giỏ hàng: " + ex.Message });
             }
-            TempData["CartWarning"] = "Không thể tải trang đặt hàng. Vui lòng thử lại!";
+            TempData["CartWarning"] = "Không thể tải trang đặt hàng do lỗi hệ thống: " + ex.Message;
             return RedirectToAction(nameof(Index));
         }
     }

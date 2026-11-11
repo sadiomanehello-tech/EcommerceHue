@@ -370,12 +370,16 @@ else
         // Bắt cảnh báo nếu có từ TempData
         @if (TempData["CartWarning"] is string warning)
         {
+            var isStockWarning = warning.Contains("kho") || warning.Contains("hũ") || warning.Contains("tồn");
+            var alertTitle = isStockWarning ? "Vượt Quá Tồn Kho!" : "Thông Báo Đặt Hàng";
+            var btnText = isStockWarning ? "Tôi đã hiểu & Để tôi sửa lại" : "Đã hiểu";
+            var alertIcon = isStockWarning ? "warning" : "error";
             <text>
             Swal.fire({
-                icon: 'error',
-                title: 'Vượt Quá Tồn Kho!',
+                icon: '@alertIcon',
+                title: '@alertTitle',
                 text: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(warning)),
-                confirmButtonText: 'Tôi đã hiểu & Để tôi sửa lại',
+                confirmButtonText: '@btnText',
                 confirmButtonColor: '#dc3545',
                 showClass: { popup: 'animate__animated animate__shakeX' }
             });
