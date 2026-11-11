@@ -495,9 +495,10 @@ namespace EcommerceHue.Controllers
                 ? $"[GHN: {orderCodeGhn}]"
                 : $"{order.Note} | [GHN: {orderCodeGhn}]";
 
-            if (order.Status == OrderStatus.Paid || order.Status == OrderStatus.Confirmed)
+            // Sau khi Admin tạo vận đơn & in tem đóng gói, đơn hàng chuyển sang Confirmed (Status = 2: Chờ Shipper lấy hàng)
+            if (order.Status == OrderStatus.Paid || order.Status == OrderStatus.PendingPayment)
             {
-                order.Status = OrderStatus.Shipping;
+                order.Status = OrderStatus.Confirmed;
             }
             order.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
@@ -506,7 +507,7 @@ namespace EcommerceHue.Controllers
             return Json(new
             {
                 success = true,
-                message = "Tạo vận đơn GHN thành công!",
+                message = "Tạo vận đơn GHN thành công! Đơn hàng đã sẵn sàng ở kho chờ Shipper đến lấy.",
                 orderCode = orderCodeGhn,
                 newStatus = (int)order.Status,
                 finalPrintUrl = $"/Admin/Orders/PrintOrderLabel?orderId={order.Id}"

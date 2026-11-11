@@ -198,40 +198,71 @@ public sealed class ShipperController(
                 finalTrackingCode = match.Value;
             }
         }
+        else if (!string.IsNullOrWhiteSpace(order.OrderCode))
+        {
+            finalTrackingCode = order.OrderCode;
+        }
 
-        // Chuyển trạng thái đơn sang Status = 3 (Shipping)
+        // =====================================================================
+        // BƯỚC 1: Cập nhật trạng thái đơn hàng sang 'Đang giao hàng (Đã giao cho Shipper)'
+        // =====================================================================
         var oldStatus = order.Status;
-        order.Status = OrderStatus.Shipping; // Status = 3
+        order.Status = OrderStatus.Shipping; // Status = 3 (Đang giao hàng)
         order.UpdatedAt = DateTime.UtcNow;
 
+        // =====================================================================
+        // BƯỚC 2: Lưu thay đổi vào cơ sở dữ liệu
+        // =====================================================================
         await context.SaveChangesAsync();
-
-        // KÍCH HOẠT SAO LƯU: Cập nhật trạng thái giao hàng thành công lên Supabase Storage
-        await backupService.UploadDatabaseAsync();
 
         logger.LogInformation(
             "[Shipper-Stage1] Đơn #{OrderId} ({OrderCode}) đã được lấy từ kho. Đổi từ '{OldStatus}' sang 'Shipping (3)'.",
             order.Id, order.OrderCode, oldStatus);
 
-        // Kích nổ gửi Email thứ 3: Thông báo bưu kiện đang đi giao
+        // =====================================================================
+        // BƯỚC 3: Gọi dịch vụ gửi Email thứ 3 (_emailService) gửi thông báo cho khách hàng
+        // =====================================================================
         string trackingUrl = $"https://ghn.vn?order_code={finalTrackingCode}";
         bool emailSent = false;
 
         try
         {
-            if (!string.IsNullOrWhiteSpace(order.CustomerEmail))
+            var recipientEmail = order.CustomerEmail;
+            if (!string.IsNullOrWhiteSpace(recipientEmail))
             {
                 string subject = $"[EcommerceHue] 🚚 Đơn hàng #{order.OrderCode} đang được Shipper GHN giao đến bạn";
                 string htmlContent = GenerateShippingNotificationEmailHtml(order, finalTrackingCode, trackingUrl);
 
-                await emailService.SendOrderEmailAsync(order.CustomerEmail, subject, htmlContent);
+                await emailService.SendOrderEmailAsync(recipientEmail, subject, htmlContent);
                 emailSent = true;
-                logger.LogInformation("[Shipper-Stage1] Đã kích nổ gửi Email hành trình thứ 3 tới {Email}", order.CustomerEmail);
+
+                Console.WriteLine($"=== [SHIPPER PICKUP EMAIL]: Đã gửi thành công Email thứ 3 cho đơn #{order.Id} ({order.OrderCode}) tới email {recipientEmail}");
+                logger.LogInformation("[Shipper-Stage1] Đã gửi Email hành trình thứ 3 tới {Email}", recipientEmail);
+            }
+            else
+            {
+                Console.WriteLine($"=== [SHIPPER PICKUP EMAIL]: Đơn #{order.Id} không có địa chỉ email người nhận, bỏ qua gửi thư.");
+                logger.LogWarning("[Shipper-Stage1] Đơn #{OrderId} không có email khách hàng.", order.Id);
             }
         }
         catch (Exception exEmail)
         {
+            Console.WriteLine("=== [SHIPPER PICKUP EMAIL ERROR]: " + exEmail.ToString());
             logger.LogError(exEmail, "[Shipper-Stage1] Lỗi gửi Email thứ 3 tới {Email}: {Message}", order.CustomerEmail, exEmail.Message);
+        }
+
+        // =====================================================================
+        // BƯỚC 4: Đồng bộ trạng thái đang giao hàng lên Supabase Storage
+        // =====================================================================
+        try
+        {
+            await backupService.UploadDatabaseAsync();
+            logger.LogInformation("[Shipper-Stage1] Đã sao lưu trạng thái giao hàng đơn #{OrderId} lên Supabase Storage.", order.Id);
+        }
+        catch (Exception exBackup)
+        {
+            Console.WriteLine("=== [SHIPPER BACKUP ERROR]: " + exBackup.Message);
+            logger.LogError(exBackup, "[Shipper-Stage1] Lỗi đồng bộ Supabase Storage: {Message}", exBackup.Message);
         }
 
         return Json(new

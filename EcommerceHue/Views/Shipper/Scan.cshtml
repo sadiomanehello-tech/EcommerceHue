@@ -606,26 +606,51 @@
             // LỆNH ĐIỀU KIỆN DỰA TRÊN TRẠNG THÁI (status) CỦA ĐƠN HÀNG
             // ---------------------------------------------------------------------
             const statusVal = parseInt(data.status);
+            const statusText = (data.statusText || '').toLowerCase();
             const stage1Box = document.getElementById('stage1PickupBox');
             const stage2Box = document.getElementById('stage2DeliveryBox');
             const stage3Box = document.getElementById('stage3CompletedBox');
             const statusBadge = document.getElementById('parcelStatusBadge');
+            const pickupBtn = document.getElementById('btnConfirmPickup');
 
             // Ẩn tất cả các khối trước khi mở theo điều kiện
             if (stage1Box) stage1Box.style.display = 'none';
             if (stage2Box) stage2Box.style.display = 'none';
             if (stage3Box) stage3Box.style.display = 'none';
 
-            if (statusVal === 2) {
-                // KHỐI 1 (Dành cho Shipper lấy hàng - Khi status == 2)
+            // Điều kiện nhận diện trạng thái chờ Shipper lấy hàng (Linh hoạt cho mọi biến thể từ Admin)
+            const isWaitingPickup = statusVal === 2 
+                                 || statusVal === 1 
+                                 || statusText.includes('chờ') 
+                                 || statusText.includes('lấy') 
+                                 || statusText.includes('đóng gói') 
+                                 || statusText.includes('chuẩn bị')
+                                 || statusText.includes('vận chuyển')
+                                 || statusText.includes('confirmed')
+                                 || statusText.includes('paid');
+
+            if (isWaitingPickup && statusVal !== 3 && statusVal !== 4) {
+                // KHỐI 1 (Dành cho Shipper lấy hàng - Khi status == 2 hoặc chờ lấy)
                 if (stage1Box) stage1Box.style.display = 'block';
+                if (pickupBtn) {
+                    pickupBtn.innerHTML = '📦 Xác nhận đã lấy hàng từ Kho';
+                    pickupBtn.className = 'btn btn-primary w-100 fw-bold py-3 shadow-lg rounded-pill fs-6 d-flex align-items-center justify-content-center gap-2';
+                }
                 if (statusBadge) {
                     statusBadge.className = 'badge bg-warning text-dark fw-bold px-2.5 py-1.5 rounded-pill';
-                    statusBadge.innerText = '🟡 Chờ shipper lấy hàng (Status = 2)';
+                    statusBadge.innerText = '🟡 ' + (data.statusText || 'Chờ shipper lấy hàng (Status = 2)');
                 }
             } else if (statusVal === 3) {
                 // KHỐI 2 (Dành cho Shipper đi giao - Khi status == 3)
                 if (stage2Box) stage2Box.style.display = 'block';
+                // Vẫn hiển thị nút Khối 1 với trạng thái đã lấy để hỗ trợ quét lại & bắn lại Email 3 nếu cần
+                if (stage1Box) {
+                    stage1Box.style.display = 'block';
+                    if (pickupBtn) {
+                        pickupBtn.innerHTML = '📦 Đã lấy từ kho (Bấm để gửi lại Email hành trình 3)';
+                        pickupBtn.className = 'btn btn-outline-primary w-100 fw-bold py-2 rounded-pill small mb-2';
+                    }
+                }
                 if (statusBadge) {
                     statusBadge.className = 'badge bg-primary fw-bold px-2.5 py-1.5 rounded-pill';
                     statusBadge.innerText = '🚚 Đang giao hàng (Status = 3)';
@@ -642,8 +667,12 @@
                     statusBadge.innerText = '✅ Đã giao thành công (Status = 4)';
                 }
             } else {
-                // Trường hợp trạng thái khác, mở Khối 1 mặc định
+                // Trường hợp trạng thái khác, luôn mở Khối 1 để Shipper không bao giờ bị ẩn nút
                 if (stage1Box) stage1Box.style.display = 'block';
+                if (pickupBtn) {
+                    pickupBtn.innerHTML = '📦 Xác nhận đã lấy hàng từ Kho';
+                    pickupBtn.className = 'btn btn-primary w-100 fw-bold py-3 shadow-lg rounded-pill fs-6 d-flex align-items-center justify-content-center gap-2';
+                }
                 if (statusBadge) {
                     statusBadge.className = 'badge bg-secondary px-2.5 py-1.5 rounded-pill';
                     statusBadge.innerText = data.statusText || 'Trạng thái: ' + statusVal;
@@ -726,8 +755,20 @@
                 const trackingCodeEl = document.getElementById('resTrackingCode');
                 const trackingCode = trackingCodeEl ? trackingCodeEl.innerText.trim() : '';
 
-                if (!trackingCode || trackingCode === 'GHN...' || trackingCode === 'N/A') {
-                    showAlert('warning', 'Không xác định được mã vận đơn để nhận hàng từ kho.');
+                // Lấy mã bưu kiện linh hoạt: ưu tiên trackingCode GHN, fallback sang orderCode hoặc orderId
+                let codeToSend = trackingCode;
+                if (!codeToSend || codeToSend === 'GHN...' || codeToSend === 'N/A') {
+                    if (currentParcelData && currentParcelData.trackingCode && currentParcelData.trackingCode !== 'GHN...' && currentParcelData.trackingCode !== 'N/A') {
+                        codeToSend = currentParcelData.trackingCode;
+                    } else if (currentParcelData && currentParcelData.orderCode) {
+                        codeToSend = currentParcelData.orderCode;
+                    } else if (currentParcelData && currentParcelData.orderId) {
+                        codeToSend = currentParcelData.orderId.toString();
+                    }
+                }
+
+                if (!codeToSend) {
+                    showAlert('warning', 'Không xác định được mã bưu kiện để nhận hàng từ kho.');
                     return;
                 }
 
@@ -742,7 +783,7 @@
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
-                            barcode: trackingCode
+                            barcode: codeToSend
                         })
                     });
 
