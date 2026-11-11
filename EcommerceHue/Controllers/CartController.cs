@@ -623,6 +623,31 @@ public class CartController(
         });
     }
 
+    /// <summary>
+    /// Gỡ bỏ mã giảm giá hiện tại khỏi Session – POST /Cart/RemoveCoupon
+    /// </summary>
+    [HttpPost]
+    [IgnoreAntiforgeryToken]
+    public IActionResult RemoveCoupon()
+    {
+        HttpContext.Session.Remove("CouponCode");
+        HttpContext.Session.Remove("DiscountAmount");
+        HttpContext.Session.Remove("DiscountPercentage");
+
+        var cart = GetCart();
+        var subTotal = cart.Sum(i => i.Total);
+
+        return Json(new
+        {
+            success = true,
+            message = "Đã gỡ bỏ mã giảm giá thành công.",
+            subTotal = subTotal,
+            subTotalFormatted = subTotal.ToString("N0") + " ₫",
+            newTotal = subTotal,
+            newTotalFormatted = subTotal.ToString("N0") + " ₫"
+        });
+    }
+
     // =========================================================================
     // ACTION: Xử lý Đặt hàng & Chuyển hướng VnPay – POST /Cart/PlaceOrder
     // =========================================================================

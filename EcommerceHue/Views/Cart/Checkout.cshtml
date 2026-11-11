@@ -9,127 +9,172 @@
 
 <div class="container py-4">
 
-    <!-- KHỐI MÃ ƯU ĐÃI & VOUCHER GIẢM GIÁ (HIỂN THỊ TRỰC TIẾP TRÊN GIAO DIỆN) -->
+    <!-- KHỐI MÃ ƯU ĐÃI & VOUCHER GIẢM GIÁ (HỘP THOẠI THU GỌN ACCORDION / COLLAPSIBLE) -->
+    @{
+        var availableCoupons = Model.AvailableCoupons ?? new List<EcommerceHue.Models.Coupon>();
+        var hasAppliedCoupon = Model.DiscountAmount > 0 && !string.IsNullOrWhiteSpace(Model.CouponCode);
+    }
     <div class="card border-0 shadow-sm rounded-3 mb-4 overflow-hidden" style="border: 1px solid #e9d5ff !important; background: #fffdf9;">
+        <!-- THANH TIÊU ĐỀ GỌN GÀNG (CLICK ĐÓNG / MỞ) -->
         <div class="card-header py-3 px-3 px-md-4 d-flex align-items-center justify-content-between flex-wrap gap-2"
-             style="background: linear-gradient(135deg, #faf5ee 0%, #f3e8ff 100%); border-bottom: 1px solid #ebdccb;">
-            <div class="d-flex align-items-center gap-2">
-                <span class="fs-5 text-purple" style="color: #6f42c1;">🎟️</span>
-                <div>
-                    <h6 class="fw-bold mb-0 text-dark">MÃ ƯU ĐÃI & VOUCHER ĐẶC SẢN HUẾ</h6>
-                    <small class="text-muted">Chọn nhanh mã giảm giá bên dưới hoặc nhập mã khuyến mãi riêng</small>
-                </div>
-            </div>
-            @if (Model.DiscountAmount > 0)
-            {
-                <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1 fw-bold">
-                    ✅ Đã áp dụng: -@Model.DiscountAmount.ToString("N0") đ (@Model.CouponCode)
+             id="couponAccordionHeader"
+             data-bs-toggle="collapse"
+             data-bs-target="#couponCollapseArea"
+             aria-expanded="@(hasAppliedCoupon ? "true" : "false")"
+             aria-controls="couponCollapseArea"
+             style="background: linear-gradient(135deg, #faf5ee 0%, #f3e8ff 100%); border-bottom: 1px solid #ebdccb; cursor: pointer; user-select: none;">
+            
+            <div class="d-flex align-items-center gap-2 flex-grow-1 flex-wrap">
+                <span class="fs-5" style="color: #6f42c1;">🎟️</span>
+                <span class="fw-bold text-dark" style="font-size: 0.95rem;">
+                    Mã ưu đãi &amp; Voucher Đặc sản Huế
                 </span>
-            }
+                <span class="badge bg-danger-subtle text-danger border border-danger-subtle small px-2 py-0.5">
+                    Có @availableCoupons.Count mã khả dụng
+                </span>
+                <span class="text-muted small d-none d-sm-inline">
+                    — Bấm để chọn hoặc nhập mã
+                </span>
+            </div>
+
+            <!-- PHẦN HIỂN THỊ MÃ ĐANG ÁP DỤNG & NÚT GỠ BỎ TRÊN HEADER HOẶC MŨI TÊN THU GỌN -->
+            <div class="d-flex align-items-center gap-2">
+                <div id="header-applied-wrapper" class="@(hasAppliedCoupon ? "d-flex" : "d-none") align-items-center gap-2">
+                    <span class="badge bg-success text-white px-2 py-1 fw-bold" style="font-size: 0.8rem;">
+                        ✅ <span id="header-applied-code">@Model.CouponCode</span>: <span id="header-applied-amount">-@Model.DiscountAmount.ToString("N0")₫</span>
+                    </span>
+                    <button type="button"
+                            id="btn-remove-coupon-header"
+                            class="btn btn-outline-danger btn-sm py-0 px-2 fw-semibold shadow-xs"
+                            style="font-size: 0.75rem; border-radius: 6px;"
+                            title="Gỡ bỏ mã giảm giá này"
+                            onclick="event.stopPropagation();">
+                        ✕ Gỡ bỏ
+                    </button>
+                </div>
+
+                <!-- Biểu tượng mũi tên xoay mượt mà khi đóng/mở -->
+                <span id="couponChevron" class="text-secondary fw-bold ms-1" style="font-size: 1.1rem; display: inline-block; transition: transform 0.25s ease; @(hasAppliedCoupon ? "transform: rotate(180deg);" : "")">
+                    &#9662;
+                </span>
+            </div>
         </div>
 
-        <div class="card-body p-3 p-md-4">
-            <!-- Ô NHẬP MÃ THỦ CÔNG -->
-            <label for="coupon-code-input" class="form-label small fw-bold text-secondary mb-1">
-                Nhập mã ưu đãi của bạn (nếu có):
-            </label>
-            <div class="input-group mb-2" style="max-width: 480px;">
-                <input type="text"
-                       id="coupon-code-input"
-                       class="form-control text-uppercase fw-bold font-monospace"
-                       placeholder="VD: HUEWELCOME10"
-                       value="@Model.CouponCode"
-                       autocomplete="off" />
-                <button type="button"
-                        id="btn-apply-coupon"
-                        class="btn btn-warning fw-bold px-4 text-dark shadow-xs">
-                    Áp dụng
-                </button>
-            </div>
-            <div id="coupon-message" class="small mb-3" style="display: none;"></div>
+        <!-- VÙNG NỘI DUNG COLLAPSE (TRƯỢT MỞ KHI BẤM) -->
+        <div id="couponCollapseArea" class="collapse @(hasAppliedCoupon ? "show" : "")" aria-labelledby="couponAccordionHeader">
+            <div class="card-body p-3 p-md-4 border-top" style="border-color: #ebdccb !important;">
+                
+                <!-- Ô NHẬP MÃ THỦ CÔNG KÈM NÚT ÁP DỤNG & GỠ BỎ -->
+                <label for="coupon-code-input" class="form-label small fw-bold text-secondary mb-1">
+                    Nhập mã ưu đãi của bạn (nếu có):
+                </label>
+                <div class="input-group mb-2" style="max-width: 520px;">
+                    <input type="text"
+                           id="coupon-code-input"
+                           class="form-control text-uppercase fw-bold font-monospace"
+                           placeholder="VD: HUEWELCOME10"
+                           value="@Model.CouponCode"
+                           autocomplete="off" />
+                    <button type="button"
+                            id="btn-apply-coupon"
+                            class="btn btn-warning fw-bold px-4 text-dark shadow-xs">
+                        Áp dụng
+                    </button>
+                    <button type="button"
+                            id="btn-remove-coupon-inline"
+                            class="btn btn-outline-danger px-3 fw-semibold @(hasAppliedCoupon ? "" : "d-none")">
+                        Gỡ mã
+                    </button>
+                </div>
+                <div id="coupon-message" class="small mb-3" style="display: none;"></div>
 
-            <!-- DANH SÁCH MÃ GIẢM GIÁ KHẢ DỤNG GỢI Ý TRỰC TIẾP -->
-            @{
-                var availableCoupons = Model.AvailableCoupons ?? new List<EcommerceHue.Models.Coupon>();
-            }
-            @if (availableCoupons.Any())
-            {
-                <div class="mt-3 pt-3 border-top border-light-subtle">
-                    <div class="d-flex align-items-center justify-content-between mb-3">
-                        <span class="fw-bold text-dark small">
-                            🎁 Các mã giảm giá đang áp dụng cho giỏ hàng của bạn:
-                        </span>
-                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle small px-2 py-1">
-                            @availableCoupons.Count mã khả dụng
-                        </span>
-                    </div>
+                <!-- DANH SÁCH MÃ GIẢM GIÁ KHẢ DỤNG GỢI Ý (1-CLICK APPLY) -->
+                @if (availableCoupons.Any())
+                {
+                    <div class="mt-3 pt-3 border-top border-light-subtle">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <span class="fw-bold text-dark small">
+                                🎁 Các mã giảm giá đang diễn ra:
+                            </span>
+                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle small px-2 py-1">
+                                @availableCoupons.Count mã khả dụng
+                            </span>
+                        </div>
 
-                    <div class="row g-2">
-                        @foreach (var cp in availableCoupons)
-                        {
-                            var tagColor = cp.EventTag switch
+                        <div class="row g-2">
+                            @foreach (var cp in availableCoupons)
                             {
-                                "DoubleDay" => "badge bg-danger text-white",
-                                "Holiday" => "badge bg-primary text-white",
-                                "Weekend" => "badge bg-success text-white",
-                                _ => "badge bg-secondary text-white"
-                            };
-                            var tagText = cp.EventTag switch
-                            {
-                                "DoubleDay" => "🔥 Ngày đôi 11/11",
-                                "Holiday" => "🎉 Tri ân du khách",
-                                "Weekend" => "⚡ Cuối tuần",
-                                _ => "Ưu đãi"
-                            };
-                            var isCurrentApplied = string.Equals(Model.CouponCode, cp.Code, StringComparison.OrdinalIgnoreCase);
+                                var tagColor = cp.EventTag switch
+                                {
+                                    "DoubleDay" => "badge bg-danger text-white",
+                                    "Holiday" => "badge bg-primary text-white",
+                                    "Weekend" => "badge bg-success text-white",
+                                    _ => "badge bg-secondary text-white"
+                                };
+                                var tagText = cp.EventTag switch
+                                {
+                                    "DoubleDay" => "🔥 Ngày đôi 11/11",
+                                    "Holiday" => "🎉 Tri ân du khách",
+                                    "Weekend" => "⚡ Cuối tuần",
+                                    _ => "Ưu đãi"
+                                };
+                                var isCurrentApplied = string.Equals(Model.CouponCode, cp.Code, StringComparison.OrdinalIgnoreCase);
 
-                            <div class="col-12 col-md-6">
-                                <div class="p-3 rounded-3 border d-flex align-items-center justify-content-between gap-3 h-100 shadow-xs @(isCurrentApplied ? "border-success bg-success-subtle" : "bg-white")"
-                                     style="border-color: #ebdccb !important; border-left: 4px solid @(isCurrentApplied ? "#198754" : "#6f42c1") !important;">
-                                    <div class="flex-grow-1">
-                                        <div class="d-flex align-items-center gap-1 mb-1 flex-wrap">
-                                            <span class="fw-bold font-monospace px-2 py-0.5 rounded bg-light border border-secondary-subtle" style="color: #581c87; font-size: 0.85rem;">@cp.Code</span>
-                                            <span class="@tagColor" style="font-size: 0.7rem;">@tagText</span>
-                                            <span class="badge bg-warning text-dark fw-bold" style="font-size: 0.72rem;">GIẢM @cp.DiscountPercentage%</span>
+                                <div class="col-12 col-md-6">
+                                    <div class="p-3 rounded-3 border d-flex align-items-center justify-content-between gap-3 h-100 shadow-xs coupon-card-box @(isCurrentApplied ? "border-success bg-success-subtle" : "bg-white")"
+                                         data-coupon-code="@cp.Code"
+                                         style="border-color: #ebdccb !important; border-left: 4px solid @(isCurrentApplied ? "#198754" : "#6f42c1") !important;">
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex align-items-center gap-1 mb-1 flex-wrap">
+                                                <span class="fw-bold font-monospace px-2 py-0.5 rounded bg-light border border-secondary-subtle" style="color: #581c87; font-size: 0.85rem;">@cp.Code</span>
+                                                <span class="@tagColor" style="font-size: 0.7rem;">@tagText</span>
+                                                <span class="badge bg-warning text-dark fw-bold" style="font-size: 0.72rem;">GIẢM @cp.DiscountPercentage%</span>
+                                            </div>
+                                            <div class="small fw-semibold text-dark mb-1" style="font-size: 0.82rem;">
+                                                @(string.IsNullOrWhiteSpace(cp.Description) ? $"Giảm {cp.DiscountPercentage}% cho đơn từ {cp.MinOrderValue:N0} đ" : cp.Description)
+                                            </div>
+                                            <div class="text-muted" style="font-size: 0.75rem;">
+                                                @if (cp.MinOrderValue > 0)
+                                                {
+                                                    <span>Đơn tối thiểu: <strong class="text-dark">@cp.MinOrderValue.ToString("N0") đ</strong> • </span>
+                                                }
+                                                @if (cp.MaxDiscountAmount.HasValue && cp.MaxDiscountAmount.Value > 0)
+                                                {
+                                                    <span>Giảm tối đa: <strong class="text-danger">@cp.MaxDiscountAmount.Value.ToString("N0") đ</strong> • </span>
+                                                }
+                                                <span>HSD: @cp.EndDate.ToLocalTime().ToString("dd/MM/yyyy")</span>
+                                            </div>
                                         </div>
-                                        <div class="small fw-semibold text-dark mb-1" style="font-size: 0.82rem;">
-                                            @(string.IsNullOrWhiteSpace(cp.Description) ? $"Giảm {cp.DiscountPercentage}% cho đơn từ {cp.MinOrderValue:N0} đ" : cp.Description)
-                                        </div>
-                                        <div class="text-muted" style="font-size: 0.75rem;">
-                                            @if (cp.MinOrderValue > 0)
+                                        <div class="coupon-action-col">
+                                            @if (isCurrentApplied)
                                             {
-                                                <span>Đơn tối thiểu: <strong class="text-dark">@cp.MinOrderValue.ToString("N0") đ</strong> • </span>
+                                                <span class="badge bg-success text-white px-3 py-2 fw-bold coupon-badge-applied" style="font-size: 0.8rem;">
+                                                    ✓ Đang dùng
+                                                </span>
                                             }
-                                            @if (cp.MaxDiscountAmount.HasValue && cp.MaxDiscountAmount.Value > 0)
+                                            else
                                             {
-                                                <span>Giảm tối đa: <strong class="text-danger">@cp.MaxDiscountAmount.Value.ToString("N0") đ</strong> • </span>
+                                                <button type="button"
+                                                        class="btn btn-outline-danger btn-sm px-3 py-1 fw-bold btn-quick-apply shadow-xs"
+                                                        data-code="@cp.Code"
+                                                        style="white-space: nowrap; font-size: 0.82rem;">
+                                                    Áp dụng
+                                                </button>
                                             }
-                                            <span>HSD: @cp.EndDate.ToLocalTime().ToString("dd/MM/yyyy")</span>
                                         </div>
-                                    </div>
-                                    <div>
-                                        @if (isCurrentApplied)
-                                        {
-                                            <span class="badge bg-success text-white px-3 py-2 fw-bold" style="font-size: 0.8rem;">
-                                                ✓ Đang dùng
-                                            </span>
-                                        }
-                                        else
-                                        {
-                                            <button type="button"
-                                                    class="btn btn-outline-danger btn-sm px-3 py-1 fw-bold btn-quick-apply shadow-xs"
-                                                    data-code="@cp.Code"
-                                                    style="white-space: nowrap; font-size: 0.82rem;">
-                                                Áp dụng
-                                            </button>
-                                        }
                                     </div>
                                 </div>
-                            </div>
-                        }
+                            }
+                        </div>
                     </div>
-                </div>
-            }
+                }
+                else
+                {
+                    <div class="text-muted small mt-2">
+                        💡 Quý khách có mã ưu đãi riêng xin vui lòng nhập vào ô trên và bấm "Áp dụng".
+                    </div>
+                }
+            </div>
         </div>
     </div>
 
@@ -898,15 +943,33 @@
         }
 
         // ====================================================================
-        // 4. LOGIC ÁP DỤNG MÃ GIẢM GIÁ (COUPON AJAX)
+        // 4. LOGIC ÁP DỤNG & GỠ BỎ MÃ GIẢM GIÁ (COUPON AJAX & ACCORDION)
         // ====================================================================
         const btnApply = document.getElementById('btn-apply-coupon');
+        const btnRemoveHeader = document.getElementById('btn-remove-coupon-header');
+        const btnRemoveInline = document.getElementById('btn-remove-coupon-inline');
         const couponInput = document.getElementById('coupon-code-input');
         const couponMsg = document.getElementById('coupon-message');
         const discountRow = document.getElementById('discount-row');
         const discountPercentLabel = document.getElementById('discount-percent-label');
         const discountAmountDisplay = document.getElementById('discount-amount-display');
         const totalAmountDisplay = document.getElementById('total-amount-display');
+
+        const headerAppliedWrapper = document.getElementById('header-applied-wrapper');
+        const headerAppliedCode = document.getElementById('header-applied-code');
+        const headerAppliedAmount = document.getElementById('header-applied-amount');
+        const couponChevron = document.getElementById('couponChevron');
+        const couponCollapseArea = document.getElementById('couponCollapseArea');
+
+        // Đồng bộ hiệu ứng xoay mũi tên khi đóng/mở Accordion
+        if (couponCollapseArea && couponChevron) {
+            couponCollapseArea.addEventListener('show.bs.collapse', function () {
+                couponChevron.style.transform = 'rotate(180deg)';
+            });
+            couponCollapseArea.addEventListener('hide.bs.collapse', function () {
+                couponChevron.style.transform = 'rotate(0deg)';
+            });
+        }
 
         async function handleApplyCoupon() {
             if (!couponInput) return;
@@ -944,6 +1007,16 @@
                 if (data.success) {
                     showCouponMessage(data.message, 'success');
 
+                    // 1. Cập nhật thanh tiêu đề Header Accordion
+                    if (headerAppliedCode) headerAppliedCode.textContent = data.couponCode;
+                    if (headerAppliedAmount) headerAppliedAmount.textContent = '-' + data.discountAmountFormatted;
+                    if (headerAppliedWrapper) {
+                        headerAppliedWrapper.classList.remove('d-none');
+                        headerAppliedWrapper.classList.add('d-flex');
+                    }
+                    if (btnRemoveInline) btnRemoveInline.classList.remove('d-none');
+
+                    // 2. Cập nhật bảng Tóm tắt đơn hàng (cột phải)
                     if (discountRow) discountRow.classList.remove('d-none');
                     if (discountPercentLabel) discountPercentLabel.textContent = data.discountPercentage + '%';
                     if (discountAmountDisplay) discountAmountDisplay.textContent = '-' + data.discountAmountFormatted;
@@ -952,6 +1025,9 @@
                         totalAmountDisplay.classList.add('text-success');
                         setTimeout(() => totalAmountDisplay.classList.remove('text-success'), 1200);
                     }
+
+                    // 3. Cập nhật giao diện các thẻ Voucher trong danh sách
+                    updateCouponCardsState(data.couponCode);
 
                     if (typeof showToast === 'function') {
                         showToast(data.message, 'success');
@@ -971,15 +1047,103 @@
             }
         }
 
+        async function handleRemoveCoupon() {
+            try {
+                const response = await fetch('/Cart/RemoveCoupon', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    showCouponMessage('Đã gỡ bỏ mã giảm giá thành công.', 'info');
+
+                    // 1. Xóa trạng thái trên thanh tiêu đề Header
+                    if (headerAppliedWrapper) {
+                        headerAppliedWrapper.classList.add('d-none');
+                        headerAppliedWrapper.classList.remove('d-flex');
+                    }
+                    if (btnRemoveInline) btnRemoveInline.classList.add('d-none');
+                    if (couponInput) couponInput.value = '';
+
+                    // 2. Ẩn dòng giảm giá ở tóm tắt đơn hàng
+                    if (discountRow) discountRow.classList.add('d-none');
+                    if (totalAmountDisplay) {
+                        totalAmountDisplay.textContent = data.newTotalFormatted;
+                        totalAmountDisplay.classList.add('text-danger');
+                        setTimeout(() => totalAmountDisplay.classList.remove('text-danger'), 1200);
+                    }
+
+                    // 3. Reset toàn bộ thẻ voucher về nút Áp dụng
+                    updateCouponCardsState(null);
+
+                    if (typeof showToast === 'function') {
+                        showToast('Đã gỡ bỏ mã giảm giá.', 'info');
+                    }
+                }
+            } catch (err) {
+                console.error('[RemoveCoupon Error]:', err);
+                showCouponMessage('Lỗi khi gỡ mã giảm giá.', 'danger');
+            }
+        }
+
+        function updateCouponCardsState(appliedCode) {
+            document.querySelectorAll('.coupon-card-box').forEach(card => {
+                const cardCode = card.getAttribute('data-coupon-code');
+                const actionCol = card.querySelector('.coupon-action-col');
+                if (!actionCol) return;
+
+                if (appliedCode && cardCode && appliedCode.toUpperCase() === cardCode.toUpperCase()) {
+                    card.classList.remove('bg-white');
+                    card.classList.add('border-success', 'bg-success-subtle');
+                    card.style.setProperty('border-left', '4px solid #198754', 'important');
+                    actionCol.innerHTML = '<span class="badge bg-success text-white px-3 py-2 fw-bold coupon-badge-applied" style="font-size: 0.8rem;">✓ Đang dùng</span>';
+                } else {
+                    card.classList.remove('border-success', 'bg-success-subtle');
+                    card.classList.add('bg-white');
+                    card.style.setProperty('border-left', '4px solid #6f42c1', 'important');
+                    actionCol.innerHTML = `<button type="button" class="btn btn-outline-danger btn-sm px-3 py-1 fw-bold btn-quick-apply shadow-xs" data-code="${cardCode}" style="white-space: nowrap; font-size: 0.82rem;">Áp dụng</button>`;
+                    
+                    // Gắn lại sự kiện cho nút vừa tạo mới
+                    const newBtn = actionCol.querySelector('.btn-quick-apply');
+                    if (newBtn) {
+                        newBtn.addEventListener('click', function () {
+                            const c = this.getAttribute('data-code');
+                            if (couponInput && c) {
+                                couponInput.value = c;
+                                handleApplyCoupon();
+                            }
+                        });
+                    }
+                }
+            });
+        }
+
         function showCouponMessage(msg, type) {
             if (!couponMsg) return;
             couponMsg.style.display = 'block';
-            couponMsg.className = `small mt-2 text-${type === 'success' ? 'success' : 'danger'} fw-semibold`;
-            couponMsg.innerHTML = (type === 'success' ? '✅ ' : '⚠️ ') + msg;
+            var colorClass = type === 'success' ? 'text-success' : (type === 'info' ? 'text-primary' : 'text-danger');
+            var icon = type === 'success' ? '✅ ' : (type === 'info' ? 'ℹ️ ' : '⚠️ ');
+            couponMsg.className = `small mt-2 ${colorClass} fw-semibold`;
+            couponMsg.innerHTML = icon + msg;
         }
 
         if (btnApply) {
             btnApply.addEventListener('click', handleApplyCoupon);
+        }
+
+        if (btnRemoveHeader) {
+            btnRemoveHeader.addEventListener('click', function(e) {
+                e.stopPropagation();
+                handleRemoveCoupon();
+            });
+        }
+
+        if (btnRemoveInline) {
+            btnRemoveInline.addEventListener('click', handleRemoveCoupon);
         }
 
         if (couponInput) {
