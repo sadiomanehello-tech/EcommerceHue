@@ -1,5 +1,6 @@
 using EcommerceHue.Models;
 using EcommerceHue.Services;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -277,6 +278,9 @@ public static class SeedData
         }
         await context.SaveChangesAsync();
 
+        // Đóng và giải phóng connection pool SQLite để tránh khóa tệp DB trước khi upload
+        SqliteConnection.ClearAllPools();
+
         // Đồng bộ cơ sở dữ liệu đã nâng cấp cấu trúc lên lại Supabase Storage
         var backupService = serviceProvider.GetService<DatabaseBackupService>();
         if (backupService != null)
@@ -325,33 +329,91 @@ public static class SeedData
     }
 
     /// <summary>
-    /// Đảm bảo bảng Coupons chắc chắn có đủ các cột mới mở rộng (ALTER TABLE cho SQLite cũ tải từ Supabase).
-    /// Bọc từng câu lệnh SQL thuần trong khối try-catch riêng biệt để nếu cột đã tồn tại thì SQLite bỏ qua mà không ném lỗi ngắt mạch.
+    /// Đảm bảo bảng Coupons chắc chắn có đủ các cột mới mở rộng bằng SqliteConnection độc lập và PRAGMA table_info.
+    /// Giúp tránh lỗi transaction EF Core và kiểu dữ liệu SQLite trên Render Cloud.
     /// </summary>
     private static async Task EnsureCouponColumnsAsync(EcommerceContext context)
     {
-        var alterStatements = new[]
-        {
-            "ALTER TABLE \"Coupons\" ADD COLUMN \"Description\" TEXT NULL;",
-            "ALTER TABLE \"Coupons\" ADD COLUMN \"MinOrderValue\" TEXT NOT NULL DEFAULT '0';",
-            "ALTER TABLE \"Coupons\" ADD COLUMN \"MaxDiscountAmount\" TEXT NULL;",
-            "ALTER TABLE \"Coupons\" ADD COLUMN \"StartDate\" TEXT NOT NULL DEFAULT '2026-01-01 00:00:00';",
-            "ALTER TABLE \"Coupons\" ADD COLUMN \"EndDate\" TEXT NOT NULL DEFAULT '2027-01-01 00:00:00';",
-            "ALTER TABLE \"Coupons\" ADD COLUMN \"UsageLimit\" INTEGER NOT NULL DEFAULT 100;",
-            "ALTER TABLE \"Coupons\" ADD COLUMN \"UsedCount\" INTEGER NOT NULL DEFAULT 0;",
-            "ALTER TABLE \"Coupons\" ADD COLUMN \"EventTag\" TEXT NOT NULL DEFAULT 'Normal';"
-        };
+        var connectionString = context.Database.GetConnectionString();
+        if (string.IsNullOrWhiteSpace(connectionString)) return;
 
-        foreach (var sql in alterStatements)
+        try
         {
-            try
+            // Giải phóng các pool trước để tránh database is locked
+            SqliteConnection.ClearAllPools();
+
+            await using var connection = new SqliteConnection(connectionString);
+            await connection.OpenAsync();
+
+            // 1. Kiểm tra bảng Coupons đã tồn tại chưa
+            using (var checkCmd = connection.CreateCommand())
             {
-                await context.Database.ExecuteSqlRawAsync(sql);
+                checkCmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='Coupons';";
+                var tableName = await checkCmd.ExecuteScalarAsync();
+                if (tableName == null)
+                {
+                    Console.WriteLine("=== [SQLITE PRAGMA] Bảng Coupons chưa tồn tại trong SQLite, bỏ qua ALTER TABLE. ===");
+                    return;
+                }
             }
-            catch
+
+            // 2. Lấy danh sách các cột hiện có trong bảng Coupons bằng PRAGMA
+            var existingColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            using (var cmd = connection.CreateCommand())
             {
-                // Bỏ qua nếu cột đã tồn tại (duplicate column name) trong SQLite
+                cmd.CommandText = "PRAGMA table_info('Coupons');";
+                using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    var colName = reader.GetString(1);
+                    existingColumns.Add(colName);
+                }
             }
+
+            Console.WriteLine($"=== [SQLITE PRAGMA] Bảng Coupons hiện có các cột: {string.Join(", ", existingColumns)} ===");
+
+            // 3. Danh sách các cột cần kiểm tra và bổ sung bằng ALTER TABLE (chuẩn kiểu dữ liệu SQLite)
+            var requiredColumns = new (string Name, string Sql)[]
+            {
+                ("Description", "ALTER TABLE Coupons ADD COLUMN Description TEXT NULL;"),
+                ("MinOrderValue", "ALTER TABLE Coupons ADD COLUMN MinOrderValue NUMERIC NOT NULL DEFAULT 0;"),
+                ("MaxDiscountAmount", "ALTER TABLE Coupons ADD COLUMN MaxDiscountAmount NUMERIC NULL;"),
+                ("StartDate", "ALTER TABLE Coupons ADD COLUMN StartDate TEXT NOT NULL DEFAULT '2026-01-01 00:00:00';"),
+                ("EndDate", "ALTER TABLE Coupons ADD COLUMN EndDate TEXT NOT NULL DEFAULT '2027-01-01 00:00:00';"),
+                ("UsageLimit", "ALTER TABLE Coupons ADD COLUMN UsageLimit INTEGER NOT NULL DEFAULT 100;"),
+                ("UsedCount", "ALTER TABLE Coupons ADD COLUMN UsedCount INTEGER NOT NULL DEFAULT 0;"),
+                ("EventTag", "ALTER TABLE Coupons ADD COLUMN EventTag TEXT NOT NULL DEFAULT 'Normal';")
+            };
+
+            foreach (var col in requiredColumns)
+            {
+                if (!existingColumns.Contains(col.Name))
+                {
+                    try
+                    {
+                        using var alterCmd = connection.CreateCommand();
+                        alterCmd.CommandText = col.Sql;
+                        await alterCmd.ExecuteNonQueryAsync();
+                        Console.WriteLine($"=== [SQLITE MIGRATION SUCCESS] Đã bổ sung thành công cột '{col.Name}' vào bảng Coupons! ===");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"=== [SQLITE MIGRATION ERROR] Lỗi khi thêm cột '{col.Name}': {ex.Message} ===");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"=== [SQLITE CHECK] Cột '{col.Name}' đã tồn tại trong bảng Coupons. ===");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"=== [SQLITE CONNECTION ERROR] Lỗi khi kiểm tra cấu trúc bảng Coupons: {ex.Message} ===");
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
         }
     }
 }

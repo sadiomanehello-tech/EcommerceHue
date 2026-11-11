@@ -77,12 +77,22 @@ namespace EcommerceHue.Controllers
         {
             if (!IsAdminAuthorized()) return DenyOrLogin();
 
-            var coupons = await _context.Coupons
-                .AsNoTracking()
-                .OrderByDescending(c => c.CreatedAt)
-                .ToListAsync();
+            try
+            {
+                var coupons = await _context.Coupons
+                    .AsNoTracking()
+                    .OrderByDescending(c => c.CreatedAt)
+                    .ToListAsync();
 
-            return View("~/Views/Admin/Coupons/Index.cshtml", coupons);
+                return View("~/Views/Admin/Coupons/Index.cshtml", coupons);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("=== [ADMIN ERROR]: " + ex.ToString());
+                _logger.LogError(ex, "=== [ADMIN ERROR] Lỗi tải danh sách Coupons: {Message}", ex.Message);
+                TempData["AdminError"] = "Lỗi khi nạp dữ liệu Voucher: " + ex.Message;
+                return View("~/Views/Admin/Coupons/Index.cshtml", new List<Coupon>());
+            }
         }
 
         /// <summary>
@@ -94,36 +104,46 @@ namespace EcommerceHue.Controllers
         {
             if (!IsAdminAuthorized()) return DenyOrLogin();
 
-            var cleanCode = (model.Code ?? string.Empty).Trim().ToUpperInvariant();
-            if (string.IsNullOrWhiteSpace(cleanCode))
+            try
             {
-                TempData["AdminError"] = "Mã giảm giá không được để trống.";
+                var cleanCode = (model.Code ?? string.Empty).Trim().ToUpperInvariant();
+                if (string.IsNullOrWhiteSpace(cleanCode))
+                {
+                    TempData["AdminError"] = "Mã giảm giá không được để trống.";
+                    return RedirectToAction(nameof(Coupons));
+                }
+
+                var exists = await _context.Coupons.AnyAsync(c => c.Code == cleanCode);
+                if (exists)
+                {
+                    TempData["AdminError"] = $"Mã '{cleanCode}' đã tồn tại trong hệ thống. Vui lòng chọn mã khác!";
+                    return RedirectToAction(nameof(Coupons));
+                }
+
+                model.Code = cleanCode;
+                model.CreatedAt = DateTime.UtcNow;
+                if (model.EndDate <= model.StartDate)
+                {
+                    model.EndDate = model.StartDate.AddMonths(1);
+                }
+
+                await _context.Coupons.AddAsync(model);
+                await _context.SaveChangesAsync();
+
+                // Sao lưu tức thì lên Supabase Storage
+                await _backupService.UploadDatabaseAsync();
+
+                _logger.LogInformation("[Admin-Coupon] Đã tạo mã giảm giá mới: {Code} ({Discount}%)", model.Code, model.DiscountPercentage);
+                TempData["AdminSuccess"] = $"🎉 Đã tạo thành công mã giảm giá '{model.Code}' giảm {model.DiscountPercentage}%!";
                 return RedirectToAction(nameof(Coupons));
             }
-
-            var exists = await _context.Coupons.AnyAsync(c => c.Code == cleanCode);
-            if (exists)
+            catch (Exception ex)
             {
-                TempData["AdminError"] = $"Mã '{cleanCode}' đã tồn tại trong hệ thống. Vui lòng chọn mã khác!";
+                Console.WriteLine("=== [ADMIN ERROR]: " + ex.ToString());
+                _logger.LogError(ex, "=== [ADMIN ERROR] Lỗi tạo mã giảm giá: {Message}", ex.Message);
+                TempData["AdminError"] = "Lỗi khi tạo mã giảm giá: " + ex.Message;
                 return RedirectToAction(nameof(Coupons));
             }
-
-            model.Code = cleanCode;
-            model.CreatedAt = DateTime.UtcNow;
-            if (model.EndDate <= model.StartDate)
-            {
-                model.EndDate = model.StartDate.AddMonths(1);
-            }
-
-            await _context.Coupons.AddAsync(model);
-            await _context.SaveChangesAsync();
-
-            // Sao lưu tức thì lên Supabase Storage
-            await _backupService.UploadDatabaseAsync();
-
-            _logger.LogInformation("[Admin-Coupon] Đã tạo mã giảm giá mới: {Code} ({Discount}%)", model.Code, model.DiscountPercentage);
-            TempData["AdminSuccess"] = $"🎉 Đã tạo thành công mã giảm giá '{model.Code}' giảm {model.DiscountPercentage}%!";
-            return RedirectToAction(nameof(Coupons));
         }
 
         /// <summary>
@@ -135,48 +155,58 @@ namespace EcommerceHue.Controllers
         {
             if (!IsAdminAuthorized()) return DenyOrLogin();
 
-            var coupon = await _context.Coupons.FindAsync(model.Id);
-            if (coupon == null)
+            try
             {
-                TempData["AdminError"] = "Không tìm thấy mã giảm giá cần chỉnh sửa.";
-                return RedirectToAction(nameof(Coupons));
-            }
-
-            var cleanCode = (model.Code ?? string.Empty).Trim().ToUpperInvariant();
-            if (string.IsNullOrWhiteSpace(cleanCode))
-            {
-                TempData["AdminError"] = "Mã giảm giá không được để trống.";
-                return RedirectToAction(nameof(Coupons));
-            }
-
-            // Kiểm tra trùng lặp nếu đổi tên mã
-            if (coupon.Code != cleanCode)
-            {
-                var exists = await _context.Coupons.AnyAsync(c => c.Code == cleanCode && c.Id != model.Id);
-                if (exists)
+                var coupon = await _context.Coupons.FindAsync(model.Id);
+                if (coupon == null)
                 {
-                    TempData["AdminError"] = $"Mã '{cleanCode}' đã tồn tại ở bản ghi khác!";
+                    TempData["AdminError"] = "Không tìm thấy mã giảm giá cần chỉnh sửa.";
                     return RedirectToAction(nameof(Coupons));
                 }
-                coupon.Code = cleanCode;
+
+                var cleanCode = (model.Code ?? string.Empty).Trim().ToUpperInvariant();
+                if (string.IsNullOrWhiteSpace(cleanCode))
+                {
+                    TempData["AdminError"] = "Mã giảm giá không được để trống.";
+                    return RedirectToAction(nameof(Coupons));
+                }
+
+                // Kiểm tra trùng lặp nếu đổi tên mã
+                if (coupon.Code != cleanCode)
+                {
+                    var exists = await _context.Coupons.AnyAsync(c => c.Code == cleanCode && c.Id != model.Id);
+                    if (exists)
+                    {
+                        TempData["AdminError"] = $"Mã '{cleanCode}' đã tồn tại ở bản ghi khác!";
+                        return RedirectToAction(nameof(Coupons));
+                    }
+                    coupon.Code = cleanCode;
+                }
+
+                coupon.Description = model.Description?.Trim();
+                coupon.DiscountPercentage = model.DiscountPercentage;
+                coupon.MinOrderValue = Math.Max(0, model.MinOrderValue);
+                coupon.MaxDiscountAmount = model.MaxDiscountAmount > 0 ? model.MaxDiscountAmount : null;
+                coupon.StartDate = model.StartDate;
+                coupon.EndDate = model.EndDate;
+                coupon.UsageLimit = Math.Max(1, model.UsageLimit);
+                coupon.EventTag = string.IsNullOrWhiteSpace(model.EventTag) ? "Normal" : model.EventTag.Trim();
+                coupon.IsActive = model.IsActive;
+
+                await _context.SaveChangesAsync();
+                await _backupService.UploadDatabaseAsync();
+
+                _logger.LogInformation("[Admin-Coupon] Đã cập nhật mã giảm giá #{Id} - {Code}", coupon.Id, coupon.Code);
+                TempData["AdminSuccess"] = $"✅ Đã cập nhật thành công thông tin mã '{coupon.Code}'!";
+                return RedirectToAction(nameof(Coupons));
             }
-
-            coupon.Description = model.Description?.Trim();
-            coupon.DiscountPercentage = model.DiscountPercentage;
-            coupon.MinOrderValue = Math.Max(0, model.MinOrderValue);
-            coupon.MaxDiscountAmount = model.MaxDiscountAmount > 0 ? model.MaxDiscountAmount : null;
-            coupon.StartDate = model.StartDate;
-            coupon.EndDate = model.EndDate;
-            coupon.UsageLimit = Math.Max(1, model.UsageLimit);
-            coupon.EventTag = string.IsNullOrWhiteSpace(model.EventTag) ? "Normal" : model.EventTag.Trim();
-            coupon.IsActive = model.IsActive;
-
-            await _context.SaveChangesAsync();
-            await _backupService.UploadDatabaseAsync();
-
-            _logger.LogInformation("[Admin-Coupon] Đã cập nhật mã giảm giá #{Id} - {Code}", coupon.Id, coupon.Code);
-            TempData["AdminSuccess"] = $"✅ Đã cập nhật thành công thông tin mã '{coupon.Code}'!";
-            return RedirectToAction(nameof(Coupons));
+            catch (Exception ex)
+            {
+                Console.WriteLine("=== [ADMIN ERROR]: " + ex.ToString());
+                _logger.LogError(ex, "=== [ADMIN ERROR] Lỗi cập nhật mã giảm giá: {Message}", ex.Message);
+                TempData["AdminError"] = "Lỗi khi cập nhật mã giảm giá: " + ex.Message;
+                return RedirectToAction(nameof(Coupons));
+            }
         }
 
         /// <summary>
@@ -188,22 +218,31 @@ namespace EcommerceHue.Controllers
         {
             if (!IsAdminAuthorized()) return StatusCode(403, new { success = false, message = "Bạn không có quyền quản trị!" });
 
-            var coupon = await _context.Coupons.FindAsync(id);
-            if (coupon == null)
+            try
             {
-                return Json(new { success = false, message = "Không tìm thấy mã giảm giá." });
+                var coupon = await _context.Coupons.FindAsync(id);
+                if (coupon == null)
+                {
+                    return Json(new { success = false, message = "Không tìm thấy mã giảm giá." });
+                }
+
+                coupon.IsActive = !coupon.IsActive;
+                await _context.SaveChangesAsync();
+                await _backupService.UploadDatabaseAsync();
+
+                return Json(new
+                {
+                    success = true,
+                    isActive = coupon.IsActive,
+                    message = coupon.IsActive ? $"Đã kích hoạt mã '{coupon.Code}'." : $"Đã tạm khóa mã '{coupon.Code}'."
+                });
             }
-
-            coupon.IsActive = !coupon.IsActive;
-            await _context.SaveChangesAsync();
-            await _backupService.UploadDatabaseAsync();
-
-            return Json(new
+            catch (Exception ex)
             {
-                success = true,
-                isActive = coupon.IsActive,
-                message = coupon.IsActive ? $"Đã kích hoạt mã '{coupon.Code}'." : $"Đã tạm khóa mã '{coupon.Code}'."
-            });
+                Console.WriteLine("=== [ADMIN ERROR]: " + ex.ToString());
+                _logger.LogError(ex, "=== [ADMIN ERROR] Lỗi toggle mã giảm giá #{Id}: {Message}", id, ex.Message);
+                return Json(new { success = false, message = "Lỗi khi cập nhật trạng thái mã: " + ex.Message });
+            }
         }
 
         /// <summary>
@@ -215,19 +254,28 @@ namespace EcommerceHue.Controllers
         {
             if (!IsAdminAuthorized()) return StatusCode(403, new { success = false, message = "Bạn không có quyền quản trị!" });
 
-            var coupon = await _context.Coupons.FindAsync(id);
-            if (coupon == null)
+            try
             {
-                return Json(new { success = false, message = "Không tìm thấy mã giảm giá." });
+                var coupon = await _context.Coupons.FindAsync(id);
+                if (coupon == null)
+                {
+                    return Json(new { success = false, message = "Không tìm thấy mã giảm giá." });
+                }
+
+                var code = coupon.Code;
+                _context.Coupons.Remove(coupon);
+                await _context.SaveChangesAsync();
+                await _backupService.UploadDatabaseAsync();
+
+                _logger.LogInformation("[Admin-Coupon] Đã xóa mã giảm giá {Code}", code);
+                return Json(new { success = true, message = $"Đã xóa vĩnh viễn mã giảm giá '{code}' thành công!" });
             }
-
-            var code = coupon.Code;
-            _context.Coupons.Remove(coupon);
-            await _context.SaveChangesAsync();
-            await _backupService.UploadDatabaseAsync();
-
-            _logger.LogInformation("[Admin-Coupon] Đã xóa mã giảm giá {Code}", code);
-            return Json(new { success = true, message = $"Đã xóa vĩnh viễn mã giảm giá '{code}' thành công!" });
+            catch (Exception ex)
+            {
+                Console.WriteLine("=== [ADMIN ERROR]: " + ex.ToString());
+                _logger.LogError(ex, "=== [ADMIN ERROR] Lỗi xóa mã giảm giá #{Id}: {Message}", id, ex.Message);
+                return Json(new { success = false, message = "Lỗi khi xóa mã giảm giá: " + ex.Message });
+            }
         }
 
         /// <summary>
@@ -240,62 +288,71 @@ namespace EcommerceHue.Controllers
         {
             if (!IsAdminAuthorized()) return StatusCode(403, new { success = false, message = "Bạn không có quyền quản trị!" });
 
-            var coupon = await _context.Coupons.AsNoTracking().FirstOrDefaultAsync(c => c.Id == couponId);
-            if (coupon == null || !coupon.IsActive)
+            try
             {
-                return Json(new { success = false, message = "Mã giảm giá không tồn tại hoặc đang bị tạm khóa!" });
-            }
-
-            // Lấy danh sách email khách hàng duy nhất trong hệ thống
-            var customers = await _context.Customers
-                .AsNoTracking()
-                .Where(c => !string.IsNullOrEmpty(c.Email))
-                .ToListAsync();
-
-            if (customers.Count == 0)
-            {
-                return Json(new { success = false, message = "Chưa có khách hàng nào trong cơ sở dữ liệu để gửi email." });
-            }
-
-            int sentCount = 0;
-            int failedCount = 0;
-
-            _logger.LogInformation("[Admin-EmailMarketing] Bắt đầu chiến dịch gửi mã {Code} tới {Count} khách hàng...", coupon.Code, customers.Count);
-
-            foreach (var customer in customers)
-            {
-                try
+                var coupon = await _context.Coupons.AsNoTracking().FirstOrDefaultAsync(c => c.Id == couponId);
+                if (coupon == null || !coupon.IsActive)
                 {
-                    bool result = await _emailService.SendPromotionEmailAsync(customer.Email, customer.FullName, coupon);
-                    if (result)
+                    return Json(new { success = false, message = "Mã giảm giá không tồn tại hoặc đang bị tạm khóa!" });
+                }
+
+                // Lấy danh sách email khách hàng duy nhất trong hệ thống
+                var customers = await _context.Customers
+                    .AsNoTracking()
+                    .Where(c => !string.IsNullOrEmpty(c.Email))
+                    .ToListAsync();
+
+                if (customers.Count == 0)
+                {
+                    return Json(new { success = false, message = "Chưa có khách hàng nào trong cơ sở dữ liệu để gửi email." });
+                }
+
+                int sentCount = 0;
+                int failedCount = 0;
+
+                _logger.LogInformation("[Admin-EmailMarketing] Bắt đầu chiến dịch gửi mã {Code} tới {Count} khách hàng...", coupon.Code, customers.Count);
+
+                foreach (var customer in customers)
+                {
+                    try
                     {
-                        sentCount++;
+                        bool result = await _emailService.SendPromotionEmailAsync(customer.Email, customer.FullName, coupon);
+                        if (result)
+                        {
+                            sentCount++;
+                        }
+                        else
+                        {
+                            failedCount++;
+                        }
                     }
-                    else
+                    catch (Exception ex)
                     {
                         failedCount++;
+                        _logger.LogError(ex, "[Admin-EmailMarketing] Lỗi gửi email tới {Email}", customer.Email);
                     }
+
+                    // Độ trễ 200ms giữa mỗi lượt gửi để tôn trọng giới hạn tốc độ của Brevo REST API
+                    await Task.Delay(200);
                 }
-                catch (Exception ex)
+
+                _logger.LogInformation("[Admin-EmailMarketing] Hoàn tất chiến dịch mã {Code}: {Sent}/{Total} thành công.", coupon.Code, sentCount, customers.Count);
+
+                return Json(new
                 {
-                    failedCount++;
-                    _logger.LogError(ex, "[Admin-EmailMarketing] Lỗi gửi email tới {Email}", customer.Email);
-                }
-
-                // Độ trễ 200ms giữa mỗi lượt gửi để tôn trọng giới hạn tốc độ của Brevo REST API
-                await Task.Delay(200);
+                    success = true,
+                    sentCount = sentCount,
+                    failedCount = failedCount,
+                    totalCount = customers.Count,
+                    message = $"Đã bắn thành công {sentCount}/{customers.Count} email chiến dịch mã '{coupon.Code}' qua Brevo!"
+                });
             }
-
-            _logger.LogInformation("[Admin-EmailMarketing] Hoàn tất chiến dịch mã {Code}: {Sent}/{Total} thành công.", coupon.Code, sentCount, customers.Count);
-
-            return Json(new
+            catch (Exception ex)
             {
-                success = true,
-                sentCount = sentCount,
-                failedCount = failedCount,
-                totalCount = customers.Count,
-                message = $"Đã bắn thành công {sentCount}/{customers.Count} email chiến dịch mã '{coupon.Code}' qua Brevo!"
-            });
+                Console.WriteLine("=== [ADMIN ERROR]: " + ex.ToString());
+                _logger.LogError(ex, "=== [ADMIN ERROR] Lỗi chiến dịch email mã #{Id}: {Message}", couponId, ex.Message);
+                return Json(new { success = false, message = "Lỗi khi xử lý chiến dịch email: " + ex.Message });
+            }
         }
 
         // =====================================================================
@@ -308,27 +365,36 @@ namespace EcommerceHue.Controllers
         {
             if (!IsAdminAuthorized()) return DenyOrLogin();
 
-            var query = _context.Orders
-                .Include(o => o.OrderDetails)
-                .AsNoTracking()
-                .AsQueryable();
-
-            if (status.HasValue && status.Value >= 0)
+            try
             {
-                query = query.Where(o => (int)o.Status == status.Value);
-            }
+                var query = _context.Orders
+                    .Include(o => o.OrderDetails)
+                    .AsNoTracking()
+                    .AsQueryable();
 
-            if (!string.IsNullOrWhiteSpace(search))
+                if (status.HasValue && status.Value >= 0)
+                {
+                    query = query.Where(o => (int)o.Status == status.Value);
+                }
+
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    var s = search.Trim().ToLower();
+                    query = query.Where(o => o.OrderCode.ToLower().Contains(s)
+                                          || o.CustomerName.ToLower().Contains(s)
+                                          || o.CustomerPhone.Contains(s)
+                                          || o.CustomerEmail.ToLower().Contains(s));
+                }
+
+                var orders = await query.OrderByDescending(o => o.CreatedAt).ToListAsync();
+                return View("~/Views/Admin/Orders/Index.cshtml", orders);
+            }
+            catch (Exception ex)
             {
-                var s = search.Trim().ToLower();
-                query = query.Where(o => o.OrderCode.ToLower().Contains(s)
-                                      || o.CustomerName.ToLower().Contains(s)
-                                      || o.CustomerPhone.Contains(s)
-                                      || o.CustomerEmail.ToLower().Contains(s));
+                Console.WriteLine("=== [ADMIN ERROR]: " + ex.ToString());
+                _logger.LogError(ex, "=== [ADMIN ERROR] Lỗi tải danh sách đơn hàng: {Message}", ex.Message);
+                return View("~/Views/Admin/Orders/Index.cshtml", new List<Order>());
             }
-
-            var orders = await query.OrderByDescending(o => o.CreatedAt).ToListAsync();
-            return View("~/Views/Admin/Orders/Index.cshtml", orders);
         }
 
         [HttpGet("/Admin/Orders/GetOrderDetails")]
@@ -451,13 +517,22 @@ namespace EcommerceHue.Controllers
         {
             if (!IsAdminAuthorized()) return DenyOrLogin();
 
-            var products = await _context.Products
-                .Include(p => p.Category)
-                .AsNoTracking()
-                .OrderBy(p => p.Id)
-                .ToListAsync();
+            try
+            {
+                var products = await _context.Products
+                    .Include(p => p.Category)
+                    .AsNoTracking()
+                    .OrderBy(p => p.Id)
+                    .ToListAsync();
 
-            return View("~/Views/Admin/Products/Index.cshtml", products);
+                return View("~/Views/Admin/Products/Index.cshtml", products);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("=== [ADMIN ERROR]: " + ex.ToString());
+                _logger.LogError(ex, "=== [ADMIN ERROR] Lỗi tải danh sách sản phẩm: {Message}", ex.Message);
+                return View("~/Views/Admin/Products/Index.cshtml", new List<Product>());
+            }
         }
 
         [HttpPost("/Admin/Products/QuickRestock")]
