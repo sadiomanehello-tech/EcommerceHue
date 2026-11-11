@@ -37,8 +37,6 @@ public class OrdersController : Controller
     /// <param name="filterDate">Ngày đặt hàng cần lọc</param>
     /// <param name="filterStatus">Mã trạng thái đơn hàng (0: Chờ thanh toán, 1: Đã thanh toán, 3: Đang giao...)</param>
     [HttpGet]
-    [Route("/Admin/Orders")]
-    [Route("/Admin/Orders/Index")]
     [Route("Admin/[controller]")]
     [Route("Admin/[controller]/[action]")]
     public async Task<IActionResult> Index(DateTime? filterDate, int? filterStatus)
@@ -90,7 +88,6 @@ public class OrdersController : Controller
     /// </summary>
     /// <param name="orderId">Mã định danh số nguyên của đơn hàng</param>
     [HttpGet]
-    [Route("/Admin/Orders/GetOrderDetails")]
     [Route("Admin/[controller]/[action]")]
     public async Task<IActionResult> GetOrderDetails(int orderId)
     {
@@ -154,7 +151,6 @@ public class OrdersController : Controller
     /// <param name="nextStatus">Mã trạng thái mới (theo enum OrderStatus)</param>
     [HttpPost]
     [IgnoreAntiforgeryToken]
-    [Route("/Admin/Orders/UpdateShipmentStatus")]
     [Route("Admin/[controller]/[action]")]
     public async Task<IActionResult> UpdateShipmentStatus(int orderId, int nextStatus)
     {
@@ -267,7 +263,6 @@ public class OrdersController : Controller
     /// <param name="orderId">Mã đơn hàng</param>
     [HttpPost]
     [IgnoreAntiforgeryToken]
-    [Route("/Admin/Orders/CallGhnApi")]
     [Route("Admin/[controller]/[action]")]
     public async Task<IActionResult> CallGhnApi(int orderId)
     {
@@ -447,7 +442,6 @@ public class OrdersController : Controller
     /// </summary>
     /// <param name="orderId">Mã đơn hàng</param>
     [HttpGet]
-    [Route("/Admin/Orders/PrintOrderLabel")]
     [Route("Admin/[controller]/[action]")]
     public async Task<IActionResult> PrintOrderLabel(int orderId)
     {

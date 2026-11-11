@@ -62,7 +62,7 @@ namespace EcommerceHue.Controllers
         public IActionResult Index()
         {
             if (!IsAdminAuthorized()) return DenyOrLogin();
-            return RedirectToAction(nameof(Coupons));
+            return RedirectToAction(nameof(Orders));
         }
 
         // =====================================================================
@@ -361,38 +361,56 @@ namespace EcommerceHue.Controllers
 
         [HttpGet("/Admin/Orders")]
         [HttpGet("/Admin/Orders/Index")]
-        public async Task<IActionResult> Orders(string? search, int? status)
+        public async Task<IActionResult> Orders(string? search, int? status, DateTime? filterDate, int? filterStatus)
         {
             if (!IsAdminAuthorized()) return DenyOrLogin();
 
             try
             {
-                var query = _context.Orders
+                // 1. Tải toàn bộ danh sách đơn hàng về bộ nhớ RAM trước để tránh lỗi NotSupportedException
+                // do SQLite không hỗ trợ hàm tính toán tổng hợp, ép kiểu decimal hoặc hàm ngày tháng phức tạp trong LINQ to SQL
+                var allOrders = await _context.Orders
                     .Include(o => o.OrderDetails)
+                        .ThenInclude(od => od.Product)
                     .AsNoTracking()
-                    .AsQueryable();
+                    .ToListAsync();
 
-                if (status.HasValue && status.Value >= 0)
+                // 2. Lọc và sắp xếp an toàn trên bộ nhớ RAM (C#)
+                var query = allOrders.AsEnumerable();
+
+                var effectiveStatus = status ?? filterStatus;
+                if (effectiveStatus.HasValue && effectiveStatus.Value >= 0)
                 {
-                    query = query.Where(o => (int)o.Status == status.Value);
+                    query = query.Where(o => (int)o.Status == effectiveStatus.Value);
+                }
+
+                if (filterDate.HasValue)
+                {
+                    var targetDate = filterDate.Value.Date;
+                    query = query.Where(o => o.CreatedAt.ToLocalTime().Date == targetDate || o.CreatedAt.Date == targetDate);
                 }
 
                 if (!string.IsNullOrWhiteSpace(search))
                 {
-                    var s = search.Trim().ToLower();
-                    query = query.Where(o => o.OrderCode.ToLower().Contains(s)
-                                          || o.CustomerName.ToLower().Contains(s)
-                                          || o.CustomerPhone.Contains(s)
-                                          || o.CustomerEmail.ToLower().Contains(s));
+                    var s = search.Trim().ToLowerInvariant();
+                    query = query.Where(o => (o.OrderCode ?? "").ToLowerInvariant().Contains(s)
+                                          || (o.CustomerName ?? "").ToLowerInvariant().Contains(s)
+                                          || (o.CustomerPhone ?? "").Contains(s)
+                                          || (o.CustomerEmail ?? "").ToLowerInvariant().Contains(s));
                 }
 
-                var orders = await query.OrderByDescending(o => o.CreatedAt).ToListAsync();
+                // Mặc định luôn sắp xếp đơn hàng mới nhất lên đầu trên RAM
+                var orders = query.OrderByDescending(o => o.CreatedAt).ToList();
+
+                ViewData["FilterDate"] = filterDate?.ToString("yyyy-MM-dd");
+                ViewData["FilterStatus"] = effectiveStatus;
+
                 return View("~/Views/Admin/Orders/Index.cshtml", orders);
             }
             catch (Exception ex)
             {
-                Console.WriteLine("=== [ADMIN ERROR]: " + ex.ToString());
-                _logger.LogError(ex, "=== [ADMIN ERROR] Lỗi tải danh sách đơn hàng: {Message}", ex.Message);
+                Console.WriteLine("=== [ADMIN ORDERS ERROR]: " + ex.ToString());
+                _logger.LogError(ex, "=== [ADMIN ORDERS ERROR] Lỗi tải danh sách đơn hàng: {Message}", ex.Message);
                 return View("~/Views/Admin/Orders/Index.cshtml", new List<Order>());
             }
         }

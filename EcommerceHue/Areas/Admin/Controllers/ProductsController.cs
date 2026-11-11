@@ -27,8 +27,6 @@ public class ProductsController(
     /// và hạn sử dụng (ExpiryDate), ưu tiên hiển thị các mặt hàng hết hàng hoặc sắp hết lên đầu.
     /// </summary>
     [HttpGet]
-    [Route("/Admin/Products")]
-    [Route("/Admin/Products/Index")]
     public async Task<IActionResult> Index()
     {
         var products = await context.Products

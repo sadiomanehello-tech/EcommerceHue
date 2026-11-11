@@ -1,0 +1,6 @@
+@model IEnumerable<EcommerceHue.Models.Order>
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+@await Html.PartialAsync("~/Views/Admin/Orders/Index.cshtml", Model)
+

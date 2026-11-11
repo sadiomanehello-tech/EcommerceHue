@@ -433,12 +433,17 @@ public class CartController(
             List<Coupon> availableCoupons = new();
             try
             {
-                var nowUtc = DateTime.UtcNow;
-                availableCoupons = await context.Coupons
+                // Tải tất cả mã đang kích hoạt về RAM trước để tránh lỗi so sánh chuỗi ngày tháng SQLite TEXT
+                var allCoupons = await context.Coupons
                     .AsNoTracking()
-                    .Where(c => c.IsActive && c.StartDate <= nowUtc && nowUtc <= c.EndDate && c.UsedCount < c.UsageLimit)
-                    .OrderBy(c => c.MinOrderValue)
+                    .Where(c => c.IsActive)
                     .ToListAsync();
+
+                var nowUtc = DateTime.UtcNow;
+                availableCoupons = allCoupons
+                    .Where(c => c.StartDate <= nowUtc && c.EndDate >= nowUtc && c.UsedCount < c.UsageLimit)
+                    .OrderBy(c => c.MinOrderValue)
+                    .ToList();
             }
             catch (Exception cEx)
             {
