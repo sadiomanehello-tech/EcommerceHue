@@ -185,6 +185,18 @@ using (var scope = app.Services.CreateScope())
     // Ép hệ thống bắt buộc đợi tải xong file SQLite cũ về thư mục tạm rồi mới xử lý tiếp
     await backupService.DownloadDatabaseAsync();
 
+    // 1. Thực thi MigrateAsync để nâng cấp các bảng theo EF Core Migrations nếu có
+    var context = services.GetRequiredService<EcommerceContext>();
+    try
+    {
+        await context.Database.MigrateAsync();
+        Console.WriteLine("=== [SYSTEM MIGRATION] Đã áp dụng EF Core Migrations thành công! ===");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"=== [SYSTEM MIGRATION INFO] Bỏ qua lỗi MigrateAsync (hoặc DB cũ tạo bằng EnsureCreated): {ex.Message} ===");
+    }
+
     try
     {
         // Thực thi cấu trúc bảng và hạt giống dữ liệu trực tiếp trong luồng khởi động

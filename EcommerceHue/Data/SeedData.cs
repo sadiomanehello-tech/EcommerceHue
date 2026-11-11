@@ -1,4 +1,5 @@
 using EcommerceHue.Models;
+using EcommerceHue.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -43,6 +44,9 @@ public static class SeedData
         {
             await context.Database.MigrateAsync();
         }
+
+        // Đảm bảo bảng Coupons có đầy đủ các cột mới mở rộng (ALTER TABLE cho SQLite cũ tải từ Supabase)
+        await EnsureCouponColumnsAsync(context);
 
         // 2. Khởi tạo danh mục đặc sản Huế nếu chưa có
         if (!await context.Categories.AnyAsync())
@@ -191,6 +195,8 @@ public static class SeedData
         // Đã xóa bỏ hoàn toàn khối lệnh RemoveRange để đảm bảo không xóa dữ liệu đơn hàng và khách hàng khi restart.
 
         // 5. Khởi tạo mã giảm giá mẫu nếu chưa có
+        await EnsureCouponColumnsAsync(context);
+
         if (!await context.Coupons.AnyAsync(c => c.Code == "HUEWELCOME10"))
         {
             await context.Coupons.AddAsync(new Coupon
@@ -271,6 +277,21 @@ public static class SeedData
         }
         await context.SaveChangesAsync();
 
+        // Đồng bộ cơ sở dữ liệu đã nâng cấp cấu trúc lên lại Supabase Storage
+        var backupService = serviceProvider.GetService<DatabaseBackupService>();
+        if (backupService != null)
+        {
+            try
+            {
+                await backupService.UploadDatabaseAsync();
+                Console.WriteLine("=== [SUPABASE BACKUP] Đã đồng bộ bản DB đã nâng cấp cột lên lại Supabase Storage! ===");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"=== [SUPABASE BACKUP WARNING] Lỗi khi upload DB sau khi seed: {ex.Message} ===");
+            }
+        }
+
         // 6. Khởi tạo bài viết Blog ẩm thực Huế mẫu nếu chưa có
         if (!await context.Posts.AnyAsync())
         {
@@ -300,6 +321,37 @@ public static class SeedData
 
             await context.Posts.AddRangeAsync(posts);
             await context.SaveChangesAsync();
+        }
+    }
+
+    /// <summary>
+    /// Đảm bảo bảng Coupons chắc chắn có đủ các cột mới mở rộng (ALTER TABLE cho SQLite cũ tải từ Supabase).
+    /// Bọc từng câu lệnh SQL thuần trong khối try-catch riêng biệt để nếu cột đã tồn tại thì SQLite bỏ qua mà không ném lỗi ngắt mạch.
+    /// </summary>
+    private static async Task EnsureCouponColumnsAsync(EcommerceContext context)
+    {
+        var alterStatements = new[]
+        {
+            "ALTER TABLE \"Coupons\" ADD COLUMN \"Description\" TEXT NULL;",
+            "ALTER TABLE \"Coupons\" ADD COLUMN \"MinOrderValue\" TEXT NOT NULL DEFAULT '0';",
+            "ALTER TABLE \"Coupons\" ADD COLUMN \"MaxDiscountAmount\" TEXT NULL;",
+            "ALTER TABLE \"Coupons\" ADD COLUMN \"StartDate\" TEXT NOT NULL DEFAULT '2026-01-01 00:00:00';",
+            "ALTER TABLE \"Coupons\" ADD COLUMN \"EndDate\" TEXT NOT NULL DEFAULT '2027-01-01 00:00:00';",
+            "ALTER TABLE \"Coupons\" ADD COLUMN \"UsageLimit\" INTEGER NOT NULL DEFAULT 100;",
+            "ALTER TABLE \"Coupons\" ADD COLUMN \"UsedCount\" INTEGER NOT NULL DEFAULT 0;",
+            "ALTER TABLE \"Coupons\" ADD COLUMN \"EventTag\" TEXT NOT NULL DEFAULT 'Normal';"
+        };
+
+        foreach (var sql in alterStatements)
+        {
+            try
+            {
+                await context.Database.ExecuteSqlRawAsync(sql);
+            }
+            catch
+            {
+                // Bỏ qua nếu cột đã tồn tại (duplicate column name) trong SQLite
+            }
         }
     }
 }
