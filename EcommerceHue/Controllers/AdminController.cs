@@ -24,12 +24,14 @@ namespace EcommerceHue.Controllers
         EcommerceContext context,
         DatabaseBackupService backupService,
         IEmailService emailService,
-        ILogger<AdminController> logger) : Controller
+        ILogger<AdminController> logger,
+        IOrderExpirationService orderExpirationService) : Controller
     {
         private readonly EcommerceContext _context = context;
         private readonly DatabaseBackupService _backupService = backupService;
         private readonly IEmailService _emailService = emailService;
         private readonly ILogger<AdminController> _logger = logger;
+        private readonly IOrderExpirationService _orderExpirationService = orderExpirationService;
 
         /// <summary>
         /// Kiểm tra phân quyền Admin: Cho phép nếu có Role Admin hoặc cờ Session IsAdmin
@@ -537,6 +539,16 @@ namespace EcommerceHue.Controllers
 
             try
             {
+                // 0. Tự động kiểm tra & giải phóng đơn quá hạn 15 phút để hiển thị tồn kho cập nhật nhất
+                try
+                {
+                    await _orderExpirationService.ReleaseExpiredOrdersAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "[Admin-Products] Bỏ qua lỗi ReleaseExpiredOrdersAsync: {Message}", ex.Message);
+                }
+
                 // 1. Tải danh mục về RAM để gán vào ViewBag phục vụ các modal thêm/sửa sản phẩm
                 ViewBag.Categories = await _context.Categories
                     .AsNoTracking()

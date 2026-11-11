@@ -12,6 +12,10 @@ var builder = WebApplication.CreateBuilder(args);
 // --- Đăng ký dịch vụ Tự động sao lưu dữ liệu với Supabase Storage ---
 builder.Services.AddSingleton<DatabaseBackupService>();
 
+// --- Đăng ký dịch vụ Tự động hủy đơn quá hạn 15 phút & Hoàn trả tồn kho ---
+builder.Services.AddScoped<IOrderExpirationService, OrderExpirationService>();
+builder.Services.AddHostedService<OrderExpirationBackgroundService>();
+
 
 // ============================================================================
 // ĐĂNG KÝ DỊCH VỤ (Service Registration)

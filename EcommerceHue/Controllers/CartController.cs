@@ -24,7 +24,8 @@ public class CartController(
     ILogger<CartController> logger,
     IEmailService emailService,
     PayOS payOS,
-    DatabaseBackupService backupService) : Controller
+    DatabaseBackupService backupService,
+    IOrderExpirationService orderExpirationService) : Controller
 {
     private readonly IEmailService _emailService = emailService;
 
@@ -101,10 +102,20 @@ public class CartController(
     /// Cho phép truy cập ẩn danh (khách chưa đăng nhập vẫn xem được giỏ hàng).
     /// </summary>
     [HttpGet]
-    public IActionResult Index()
+    public async Task<IActionResult> Index()
     {
         try
         {
+            // Tự động kiểm tra & giải phóng tồn kho cho các đơn hàng quá hạn thanh toán 15 phút
+            try
+            {
+                await orderExpirationService.ReleaseExpiredOrdersAsync();
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "[Cart] Bỏ qua lỗi ReleaseExpiredOrdersAsync: {Message}", ex.Message);
+            }
+
             var cart = GetCart() ?? [];
             return View(cart);
         }

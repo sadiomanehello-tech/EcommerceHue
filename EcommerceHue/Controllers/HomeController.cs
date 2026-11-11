@@ -4,10 +4,13 @@ using Microsoft.EntityFrameworkCore;
 using EcommerceHue.Data;
 using EcommerceHue.Models;
 using EcommerceHue.Models.ViewModels;
+using EcommerceHue.Services;
 
 namespace EcommerceHue.Controllers;
 
-public class HomeController(EcommerceContext context) : Controller
+public class HomeController(
+    EcommerceContext context,
+    IOrderExpirationService orderExpirationService) : Controller
 {
     // =========================================================================
     // Action: Trang chủ – danh sách đặc sản Huế có tìm kiếm & lọc danh mục
@@ -21,6 +24,16 @@ public class HomeController(EcommerceContext context) : Controller
     /// <param name="categoryId">ID danh mục được chọn từ Sidebar để lọc</param>
     public async Task<IActionResult> Index(string? searchString, int? categoryId)
     {
+        // 0. Tự động kiểm tra & giải phóng tồn kho cho các đơn hàng quá hạn thanh toán 15 phút
+        try
+        {
+            await orderExpirationService.ReleaseExpiredOrdersAsync();
+        }
+        catch
+        {
+            // Bỏ qua lỗi ngắt mạch để không ảnh hưởng đến trải nghiệm tải trang chủ của khách hàng
+        }
+
         // 1. Lấy toàn bộ danh mục đang hoạt động để hiển thị Sidebar bên trái
         var categories = await context.Categories
             .AsNoTracking()
