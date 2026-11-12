@@ -424,6 +424,7 @@ namespace EcommerceHue.Controllers
 
             var order = await _context.Orders
                 .Include(o => o.OrderDetails)
+                    .ThenInclude(od => od.Product)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(o => o.Id == orderId);
 
@@ -432,12 +433,28 @@ namespace EcommerceHue.Controllers
                 return Json(new { success = false, message = "Không tìm thấy đơn hàng." });
             }
 
-            var items = order.OrderDetails.Select(d => new
+            var items = order.OrderDetails.Select(d =>
             {
-                d.ProductName,
-                d.Quantity,
-                d.UnitPrice,
-                totalPrice = d.Quantity * d.UnitPrice
+                var prod = d.Product;
+                var stock = prod?.StockQuantity ?? 0;
+                var expDateStr = prod != null ? prod.ExpiryDate.ToString("dd/MM/yyyy") : "Còn hạn";
+                var img = !string.IsNullOrWhiteSpace(prod?.ImageUrl) ? prod.ImageUrl : "/images/placeholder.jpg";
+                var lineTotal = d.Quantity * d.UnitPrice;
+
+                return new
+                {
+                    productId = d.ProductId,
+                    productName = !string.IsNullOrWhiteSpace(d.ProductName) ? d.ProductName : (prod?.Name ?? "Đặc sản Huế"),
+                    imageUrl = img,
+                    quantity = d.Quantity,
+                    unitPrice = d.UnitPrice,
+                    price = d.UnitPrice,
+                    stockQuantity = stock,
+                    expiryDate = expDateStr,
+                    totalPrice = lineTotal,
+                    lineTotal = lineTotal,
+                    subTotal = lineTotal
+                };
             }).ToList();
 
             return Json(new
@@ -457,25 +474,101 @@ namespace EcommerceHue.Controllers
         }
 
         [HttpPost("/Admin/Orders/UpdateShipmentStatus")]
-        public async Task<IActionResult> UpdateShipmentStatus(int orderId, int nextStatus)
+        [HttpPost("/Admin/Orders/UpdateOrderStatus")]
+        public async Task<IActionResult> UpdateShipmentStatus(int orderId, int? nextStatus, string? status)
         {
             if (!IsAdminAuthorized()) return StatusCode(403);
 
-            var order = await _context.Orders.FindAsync(orderId);
+            var order = await _context.Orders
+                .Include(o => o.OrderDetails)
+                    .ThenInclude(od => od.Product)
+                .FirstOrDefaultAsync(o => o.Id == orderId);
+
             if (order == null)
             {
                 return Json(new { success = false, message = "Không tìm thấy đơn hàng." });
             }
 
-            order.Status = (OrderStatus)nextStatus;
+            OrderStatus targetStatus;
+            if (nextStatus.HasValue)
+            {
+                targetStatus = (OrderStatus)nextStatus.Value;
+            }
+            else if (!string.IsNullOrWhiteSpace(status))
+            {
+                if (int.TryParse(status, out var sInt))
+                {
+                    targetStatus = (OrderStatus)sInt;
+                }
+                else if (Enum.TryParse<OrderStatus>(status, true, out var sEnum))
+                {
+                    targetStatus = sEnum;
+                }
+                else if (status.Contains("Hủy", StringComparison.OrdinalIgnoreCase) || status.Contains("Cancel", StringComparison.OrdinalIgnoreCase))
+                {
+                    targetStatus = OrderStatus.Cancelled;
+                }
+                else
+                {
+                    targetStatus = order.Status;
+                }
+            }
+            else
+            {
+                return Json(new { success = false, message = "Vui lòng chọn trạng thái đơn hàng hợp lệ." });
+            }
+
+            var previousStatus = order.Status;
+            bool isCancelling = (targetStatus == OrderStatus.Cancelled
+                                 || targetStatus.ToString().Contains("Cancel", StringComparison.OrdinalIgnoreCase)
+                                 || targetStatus.ToString().Contains("Hủy", StringComparison.OrdinalIgnoreCase));
+
+            // TỰ ĐỘNG HOÀN TRẢ TỒN KHO KHI ADMIN HỦY ĐƠN HÀNG:
+            // Kiểm tra: Nếu trạng thái mới chuyển sang trạng thái hủy VÀ trạng thái cũ trước đó CHƯA phải là hủy
+            // (để tránh cộng dồn tồn kho nhiều lần nếu Admin bấm lưu 2 lần)
+            bool stockRestored = false;
+            if (isCancelling && previousStatus != OrderStatus.Cancelled)
+            {
+                foreach (var detail in order.OrderDetails)
+                {
+                    var product = detail.Product ?? await _context.Products.FindAsync(detail.ProductId);
+                    if (product != null)
+                    {
+                        product.StockQuantity += detail.Quantity;
+                        product.IsAvailable = true;
+                        product.UpdatedAt = DateTime.UtcNow;
+
+                        _logger.LogInformation(
+                            "[Admin-HoànKho] Hủy đơn #{OrderId}: Hoàn trả {Quantity} sản phẩm '{ProductName}' (ID: {ProductId}). Tồn kho mới: {NewStock}",
+                            order.Id, detail.Quantity, product.Name, product.Id, product.StockQuantity);
+                    }
+                }
+
+                var cancelNote = $"[Admin hủy đơn & hoàn kho lúc {DateTime.UtcNow.AddHours(7):dd/MM/yyyy HH:mm}]";
+                order.Note = string.IsNullOrWhiteSpace(order.Note) ? cancelNote : $"{order.Note} | {cancelNote}";
+                stockRestored = true;
+            }
+
+            order.Status = targetStatus;
             order.UpdatedAt = DateTime.UtcNow;
+
             await _context.SaveChangesAsync();
+
+            // BẮT BUỘC: Đồng bộ số lượng tồn kho mới và trạng thái đơn hàng lên Supabase Storage
             await _backupService.UploadDatabaseAsync();
+
+            var message = stockRestored
+                ? $"Đã hủy đơn hàng #{order.Id} và tự động hoàn trả số lượng sản phẩm vào kho hàng thành công!"
+                : $"Đã cập nhật trạng thái đơn hàng #{order.Id} sang {order.Status} thành công!";
 
             return Json(new
             {
                 success = true,
-                message = $"Đã cập nhật trạng thái đơn hàng #{order.Id} sang {order.Status} thành công!"
+                message = message,
+                orderId = order.Id,
+                status = (int)order.Status,
+                statusName = order.Status.ToString(),
+                stockRestored = stockRestored
             });
         }
 

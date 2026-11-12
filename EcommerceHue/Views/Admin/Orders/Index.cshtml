@@ -533,37 +533,57 @@
             } else {
                 let html = '';
                 data.items.forEach(item => {
-                    const priceFormatted = Number(item.unitPrice).toLocaleString('vi-VN') + " ₫";
-                    const totalFormatted = Number(item.lineTotal).toLocaleString('vi-VN') + " ₫";
+                    // Kiểm tra linh hoạt cả camelCase và PascalCase để chống undefined
+                    const prodId = item.productId ?? item.ProductId ?? '--';
+                    const prodName = item.productName ?? item.ProductName ?? 'Đặc sản Huế';
+                    const imgUrl = item.imageUrl ?? item.ImageUrl ?? '/images/placeholder.jpg';
+                    const stock = item.stockQuantity ?? item.StockQuantity ?? 0;
+                    const expiry = item.expiryDate ?? item.ExpiryDate ?? 'Còn hạn';
+
+                    const qty = Number(item.quantity ?? item.Quantity ?? 0);
+                    const price = Number(item.price ?? item.unitPrice ?? item.UnitPrice ?? 0);
+
+                    // Tính toán Thành Tiền an toàn bằng (price * qty) tránh triệt để NaN đ và undefined
+                    const rawLineTotal = item.lineTotal ?? item.totalPrice ?? item.subTotal ?? (price * qty);
+                    const lineTotal = (isNaN(rawLineTotal) || rawLineTotal === null || rawLineTotal === undefined)
+                        ? (price * qty)
+                        : Number(rawLineTotal);
+
+                    const safePrice = isNaN(price) ? 0 : price;
+                    const safeTotal = isNaN(lineTotal) ? 0 : lineTotal;
+
+                    const priceFormatted = safePrice.toLocaleString('vi-VN') + " ₫";
+                    const totalFormatted = safeTotal.toLocaleString('vi-VN') + " ₫";
+
                     html += `
                         <tr>
                             <td class="ps-3 py-2">
                                 <div class="d-flex align-items-center gap-2">
-                                    <img src="${item.imageUrl}" 
-                                         alt="${item.productName}" 
+                                    <img src="${imgUrl}" 
+                                         alt="${prodName}" 
                                          class="rounded-3 border object-fit-cover" 
                                          style="width: 44px; height: 44px;"
                                          onerror="this.src='/images/placeholder.jpg'" />
                                     <div>
-                                        <div class="fw-bold text-dark">${item.productName}</div>
-                                        <span class="text-muted small" style="font-size: 0.72rem;">Mã SP: #${item.productId}</span>
+                                        <div class="fw-bold text-dark">${prodName}</div>
+                                        <span class="text-muted small" style="font-size: 0.72rem;">Mã SP: #${prodId}</span>
                                     </div>
                                 </div>
                             </td>
                             <td class="text-center text-muted small">
-                                <span class="badge ${item.stockQuantity > 5 ? 'bg-light text-dark border' : 'bg-danger-subtle text-danger'}">
-                                    ${item.stockQuantity} cái
+                                <span class="badge ${stock > 5 ? 'bg-light text-dark border' : 'bg-danger-subtle text-danger'}">
+                                    ${stock} cái
                                 </span>
                             </td>
                             <td class="text-center text-muted small font-monospace">
-                                ${item.expiryDate}
+                                ${expiry}
                             </td>
                             <td class="text-end text-muted small">
                                 ${priceFormatted}
                             </td>
                             <td class="text-center fw-extrabold text-primary fs-6" style="background-color: #f0f7ff;">
                                 <span class="badge bg-primary px-3 py-1.5 rounded-pill fs-6 shadow-xs">
-                                    x ${item.quantity}
+                                    x ${qty}
                                 </span>
                             </td>
                             <td class="text-end pe-3 fw-bold text-danger">
