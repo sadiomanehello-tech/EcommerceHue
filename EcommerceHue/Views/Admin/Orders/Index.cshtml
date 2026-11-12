@@ -31,6 +31,9 @@
         </div>
 
         <div class="d-flex align-items-center gap-2 flex-wrap">
+            <a href="/Admin/SendDailyReportNow" class="btn btn-sm rounded-pill shadow-xs fw-bold text-white px-3" style="background-color: #0d9488; border-color: #0d9488;" title="Gửi ngay báo cáo doanh thu hôm nay về Telegram Bot">
+                📊 Gửi Báo Cáo Doanh Thu Qua Telegram
+            </a>
             <a href="/Admin/Coupons" class="btn btn-outline-purple btn-sm rounded-pill shadow-xs fw-semibold" style="color: #6f42c1; border-color: #6f42c1;">
                 🎟️ Voucher & Marketing
             </a>
@@ -48,6 +51,24 @@
             </span>
         </div>
     </div>
+
+    @if (TempData["Success"] != null || TempData["AdminSuccess"] != null)
+    {
+        var msg = TempData["Success"] ?? TempData["AdminSuccess"];
+        <div class="alert alert-success alert-dismissible fade show rounded-4 shadow-xs mb-4 d-flex align-items-center" role="alert" style="background-color: #f0fdf4; border-color: #bbf7d0; color: #166534;">
+            <i class="bi bi-check-circle-fill fs-5 me-2"></i>
+            <div class="fw-semibold">@msg</div>
+            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+    @if (TempData["AdminError"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show rounded-4 shadow-xs mb-4 d-flex align-items-center" role="alert">
+            <i class="bi bi-exclamation-triangle-fill fs-5 me-2"></i>
+            <div class="fw-semibold">@TempData["AdminError"]</div>
+            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
 
     <!-- CÁC THẺ THỐNG KÊ TRẠNG THÁI SCANNABLE -->
     <div class="row g-3 mb-4">

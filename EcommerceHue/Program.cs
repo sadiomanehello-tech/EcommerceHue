@@ -16,6 +16,9 @@ builder.Services.AddSingleton<DatabaseBackupService>();
 builder.Services.AddScoped<IOrderExpirationService, OrderExpirationService>();
 builder.Services.AddHostedService<OrderExpirationBackgroundService>();
 
+// --- Đăng ký dịch vụ Tự động gửi báo cáo doanh thu cuối ngày qua Telegram (21:00 - 21:30) ---
+builder.Services.AddHostedService<DailyReportBackgroundService>();
+
 
 // ============================================================================
 // ĐĂNG KÝ DỊCH VỤ (Service Registration)

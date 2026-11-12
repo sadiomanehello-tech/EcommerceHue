@@ -994,6 +994,12 @@ public class CartController(
                 logger.LogInformation(
                     "[Kho hàng - Chiều giảm] Trừ {Quantity} sản phẩm '{ProductName}' (ID: {ProductId}). Tồn kho còn lại: {NewStock}",
                     item.Quantity, product.Name, product.Id, product.StockQuantity);
+
+                // Cảnh báo tồn kho thấp nếu số lượng còn lại < 5 (Dưới mức an toàn)
+                if (product.StockQuantity < 5)
+                {
+                    await _telegramService.SendLowStockAlertAsync(product);
+                }
             }
         }
 
@@ -1195,10 +1201,19 @@ public class CartController(
         logger.LogInformation("[payOS] Khởi tạo link thanh toán động đơn hàng #{OrderId} - {OrderCode} | UniqueCode: {UniqueCode}, Nội dung CK: {PaymentContent}, Số tiền: {Amount}",
             order.Id, order.OrderCode, uniqueOrderCode, paymentContent, totalAmount);
 
-        // Gọi hàm sinh link thanh toán động từ SDK payOS
-        CreatePaymentResult result = await payOS.createPaymentLink(paymentData);
-
-        logger.LogInformation("[payOS] Sinh link thanh toán thành công: {CheckoutUrl}", result.checkoutUrl);
+        // Gọi hàm sinh link thanh toán động từ SDK payOS (Bọc kiểm soát lỗi và gửi cảnh báo Telegram nếu xảy ra sự cố)
+        CreatePaymentResult result;
+        try
+        {
+            result = await payOS.createPaymentLink(paymentData);
+            logger.LogInformation("[payOS] Sinh link thanh toán thành công: {CheckoutUrl}", result.checkoutUrl);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "[payOS] Lỗi khi tạo link thanh toán: {Message}", ex.Message);
+            await _telegramService.SendSystemAlertAsync("PayOS Payment Gateway", ex.Message);
+            throw; // Ném tiếp để khối try-catch ngoài hiển thị thông báo lỗi thân thiện cho khách
+        }
 
         // 1. Tạo đường link ảnh QR động thông qua API mở của VietQR dựa trên thông tin thật của đơn hàng
         string qrImageSrc = $"https://img.vietqr.io/image/BIDV-8811843594-compact2.png?amount={order.TotalAmount}&addInfo=DH{order.Id}%20{order.OrderCode}&accountName=HO%20ANH%20TAI";

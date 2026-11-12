@@ -25,13 +25,18 @@ namespace EcommerceHue.Controllers
         DatabaseBackupService backupService,
         IEmailService emailService,
         ILogger<AdminController> logger,
-        IOrderExpirationService orderExpirationService) : Controller
+        IOrderExpirationService orderExpirationService,
+        TelegramService telegramService) : Controller
     {
         private readonly EcommerceContext _context = context;
         private readonly DatabaseBackupService _backupService = backupService;
         private readonly IEmailService _emailService = emailService;
         private readonly ILogger<AdminController> _logger = logger;
         private readonly IOrderExpirationService _orderExpirationService = orderExpirationService;
+        private readonly TelegramService _telegramService = telegramService;
+
+        // Cờ lưu vết thời điểm gửi cảnh báo sản phẩm cận date gần nhất (chỉ gửi tối đa 1 lần mỗi 6 tiếng)
+        private static DateTime? _lastExpiryAlertTime;
 
         /// <summary>
         /// Kiểm tra phân quyền Admin: Cho phép nếu có Role Admin hoặc cờ Session IsAdmin
@@ -655,6 +660,29 @@ namespace EcommerceHue.Controllers
                     .AsNoTracking()
                     .ToListAsync();
 
+                // 2.1. Tự động kiểm tra sản phẩm cận hạn sử dụng (< 15 ngày) và gửi cảnh báo Telegram (tối đa 1 lần mỗi 6 tiếng)
+                try
+                {
+                    var nowVn = DateTime.UtcNow.AddHours(7);
+                    if (!_lastExpiryAlertTime.HasValue || (nowVn - _lastExpiryAlertTime.Value).TotalHours >= 6)
+                    {
+                        var thresholdDate = DateOnly.FromDateTime(nowVn.AddDays(15));
+                        var expiringProducts = allProducts
+                            .Where(p => p.IsAvailable && p.StockQuantity > 0 && p.ExpiryDate <= thresholdDate)
+                            .ToList();
+
+                        if (expiringProducts.Any())
+                        {
+                            _lastExpiryAlertTime = nowVn;
+                            await _telegramService.SendExpiryAlertAsync(expiringProducts);
+                        }
+                    }
+                }
+                catch (Exception alertEx)
+                {
+                    _logger.LogWarning(alertEx, "[Admin-Products] Bỏ qua lỗi gửi cảnh báo cận date qua Telegram: {Message}", alertEx.Message);
+                }
+
                 // 3. Sắp xếp an toàn trên RAM C# (ưu tiên hết hàng / sắp hết lên trên)
                 var products = allProducts
                     .OrderBy(p => p.StockQuantity)
@@ -1090,6 +1118,83 @@ namespace EcommerceHue.Controllers
                 _logger.LogError(ex, "=== [ADMIN PRODUCTS ERROR] Lỗi xóa sản phẩm #{Id}: {Message}", id, ex.Message);
                 return Json(new { success = false, message = "Lỗi khi xóa sản phẩm: " + ex.Message });
             }
+        }
+
+        // =====================================================================
+        // 4. BÁO CÁO DOANH THU HÔM NAY QUA TELEGRAM BOT (ACTION KÍCH HOẠT THỦ CÔNG)
+        // =====================================================================
+
+        /// <summary>
+        /// Kích hoạt gửi ngay báo cáo tổng kết doanh thu và đơn hàng trong ngày về Telegram Bot của Quản trị viên
+        /// </summary>
+        [HttpGet("/Admin/SendDailyReportNow")]
+        [HttpPost("/Admin/SendDailyReportNow")]
+        public async Task<IActionResult> SendDailyReportNow()
+        {
+            if (!IsAdminAuthorized()) return DenyOrLogin();
+
+            try
+            {
+                var nowVn = DateTime.UtcNow.AddHours(7);
+                var targetDate = nowVn.Date;
+                var startUtc = targetDate.AddHours(-7);
+                var endUtc = startUtc.AddDays(1);
+
+                // Nạp danh sách đơn hàng trong ngày về RAM
+                var dayOrders = await _context.Orders
+                    .Include(o => o.OrderDetails)
+                    .AsNoTracking()
+                    .Where(o => o.CreatedAt >= startUtc && o.CreatedAt < endUtc)
+                    .ToListAsync();
+
+                int totalOrders = dayOrders.Count;
+                int completedOrders = dayOrders.Count(o => 
+                    o.Status == OrderStatus.Paid || 
+                    o.Status == OrderStatus.Confirmed || 
+                    o.Status == OrderStatus.Shipping || 
+                    o.Status == OrderStatus.Delivered);
+                int cancelledOrders = dayOrders.Count(o => o.Status == OrderStatus.Cancelled);
+
+                bool IsCod(Order o) => 
+                    (o.PaymentMethod != null && o.PaymentMethod.Contains("COD")) || 
+                    (o.Note != null && o.Note.Contains("COD"));
+
+                decimal payosRevenue = dayOrders
+                    .Where(o => !IsCod(o) && o.Status != OrderStatus.PendingPayment && o.Status != OrderStatus.Cancelled)
+                    .Sum(o => o.TotalAmount);
+
+                decimal codRevenue = dayOrders
+                    .Where(o => IsCod(o) && (o.Status == OrderStatus.Delivered || o.Status == OrderStatus.Shipping || o.Status == OrderStatus.Confirmed))
+                    .Sum(o => o.TotalAmount);
+
+                var topProduct = dayOrders
+                    .Where(o => o.Status != OrderStatus.Cancelled)
+                    .SelectMany(o => o.OrderDetails)
+                    .GroupBy(d => d.ProductName)
+                    .OrderByDescending(g => g.Sum(d => d.Quantity))
+                    .Select(g => $"{g.Key} ({g.Sum(d => d.Quantity)} sp)")
+                    .FirstOrDefault() ?? "Chưa có phát sinh";
+
+                await _telegramService.SendDailyRevenueReportAsync(
+                    targetDate, 
+                    totalOrders, 
+                    completedOrders, 
+                    cancelledOrders, 
+                    payosRevenue, 
+                    codRevenue, 
+                    topProduct);
+
+                TempData["Success"] = "Đã gửi báo cáo doanh thu hôm nay về Telegram!";
+                TempData["AdminSuccess"] = "Đã gửi báo cáo doanh thu hôm nay về Telegram!";
+                _logger.LogInformation("[Admin] Quản trị viên đã bấm gửi báo cáo doanh thu thủ công qua Telegram thành công.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[Admin] Lỗi khi gửi báo cáo doanh thu Telegram: {Message}", ex.Message);
+                TempData["AdminError"] = "Lỗi khi gửi báo cáo Telegram: " + ex.Message;
+            }
+
+            return RedirectToAction(nameof(Orders));
         }
     }
 }

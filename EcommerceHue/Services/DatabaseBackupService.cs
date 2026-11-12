@@ -5,12 +5,14 @@ using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace EcommerceHue.Services
 {
     public class DatabaseBackupService
     {
         private readonly HttpClient _httpClient;
+        private readonly IServiceProvider _serviceProvider;
         private readonly string _supabaseUrl;
         private readonly string _supabaseKey;
         private readonly string _bucketName = "sqlite-backup"; // Tên Bucket trên Supabase Storage
@@ -18,8 +20,9 @@ namespace EcommerceHue.Services
         private readonly string _localFilePath;
 
         // Hàm khởi tạo: Tự động chạy khi ứng dụng nạp dịch vụ
-        public DatabaseBackupService(IConfiguration configuration)
+        public DatabaseBackupService(IConfiguration configuration, IServiceProvider serviceProvider)
         {
+            _serviceProvider = serviceProvider;
             _httpClient = new HttpClient();
 
             // Đọc cấu hình linh hoạt cả hai định dạng cấu hình phân cấp (dấu hai chấm) và biến môi trường thô
@@ -42,6 +45,29 @@ namespace EcommerceHue.Services
                                 ?? "Data Source=/tmp/ecommercehue.db";
 
             _localFilePath = ParseFilePathFromConnectionString(connectionString);
+        }
+
+        /// <summary>
+        /// Gửi cảnh báo lỗi sao lưu tới Telegram qua ServiceProvider an toàn (tránh phụ thuộc vòng lặp DI)
+        /// </summary>
+        private async Task SendTelegramAlertSafelyAsync(string errorMessage)
+        {
+            try
+            {
+                if (_serviceProvider != null)
+                {
+                    using var scope = _serviceProvider.CreateScope();
+                    var telegramService = scope.ServiceProvider.GetService<TelegramService>();
+                    if (telegramService != null)
+                    {
+                        await telegramService.SendSystemAlertAsync("Supabase Storage Backup", errorMessage);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"=== [SUPABASE BACKUP] Không thể gửi cảnh báo Telegram: {ex.Message} ===");
+            }
         }
 
         /// <summary>
@@ -87,11 +113,18 @@ namespace EcommerceHue.Services
                 {
                     var errBody = await response.Content.ReadAsStringAsync();
                     Console.WriteLine($"=== [SUPABASE BACKUP] Chưa có bản sao lưu trước đó trên đám mây ({response.StatusCode}: {errBody}). Tạo mới DB trống.");
+                    
+                    // Nếu là lỗi phân quyền hoặc lỗi máy chủ, lập tức báo động Telegram
+                    if (response.StatusCode != System.Net.HttpStatusCode.NotFound)
+                    {
+                        await SendTelegramAlertSafelyAsync($"Khôi phục DB thất bại (HTTP {(int)response.StatusCode}): {errBody}");
+                    }
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"=== [SUPABASE BACKUP] Lỗi hệ thống khi khôi phục database: {ex.Message} ===");
+                await SendTelegramAlertSafelyAsync($"Ngoại lệ khôi phục DB: {ex.Message}");
             }
         }
 
@@ -103,6 +136,7 @@ namespace EcommerceHue.Services
             if (string.IsNullOrEmpty(_supabaseUrl) || string.IsNullOrEmpty(_supabaseKey))
             {
                 Console.WriteLine("=== [SUPABASE BACKUP ERROR] Thiếu cấu hình Supabase__Url hoặc Supabase__Key!");
+                await SendTelegramAlertSafelyAsync("Thiếu cấu hình Supabase__Url hoặc Supabase__Key để sao lưu dữ liệu.");
                 return;
             }
 
@@ -159,11 +193,13 @@ namespace EcommerceHue.Services
                 {
                     var errBody = await response.Content.ReadAsStringAsync();
                     Console.WriteLine($"=== [SUPABASE BACKUP FAILED] Status: {response.StatusCode} | Detail: {errBody}");
+                    await SendTelegramAlertSafelyAsync($"Upload sao lưu SQLite thất bại (HTTP {(int)response.StatusCode}): {errBody}");
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"=== [SUPABASE BACKUP] Lỗi kết nối luồng đẩy dữ liệu: {ex.Message} ===");
+                await SendTelegramAlertSafelyAsync($"Ngoại lệ đẩy sao lưu SQLite lên Supabase: {ex.Message}");
             }
         }
 
