@@ -289,8 +289,13 @@
               <input type="text" name="Name" class="form-control" placeholder="Ví dụ: Mè xửng Thiên Hương đặc biệt" required />
             </div>
             <div class="col-md-4">
-              <label class="form-label fw-semibold">Danh mục <span class="text-danger">*</span></label>
-              <select name="CategoryId" class="form-select" required>
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <label class="form-label fw-semibold mb-0">Danh mục <span class="text-danger">*</span></label>
+                <a href="javascript:void(0)" class="small text-primary text-decoration-none btn-toggle-new-cat" data-target="#newCatCreateWrapper" style="font-size: 0.8rem;">
+                  <i class="bi bi-plus-circle-dotted"></i> + Thêm mới
+                </a>
+              </div>
+              <select name="CategoryId" class="form-select select-category" required>
                 @if (categories != null && categories.Any())
                 {
                     foreach (var cat in categories)
@@ -305,6 +310,15 @@
                     <option value="3">Trà cung đình Huế</option>
                 }
               </select>
+              <div class="mt-2" id="newCatCreateWrapper" style="display: none;">
+                <div class="input-group input-group-sm">
+                  <input type="text" name="newCategoryName" class="form-control" placeholder="Tên danh mục mới..." />
+                  <button type="button" class="btn btn-primary btn-save-quick-cat" data-input-target="#newCatCreateWrapper input" data-select-target="#createProductModal .select-category">
+                    Lưu & Chọn
+                  </button>
+                </div>
+                <div class="form-text small text-muted" style="font-size: 0.72rem;">Tự động tạo vào CSDL và đồng bộ lên mây</div>
+              </div>
             </div>
 
             <div class="col-md-4">
@@ -376,8 +390,13 @@
               <input type="text" name="name" id="editProductName" class="form-control" required />
             </div>
             <div class="col-md-4">
-              <label class="form-label fw-semibold">Danh mục <span class="text-danger">*</span></label>
-              <select name="categoryId" id="editProductCategory" class="form-select" required>
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <label class="form-label fw-semibold mb-0">Danh mục <span class="text-danger">*</span></label>
+                <a href="javascript:void(0)" class="small text-primary text-decoration-none btn-toggle-new-cat" data-target="#newCatEditWrapper" style="font-size: 0.8rem;">
+                  <i class="bi bi-plus-circle-dotted"></i> + Thêm mới
+                </a>
+              </div>
+              <select name="categoryId" id="editProductCategory" class="form-select select-category" required>
                 @if (categories != null && categories.Any())
                 {
                     foreach (var cat in categories)
@@ -392,6 +411,15 @@
                     <option value="3">Trà cung đình Huế</option>
                 }
               </select>
+              <div class="mt-2" id="newCatEditWrapper" style="display: none;">
+                <div class="input-group input-group-sm">
+                  <input type="text" name="newCategoryName" class="form-control" placeholder="Tên danh mục mới..." />
+                  <button type="button" class="btn btn-primary btn-save-quick-cat" data-input-target="#newCatEditWrapper input" data-select-target="#editProductCategory">
+                    Lưu & Chọn
+                  </button>
+                </div>
+                <div class="form-text small text-muted" style="font-size: 0.72rem;">Tự động tạo vào CSDL và đồng bộ lên mây</div>
+              </div>
             </div>
 
             <div class="col-md-4">
@@ -757,6 +785,77 @@
                 } finally {
                     this.disabled = false;
                     this.innerHTML = originalHtml;
+                }
+            });
+        });
+
+        // =========================================================================
+        // 5. THÊM NHANH DANH MỤC MỚI CHO SẢN PHẨM (AJAX & LIVE SELECT)
+        // =========================================================================
+        document.querySelectorAll('.btn-toggle-new-cat').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetSelector = this.dataset.target;
+                const target = document.querySelector(targetSelector);
+                if (target) {
+                    const isHidden = target.style.display === 'none' || !target.style.display;
+                    target.style.display = isHidden ? 'block' : 'none';
+                    if (isHidden) {
+                        const input = target.querySelector('input');
+                        if (input) input.focus();
+                    }
+                }
+            });
+        });
+
+        document.querySelectorAll('.btn-save-quick-cat').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const inputEl = document.querySelector(this.dataset.inputTarget);
+                const selectEl = document.querySelector(this.dataset.selectTarget);
+                if (!inputEl || !inputEl.value.trim()) {
+                    alert('Vui lòng nhập tên danh mục mới!');
+                    if (inputEl) inputEl.focus();
+                    return;
+                }
+
+                const catName = inputEl.value.trim();
+                const origHtml = this.innerHTML;
+                this.disabled = true;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+                try {
+                    const res = await fetch('/Admin/Categories/QuickCreate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: 'name=' + encodeURIComponent(catName)
+                    });
+                    const data = await res.json();
+                    if (data.success && data.category) {
+                        // Bổ sung Option mới vào tất cả select danh mục
+                        document.querySelectorAll('.select-category').forEach(sel => {
+                            let opt = sel.querySelector(`option[value="${data.category.id}"]`);
+                            if (!opt) {
+                                opt = new Option(data.category.name, data.category.id);
+                                sel.add(opt);
+                            }
+                        });
+                        // Chọn danh mục mới tạo
+                        if (selectEl) {
+                            selectEl.value = data.category.id;
+                        }
+                        inputEl.value = '';
+                        const wrapper = inputEl.closest('[id^="newCat"]');
+                        if (wrapper) wrapper.style.display = 'none';
+                        alert('✅ ' + data.message);
+                    } else {
+                        alert(data.message || 'Lỗi khi tạo danh mục!');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert('Lỗi kết nối khi tạo danh mục mới!');
+                } finally {
+                    this.disabled = false;
+                    this.innerHTML = origHtml;
                 }
             });
         });

@@ -35,6 +35,7 @@ public static class SeedData
     public static async Task Initialize(IServiceProvider serviceProvider)
     {
         var context = serviceProvider.GetRequiredService<EcommerceContext>();
+        var backupService = serviceProvider.GetService<DatabaseBackupService>();
 
         // 1. Đảm bảo cấu trúc các bảng đã được tạo sẵn
         if (context.Database.IsSqlite())
@@ -49,42 +50,57 @@ public static class SeedData
         // Đảm bảo bảng Coupons có đầy đủ các cột mới mở rộng (ALTER TABLE cho SQLite cũ tải từ Supabase)
         await EnsureCouponColumnsAsync(context);
 
-        // 2. Khởi tạo danh mục đặc sản Huế nếu chưa có
-        if (!await context.Categories.AnyAsync())
+        // 2. Khởi tạo danh mục đặc sản Huế nếu chưa có hoặc bổ sung các danh mục mẫu mới
+        var defaultCategories = new (string Name, string Description, string ImageUrl, int Order)[]
         {
-            var categories = new List<Category>
-            {
-                new()
-                {
-                    Name         = "Mè xửng",
-                    Description  = "Mè xửng Huế – đặc sản truyền thống ngọt thanh, thơm bùi mè rang.",
-                    ImageUrl     = CategoryImages["Mè xửng"],
-                    DisplayOrder = 1,
-                    IsActive     = true,
-                    CreatedAt    = DateTime.UtcNow
-                },
-                new()
-                {
-                    Name         = "Tôm chua",
-                    Description  = "Tôm chua Huế – hương vị cung đình lên men tự nhiên, đậm đà bản sắc cố đô.",
-                    ImageUrl     = CategoryImages["Tôm chua"],
-                    DisplayOrder = 2,
-                    IsActive     = true,
-                    CreatedAt    = DateTime.UtcNow
-                },
-                new()
-                {
-                    Name         = "Trà cung đình Huế",
-                    Description  = "Trà cung đình Huế – thảo mộc hoàng gia quý phái, thanh nhiệt dưỡng sinh.",
-                    ImageUrl     = CategoryImages["Trà cung đình Huế"],
-                    DisplayOrder = 3,
-                    IsActive     = true,
-                    CreatedAt    = DateTime.UtcNow
-                }
-            };
+            ("Mè xửng", "Mè xửng Huế – đặc sản truyền thống ngọt thanh, thơm bùi mè rang.",
+             CategoryImages.GetValueOrDefault("Mè xửng", "https://images.unsplash.com/photo-1772984960196-b387b4f2f524?w=400&h=300&fit=crop&q=80"), 1),
+            ("Tôm chua", "Tôm chua Huế – hương vị cung đình lên men tự nhiên, đậm đà bản sắc cố đô.",
+             CategoryImages.GetValueOrDefault("Tôm chua", "https://upload.wikimedia.org/wikipedia/commons/c/c0/Mam_tom_chua_di_Can.jpg"), 2),
+            ("Trà cung đình Huế", "Trà cung đình Huế – thảo mộc hoàng gia quý phái, thanh nhiệt dưỡng sinh.",
+             CategoryImages.GetValueOrDefault("Trà cung đình Huế", "https://images.unsplash.com/photo-1758899058841-d70f58437fe5?w=400&h=300&fit=crop&q=80"), 3),
+            ("Nem & Tré Huế", "Nem chua, tré gia truyền chuẩn vị Cố Đô",
+             "https://images.unsplash.com/photo-1544025162-d76694265947?w=400&h=300&fit=crop&q=80", 4),
+            ("Bánh & Kẹo truyền thống", "Bánh ép, bánh bột lọc, kẹo cau xứ Huế",
+             "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&h=300&fit=crop&q=80", 5),
+            ("Combo Quà Biếu Huế", "Các bộ quà tặng đặc sản đóng hộp sang trọng",
+             "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=400&h=300&fit=crop&q=80", 6)
+        };
 
-            await context.Categories.AddRangeAsync(categories);
+        bool categoriesAdded = false;
+        foreach (var catInfo in defaultCategories)
+        {
+            if (!await context.Categories.AnyAsync(c => c.Name == catInfo.Name))
+            {
+                await context.Categories.AddAsync(new Category
+                {
+                    Name = catInfo.Name,
+                    Description = catInfo.Description,
+                    ImageUrl = catInfo.ImageUrl,
+                    DisplayOrder = catInfo.Order,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+                categoriesAdded = true;
+                Console.WriteLine($"=== [SEED DATA] Đã thêm danh mục mới: '{catInfo.Name}' ===");
+            }
+        }
+
+        if (categoriesAdded)
+        {
             await context.SaveChangesAsync();
+            try
+            {
+                if (backupService != null)
+                {
+                    await backupService.UploadDatabaseAsync();
+                    Console.WriteLine("=== [SEED DATA] Đã đồng bộ danh mục mới lên Supabase Storage thành công! ===");
+                }
+            }
+            catch (Exception exSync)
+            {
+                Console.WriteLine("=== [SEED DATA BACKUP ERROR]: " + exSync.Message);
+            }
         }
 
         // Lấy danh mục để liên kết khóa ngoại Foreign Key
@@ -282,7 +298,6 @@ public static class SeedData
         SqliteConnection.ClearAllPools();
 
         // Đồng bộ cơ sở dữ liệu đã nâng cấp cấu trúc lên lại Supabase Storage
-        var backupService = serviceProvider.GetService<DatabaseBackupService>();
         if (backupService != null)
         {
             try

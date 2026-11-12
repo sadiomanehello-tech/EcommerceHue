@@ -753,14 +753,95 @@ namespace EcommerceHue.Controllers
             return trimmed;
         }
 
+        [HttpPost("/Admin/Categories/QuickCreate")]
+        [HttpPost("/Admin/QuickCreateCategory")]
+        public async Task<IActionResult> QuickCreateCategory(string name, string? description)
+        {
+            if (!IsAdminAuthorized()) return StatusCode(403);
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return Json(new { success = false, message = "Tên danh mục không được để trống." });
+            }
+
+            try
+            {
+                var cleanName = name.Trim();
+                var existing = await _context.Categories.FirstOrDefaultAsync(c => c.Name.ToLower() == cleanName.ToLower());
+                if (existing != null)
+                {
+                    return Json(new
+                    {
+                        success = true,
+                        category = new { existing.Id, existing.Name },
+                        message = $"Danh mục '{existing.Name}' đã tồn tại sẵn trong hệ thống!"
+                    });
+                }
+
+                var maxOrder = await _context.Categories.MaxAsync(c => (int?)c.DisplayOrder) ?? 0;
+                var category = new Category
+                {
+                    Name = cleanName,
+                    Description = !string.IsNullOrWhiteSpace(description) ? description.Trim() : $"Đặc sản thuộc nhóm {cleanName}",
+                    DisplayOrder = maxOrder + 1,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                await _context.Categories.AddAsync(category);
+                await _context.SaveChangesAsync();
+                await _backupService.UploadDatabaseAsync();
+
+                _logger.LogInformation("[Admin-Category] Đã tạo nhanh danh mục mới #{Id}: '{Name}'", category.Id, category.Name);
+
+                return Json(new
+                {
+                    success = true,
+                    category = new { category.Id, category.Name },
+                    message = $"Đã tạo thành công danh mục mới '{category.Name}'!"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi khi tạo nhanh danh mục: {Message}", ex.Message);
+                return Json(new { success = false, message = "Lỗi khi tạo danh mục: " + ex.Message });
+            }
+        }
+
         [HttpPost("/Admin/Products/Create")]
         [HttpPost("/Admin/CreateProduct")]
-        public async Task<IActionResult> CreateProduct(Product product)
+        public async Task<IActionResult> CreateProduct(Product product, string? newCategoryName)
         {
             if (!IsAdminAuthorized()) return StatusCode(403);
 
             try
             {
+                // Nếu Admin nhập tên danh mục mới ngay tại form
+                if (!string.IsNullOrWhiteSpace(newCategoryName))
+                {
+                    var cleanCatName = newCategoryName.Trim();
+                    var existingCat = await _context.Categories.FirstOrDefaultAsync(c => c.Name.ToLower() == cleanCatName.ToLower());
+                    if (existingCat != null)
+                    {
+                        product.CategoryId = existingCat.Id;
+                    }
+                    else
+                    {
+                        var maxOrder = await _context.Categories.MaxAsync(c => (int?)c.DisplayOrder) ?? 0;
+                        var newCat = new Category
+                        {
+                            Name = cleanCatName,
+                            Description = $"Đặc sản thuộc nhóm {cleanCatName}",
+                            DisplayOrder = maxOrder + 1,
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        await _context.Categories.AddAsync(newCat);
+                        await _context.SaveChangesAsync();
+                        product.CategoryId = newCat.Id;
+                        _logger.LogInformation("[Admin-CreateProduct] Đã tạo tự động danh mục mới #{Id}: '{Name}'", newCat.Id, newCat.Name);
+                    }
+                }
+
                 // Tự động chuẩn hóa đường dẫn ảnh Unsplash
                 product.ImageUrl = NormalizeImageUrl(product.ImageUrl);
                 product.CreatedAt = DateTime.UtcNow;
@@ -797,7 +878,8 @@ namespace EcommerceHue.Controllers
             string? expiryDate,
             string? imageUrl,
             string? description,
-            bool isAvailable)
+            bool isAvailable,
+            string? newCategoryName)
         {
             if (!IsAdminAuthorized()) return StatusCode(403);
 
@@ -812,6 +894,33 @@ namespace EcommerceHue.Controllers
                     }
                     TempData["AdminError"] = "Không tìm thấy sản phẩm.";
                     return RedirectToAction(nameof(Products));
+                }
+
+                // Nếu Admin nhập tên danh mục mới khi sửa
+                if (!string.IsNullOrWhiteSpace(newCategoryName))
+                {
+                    var cleanCatName = newCategoryName.Trim();
+                    var existingCat = await _context.Categories.FirstOrDefaultAsync(c => c.Name.ToLower() == cleanCatName.ToLower());
+                    if (existingCat != null)
+                    {
+                        categoryId = existingCat.Id;
+                    }
+                    else
+                    {
+                        var maxOrder = await _context.Categories.MaxAsync(c => (int?)c.DisplayOrder) ?? 0;
+                        var newCat = new Category
+                        {
+                            Name = cleanCatName,
+                            Description = $"Đặc sản thuộc nhóm {cleanCatName}",
+                            DisplayOrder = maxOrder + 1,
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        await _context.Categories.AddAsync(newCat);
+                        await _context.SaveChangesAsync();
+                        categoryId = newCat.Id;
+                        _logger.LogInformation("[Admin-EditProduct] Đã tạo tự động danh mục mới #{Id}: '{Name}'", newCat.Id, newCat.Name);
+                    }
                 }
 
                 product.Name = !string.IsNullOrWhiteSpace(name) ? name.Trim() : product.Name;
