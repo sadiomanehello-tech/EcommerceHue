@@ -63,6 +63,12 @@ builder.Services.AddDbContext<EcommerceContext>(options =>
 // --- MVC Controllers + Views ---
 builder.Services.AddControllersWithViews();
 
+// --- Đăng ký HttpClientFactory ---
+builder.Services.AddHttpClient();
+
+// --- Đăng ký Dịch vụ gửi thông báo Telegram Bot ---
+builder.Services.AddScoped<TelegramService>();
+
 // --- Đăng ký Dịch vụ gửi Email (MailKit / Gmail SMTP) ---
 builder.Services.AddSingleton<EcommerceHue.Services.IEmailService, EcommerceHue.Services.EmailService>();
 

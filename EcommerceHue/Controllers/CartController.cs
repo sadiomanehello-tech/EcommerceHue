@@ -25,9 +25,11 @@ public class CartController(
     IEmailService emailService,
     PayOS payOS,
     DatabaseBackupService backupService,
-    IOrderExpirationService orderExpirationService) : Controller
+    IOrderExpirationService orderExpirationService,
+    TelegramService telegramService) : Controller
 {
     private readonly IEmailService _emailService = emailService;
+    private readonly TelegramService _telegramService = telegramService;
 
     // Khóa Session duy nhất cho giỏ hàng
     private const string CartSessionKey = "ShoppingCart";
@@ -1081,6 +1083,9 @@ public class CartController(
         // KÍCH HOẠT SAO LƯU: Đẩy file SQLite lên mây ngay khi tạo đơn thành công (Bắt buộc cho cả COD và VietQR)
         await backupService.UploadDatabaseAsync();
 
+        // GỬI THÔNG BÁO ĐƠN HÀNG THỜI GIAN THỰC QUA TELEGRAM BOT (MỨC ĐỘ 1)
+        await _telegramService.SendOrderNotificationAsync(order, "🛍️ ĐƠN HÀNG MỚI CẦN XỬ LÝ");
+
         // 7. Xóa sạch giỏ hàng và session sau khi đặt hàng thành công
         HttpContext.Session.Remove(CartSessionKey);
         HttpContext.Session.Remove("CouponCode");
@@ -1610,7 +1615,9 @@ public class CartController(
             int orderId = (int)(webhookData.orderCode % 100000L);
             logger.LogInformation("[payOS Webhook] Nhận orderCode: {UniqueCode} → bóc tách orderId DB: {OrderId}", webhookData.orderCode, orderId);
 
-            var order = await context.Orders.FindAsync(orderId);
+            var order = await context.Orders
+                .Include(o => o.OrderDetails)
+                .FirstOrDefaultAsync(o => o.Id == orderId);
 
             if (order != null && order.PaymentStatus != "Đã thanh toán thành công qua API Banking")
             {
@@ -1635,6 +1642,9 @@ public class CartController(
                 // KÍCH HOẠT SAO LƯU: Ghi nhận trạng thái ĐÃ THANH TOÁN lên mây lập tức
                 await backupService.UploadDatabaseAsync();
                 logger.LogInformation("[payOS Webhook] Đã gạch nợ thành công đơn hàng #{OrderId} - {OrderCode}", order.Id, order.OrderCode);
+
+                // Gửi thông báo xác nhận đã nhận tiền PayOS qua Telegram Bot
+                await _telegramService.SendOrderNotificationAsync(order, "✅ XÁC NHẬN ĐÃ NHẬN TIỀN PAYOS");
             }
             return Ok();
         }
