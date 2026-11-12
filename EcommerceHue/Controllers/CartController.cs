@@ -860,7 +860,17 @@ public class CartController(
             ? model.CustomerEmail.Trim()
             : (User.FindFirstValue(ClaimTypes.Email) ?? User.FindFirstValue("email") ?? User.Identity?.Name ?? string.Empty);
 
-        // 5. Khởi tạo đối tượng Order với trạng thái ban đầu là PendingPayment (Chờ thanh toán)
+        // Kiểm tra xem khách hàng có chọn phương thức thanh toán khi nhận hàng (COD) hay không
+        bool isCod = string.Equals(model.PaymentMethod, "COD", StringComparison.OrdinalIgnoreCase);
+
+        string finalNote = model.Note?.Trim() ?? string.Empty;
+        if (isCod)
+        {
+            var codTag = $"[PTTT: COD | Thu hộ: {totalAmount:N0}đ]";
+            finalNote = string.IsNullOrWhiteSpace(finalNote) ? codTag : $"{finalNote} | {codTag}";
+        }
+
+        // 5. Khởi tạo đối tượng Order với trạng thái phù hợp (COD: Confirmed, VietQR: PendingPayment)
         var order = new Order
         {
             OrderCode       = orderCode,
@@ -868,13 +878,13 @@ public class CartController(
             CustomerEmail   = customerEmail,
             CustomerPhone   = model.CustomerPhone.Trim(),
             ShippingAddress = model.ShippingAddress.Trim(),
-            Note            = model.Note?.Trim(),
+            Note            = string.IsNullOrWhiteSpace(finalNote) ? null : finalNote,
             SubTotal        = subTotal,
             ShippingFee     = 0,
             TotalAmount     = totalAmount,
-            Status          = OrderStatus.PendingPayment, // Chờ thanh toán
-            PaymentMethod   = "Open Banking (payOS)",
-            PaymentStatus   = "Chờ thanh toán qua API Banking",
+            Status          = isCod ? OrderStatus.Confirmed : OrderStatus.PendingPayment, // COD: Đã xác nhận / Chờ đóng gói & ship
+            PaymentMethod   = isCod ? "COD" : "Open Banking (payOS)",
+            PaymentStatus   = isCod ? "Chưa thanh toán (Thu hộ COD)" : "Chờ thanh toán qua API Banking",
             CreatedAt       = DateTime.UtcNow,
             UpdatedAt       = DateTime.UtcNow,
             OrderDetails    = cart.Select(item => new OrderDetail
@@ -904,10 +914,13 @@ public class CartController(
 
         await context.SaveChangesAsync();
 
-        // Lưu PendingOrderId vào Session để kiểm soát đơn đang chờ thanh toán của khách
-        HttpContext.Session.SetInt32("PendingOrderId", order.Id);
+        if (!isCod)
+        {
+            // Lưu PendingOrderId vào Session để kiểm soát đơn đang chờ thanh toán của khách (chỉ với thanh toán online)
+            HttpContext.Session.SetInt32("PendingOrderId", order.Id);
+        }
 
-        // KÍCH HOẠT SAO LƯU: Đẩy file SQLite lên mây ngay khi tạo đơn thành công
+        // KÍCH HOẠT SAO LƯU: Đẩy file SQLite lên mây ngay khi tạo đơn thành công (Bắt buộc cho cả COD và VietQR)
         await backupService.UploadDatabaseAsync();
 
         // 7. Xóa sạch giỏ hàng và session sau khi đặt hàng thành công
@@ -916,6 +929,63 @@ public class CartController(
         HttpContext.Session.Remove("DiscountAmount");
         HttpContext.Session.Remove("DiscountPercentage");
 
+        // =====================================================================
+        // NHÁNH 1: XỬ LÝ ĐƠN HÀNG THANH TOÁN KHI NHẬN HÀNG (COD)
+        // =====================================================================
+        if (isCod)
+        {
+            logger.LogInformation("[COD] Đã tạo đơn COD thành công #{OrderId} - {OrderCode} | Số tiền thu hộ: {TotalAmount:N0}đ",
+                order.Id, order.OrderCode, totalAmount);
+
+            // Gửi Email xác nhận đặt hàng COD (Email 1) dạng Fire-and-Forget
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(order.CustomerEmail))
+                {
+                    var emailSubject = $"[EcommerceHue] Xác nhận đặt hàng thành công (COD) - Mã đơn #{order.OrderCode}";
+                    var emailHtml = BuildCodOrderConfirmationEmailHtml(order);
+
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await _emailService.SendOrderEmailAsync(order.CustomerEmail, emailSubject, emailHtml);
+                            logger.LogInformation("=== [FIRE-AND-FORGET] Đã gửi Email 1 COD cho đơn #{OrderId}", order.Id);
+                        }
+                        catch (Exception exBg)
+                        {
+                            Console.WriteLine("=== LỖI BẮN THƯ NỀN COD: " + exBg.Message);
+                        }
+                    });
+                }
+            }
+            catch (Exception exMail)
+            {
+                logger.LogError(exMail, "=== [COD EMAIL ERROR]: {Message}", exMail.Message);
+            }
+
+            var successRedirectUrl = $"/Cart/OrderSuccess?orderCode={order.OrderCode}";
+
+            // Trả về JSON cho Fetch API hoặc chuyển hướng
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest" ||
+                Request.Headers.Accept.ToString().Contains("application/json"))
+            {
+                return Json(new
+                {
+                    success = true,
+                    isCod = true,
+                    checkoutUrl = successRedirectUrl,
+                    orderSuccessUrl = successRedirectUrl,
+                    message = "Đặt hàng thành công! Quý khách sẽ thanh toán khi nhận hàng."
+                });
+            }
+
+            return RedirectToAction(nameof(OrderSuccess), new { orderCode = order.OrderCode });
+        }
+
+        // =====================================================================
+        // NHÁNH 2: XỬ LÝ THANH TOÁN VIETQR (PAYOS) - GIỮ NGUYÊN 100%
+        // =====================================================================
         // 8. Khởi tạo thông tin thanh toán Open Banking qua payOS
         // Đưa mã đơn hàng vào phần description để hiển thị đẹp mắt trên payOS & ngân hàng
         string paymentContent = $"DH{order.Id} {order.OrderCode}";
@@ -1444,35 +1514,159 @@ public class CartController(
             return RedirectToAction("Index", "Home");
         }
 
-        // Đảm bảo dữ liệu VietQR luôn sẵn sàng cho View (kể cả khi tải lại trang F5)
-        if (TempData["QrUrl"] is null)
-        {
-            long amountToSend = (long)order.TotalAmount;
-            string bankId = "970418";
-            string bankName = "BIDV (Ngân hàng TMCP Đầu tư và Phát triển Việt Nam)";
-            string accountNo = "8811843594";
-            string accountName = "HO ANH TAI";
-            string paymentContent = $"DH{order.Id}ECOMMERCEHUE";
-            string qrUrl = $"https://img.vietqr.io/image/{bankId}-{accountNo}-compact2.png?amount={amountToSend}&addInfo={paymentContent}&accountName=HO%20ANH%20TAI";
+        bool isCod = (order.PaymentMethod != null && order.PaymentMethod.Contains("COD"))
+                     || (order.Note != null && order.Note.Contains("COD"));
 
-            TempData["QrUrl"] = qrUrl;
+        if (isCod)
+        {
+            TempData["PaymentMethod"] = "Thanh toán khi nhận hàng (COD)";
+            TempData["TotalAmount"] = order.TotalAmount.ToString();
             TempData["OrderId"] = order.Id;
             TempData["OrderCode"] = order.OrderCode;
-            TempData["BankName"] = bankName;
-            TempData["AccountNo"] = accountNo;
-            TempData["AccountName"] = accountName;
-            TempData["PaymentContent"] = paymentContent;
-            TempData["TransferContent"] = paymentContent;
-            TempData["TotalAmount"] = order.TotalAmount.ToString();
-            TempData["PaymentMethod"] = "Chuyển khoản VietQR tự động";
+        }
+        else
+        {
+            // Đảm bảo dữ liệu VietQR luôn sẵn sàng cho View (kể cả khi tải lại trang F5)
+            if (TempData["QrUrl"] is null)
+            {
+                long amountToSend = (long)order.TotalAmount;
+                string bankId = "970418";
+                string bankName = "BIDV (Ngân hàng TMCP Đầu tư và Phát triển Việt Nam)";
+                string accountNo = "8811843594";
+                string accountName = "HO ANH TAI";
+                string paymentContent = $"DH{order.Id}ECOMMERCEHUE";
+                string qrUrl = $"https://img.vietqr.io/image/{bankId}-{accountNo}-compact2.png?amount={amountToSend}&addInfo={paymentContent}&accountName=HO%20ANH%20TAI";
+
+                TempData["QrUrl"] = qrUrl;
+                TempData["OrderId"] = order.Id;
+                TempData["OrderCode"] = order.OrderCode;
+                TempData["BankName"] = bankName;
+                TempData["AccountNo"] = accountNo;
+                TempData["AccountName"] = accountName;
+                TempData["PaymentContent"] = paymentContent;
+                TempData["TransferContent"] = paymentContent;
+                TempData["TotalAmount"] = order.TotalAmount.ToString();
+                TempData["PaymentMethod"] = "Chuyển khoản VietQR tự động";
+            }
         }
 
         return View(order);
     }
 
     // =========================================================================
-    // HELPER: Biên soạn nội dung HTML email xác nhận đơn hàng
+    // HELPER: Biên soạn nội dung HTML email xác nhận đơn hàng COD & VietQR
     // =========================================================================
+
+    /// <summary>
+    /// Tạo mẫu email HTML chuyên nghiệp xác nhận đơn hàng dành riêng cho phương thức thanh toán khi nhận hàng (COD).
+    /// </summary>
+    private static string BuildCodOrderConfirmationEmailHtml(Order order)
+    {
+        var itemsHtml = new System.Text.StringBuilder();
+        var index = 1;
+        foreach (var item in order.OrderDetails)
+        {
+            var lineTotal = item.Quantity * item.UnitPrice;
+            itemsHtml.Append($"""
+                <tr style="border-bottom: 1px solid #f0e6d6;">
+                    <td style="padding: 10px; text-align: center; color: #666;">{index++}</td>
+                    <td style="padding: 10px; font-weight: 600; color: #333;">{System.Net.WebUtility.HtmlEncode(item.ProductName)}</td>
+                    <td style="padding: 10px; text-align: center; color: #333;">{item.Quantity}</td>
+                    <td style="padding: 10px; text-align: right; color: #555;">{item.UnitPrice:N0} ₫</td>
+                    <td style="padding: 10px; text-align: right; font-weight: bold; color: #b71c1c;">{lineTotal:N0} ₫</td>
+                </tr>
+            """);
+        }
+
+        return $"""
+        <!DOCTYPE html>
+        <html lang="vi">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Xác nhận đơn hàng #{order.OrderCode} - EcommerceHue</title>
+        </head>
+        <body style="margin: 0; padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f7f3ed; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.08);">
+                <!-- Header Đậm chất Huế -->
+                <div style="background: linear-gradient(135deg, #15803d 0%, #166534 100%); padding: 30px 20px; text-align: center; color: #ffffff;">
+                    <h1 style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 0.5px;">XÁC NHẬN ĐƠN HÀNG (COD)</h1>
+                    <p style="margin: 6px 0 0; font-size: 14px; opacity: 0.9;">Cảm ơn bạn đã lựa chọn Đặc sản Cố Đô Huế chính gốc</p>
+                </div>
+
+                <div style="padding: 24px;">
+                    <p style="font-size: 15px; line-height: 1.5; margin-top: 0;">
+                        Xin chào <strong>{System.Net.WebUtility.HtmlEncode(order.CustomerName)}</strong>,<br>
+                        Đơn hàng <strong>#{order.OrderCode}</strong> của bạn đã được tiếp nhận thành công và kho đang chuẩn bị đóng gói để bàn giao cho bưu tá giao hàng.
+                    </p>
+
+                    <!-- Khối thông báo COD -->
+                    <div style="background-color: #f0fdf4; border: 2px dashed #16a34a; border-radius: 8px; padding: 16px; margin: 20px 0; text-align: center;">
+                        <div style="font-size: 16px; font-weight: bold; color: #166534; margin-bottom: 6px;">
+                            💵 PHƯƠNG THỨC: THANH TOÁN KHI NHẬN HÀNG (COD)
+                        </div>
+                        <div style="font-size: 14px; color: #374151; margin-bottom: 8px;">
+                            Số tiền bạn cần chuẩn bị thanh toán tiền mặt cho Shipper:
+                        </div>
+                        <div style="font-size: 26px; font-weight: 800; color: #dc2626;">
+                            {order.TotalAmount:N0} ₫
+                        </div>
+                        <div style="font-size: 12px; color: #6b7280; margin-top: 6px;">
+                            (Miễn phí giao hàng toàn quốc · Quý khách vui lòng kiểm tra kiện hàng trước khi thanh toán)
+                        </div>
+                    </div>
+
+                    <!-- Bảng chi tiết sản phẩm -->
+                    <h3 style="font-size: 16px; color: #166534; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin-top: 24px;">
+                        📦 Chi tiết đặc sản đã đặt
+                    </h3>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 10px;">
+                        <thead>
+                            <tr style="background-color: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                                <th style="padding: 8px; text-align: center; width: 40px;">STT</th>
+                                <th style="padding: 8px; text-align: left;">Sản phẩm</th>
+                                <th style="padding: 8px; text-align: center; width: 60px;">SL</th>
+                                <th style="padding: 8px; text-align: right; width: 90px;">Đơn giá</th>
+                                <th style="padding: 8px; text-align: right; width: 100px;">Thành tiền</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {itemsHtml}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="4" style="padding: 10px; text-align: right; font-weight: 600; color: #555;">Tạm tính:</td>
+                                <td style="padding: 10px; text-align: right; font-weight: 600; color: #333;">{order.SubTotal:N0} ₫</td>
+                            </tr>
+                            <tr>
+                                <td colspan="4" style="padding: 10px; text-align: right; font-weight: 600; color: #555;">Phí vận chuyển:</td>
+                                <td style="padding: 10px; text-align: right; font-weight: 600; color: #16a34a;">0 ₫ (Miễn phí)</td>
+                            </tr>
+                            <tr style="border-top: 2px solid #e5e7eb;">
+                                <td colspan="4" style="padding: 12px 10px; text-align: right; font-size: 16px; font-weight: bold; color: #166534;">Tổng thanh toán (COD):</td>
+                                <td style="padding: 12px 10px; text-align: right; font-size: 18px; font-weight: 800; color: #dc2626;">{order.TotalAmount:N0} ₫</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+
+                    <!-- Thông tin nhận hàng -->
+                    <div style="background-color: #f9fafb; border-radius: 8px; padding: 14px; margin-top: 20px; font-size: 13.5px; line-height: 1.6;">
+                        <strong style="color: #166534;">📍 Thông tin giao hàng:</strong><br>
+                        <strong>Người nhận:</strong> {System.Net.WebUtility.HtmlEncode(order.CustomerName)} - 📞 {System.Net.WebUtility.HtmlEncode(order.CustomerPhone)}<br>
+                        <strong>Địa chỉ:</strong> {System.Net.WebUtility.HtmlEncode(order.ShippingAddress)}<br>
+                        {(string.IsNullOrWhiteSpace(order.Note) ? "" : $"<strong>Ghi chú:</strong> {System.Net.WebUtility.HtmlEncode(order.Note)}<br>")}
+                    </div>
+
+                    <p style="font-size: 13px; color: #6b7280; text-align: center; margin-top: 25px; line-height: 1.5;">
+                        Cần hỗ trợ gấp về đơn hàng? Hotline/Zalo: <strong>0901 234 567</strong><br>
+                        Đặc sản Xứ Huế – Chợ Đông Ba, Đường Trần Hưng Đạo, TP. Huế
+                    </p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """;
+    }
 
     /// <summary>
     /// Tạo mẫu email HTML chuyên nghiệp xác nhận đơn hàng, liệt kê chi tiết đặc sản đã đặt,

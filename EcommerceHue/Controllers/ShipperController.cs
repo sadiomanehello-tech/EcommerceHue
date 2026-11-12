@@ -120,9 +120,16 @@ public sealed class ShipperController(
             _ => order.Status.ToString()
         };
 
+        bool isCod = (order.PaymentMethod != null && order.PaymentMethod.Contains("COD"))
+                     || (order.Note != null && order.Note.Contains("COD"));
+
+        string codAmountText = isCod
+            ? $"{order.TotalAmount:#,##0} VNĐ (Tiền mặt thu hộ COD)"
+            : "0đ (Hàng đã thanh toán trước qua payOS/VietQR)";
+
         logger.LogInformation(
-            "[Shipper] Đã quét bưu kiện #{OrderId} ({OrderCode}), mã GHN: {TrackingCode}, Status hiện tại: {Status} ({StatusText})",
-            order.Id, order.OrderCode, trackingCode, currentStatus, statusText);
+            "[Shipper] Đã quét bưu kiện #{OrderId} ({OrderCode}), mã GHN: {TrackingCode}, Status hiện tại: {Status} ({StatusText}), COD: {IsCod}",
+            order.Id, order.OrderCode, trackingCode, currentStatus, statusText, isCod);
 
         // 3. Trả về thông tin bưu kiện và trạng thái Status để giao diện bẻ luồng
         return Json(new
@@ -140,6 +147,9 @@ public sealed class ShipperController(
             newStatus = currentStatus,
             statusText = statusText,
             itemsCount = order.OrderDetails?.Sum(od => od.Quantity) ?? 0,
+            isCod = isCod,
+            codAmount = isCod ? order.TotalAmount : 0,
+            codNotice = codAmountText,
             totalAmount = order.TotalAmount.ToString("#,##0") + " VNĐ"
         });
     }
@@ -342,15 +352,25 @@ public sealed class ShipperController(
         order.Status = OrderStatus.Delivered; // order.Status = 4;
         order.UpdatedAt = DateTime.UtcNow;
 
+        bool isCod = (order.PaymentMethod != null && order.PaymentMethod.Contains("COD"))
+                     || (order.Note != null && order.Note.Contains("COD"));
+
+        if (isCod)
+        {
+            order.PaymentStatus = "Đã thanh toán (Đã thu COD)";
+            var codNote = $"[Shipper GHN đã thu tiền COD: {order.TotalAmount:N0}đ lúc {DateTime.UtcNow.AddHours(7):dd/MM/yyyy HH:mm}]";
+            order.Note = string.IsNullOrWhiteSpace(order.Note) ? codNote : $"{order.Note} | {codNote}";
+        }
+
         // 3. Chốt số liệu kho và lưu doanh thu thực tế vào lịch sử hệ thống
         logger.LogInformation(
-            "[Shipper] Đã chốt số liệu kho & lưu doanh thu thực tế đơn #{OrderId} ({OrderCode}): {Amount:N0} VNĐ. Trạng thái: Delivered (4). OTP: {Otp}",
-            order.Id, order.OrderCode, order.TotalAmount, cleanOtp);
+            "[Shipper] Đã chốt số liệu kho & lưu doanh thu thực tế đơn #{OrderId} ({OrderCode}): {Amount:N0} VNĐ. Trạng thái: Delivered (4). COD: {IsCod}. OTP: {Otp}",
+            order.Id, order.OrderCode, order.TotalAmount, isCod, cleanOtp);
 
         // Lưu cứng trạng thái hoàn tất vào Database trước khi gửi mail và trả về Json
         await context.SaveChangesAsync();
 
-        // KÍCH HOẠT SAO LƯU: Cập nhật trạng thái giao hàng thành công lên Supabase Storage
+        // KÍCH HOẠT SAO LƯU: Cập nhật trạng thái giao hàng thành công & tiền thu hộ lên Supabase Storage (BẮT BUỘC)
         await backupService.UploadDatabaseAsync();
 
         // 4. Kích hoạt gửi Email thứ 4: Thư cảm ơn tri ân & Thông báo giao hàng thành công bế mạc đơn
@@ -408,10 +428,11 @@ public sealed class ShipperController(
         }
 
         // Phân loại ghi chú tiền COD
-        int codAmount = ((int)order.Status == 1 || order.Status == OrderStatus.Paid || order.TotalAmount <= 0) ? 0 : (int)order.TotalAmount;
-        string codNoticeHtml = codAmount == 0
-            ? "<strong>0 VNĐ</strong> <span style='color: #16a34a; font-weight: bold;'>(ĐÃ THANH TOÁN TRƯỚC - KHÔNG THU TIỀN)</span>"
-            : $"<span style='color: #dc2626; font-weight: bold;'><strong>{codAmount:N0} VNĐ</strong> (Tiền thu hộ COD khi nhận hàng)</span>";
+        bool isOrderCod = (order.PaymentMethod != null && order.PaymentMethod.Contains("COD"))
+                       || (order.Note != null && order.Note.Contains("COD"));
+        string codNoticeHtml = isOrderCod
+            ? $"<span style='color: #dc2626; font-weight: bold;'><strong>{order.TotalAmount:N0} VNĐ</strong> (Tiền mặt thu hộ COD khi nhận hàng)</span>"
+            : "<strong>0 VNĐ</strong> <span style='color: #16a34a; font-weight: bold;'>(ĐÃ THANH TOÁN TRƯỚC - KHÔNG THU TIỀN)</span>";
 
         return $@"
 <!DOCTYPE html>

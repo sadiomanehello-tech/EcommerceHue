@@ -359,6 +359,22 @@
                             </label>
                         </div>
 
+                        <!-- 3. Thanh toán khi nhận hàng (COD) -->
+                        <div class="form-check mb-2">
+                            <input class="form-check-input"
+                                   type="radio"
+                                   name="PaymentMethod"
+                                   id="payment-cod"
+                                   value="COD" />
+                            <label class="form-check-label fw-bold text-dark small d-flex align-items-center gap-2" for="payment-cod">
+                                <span>💵 Thanh toán khi nhận hàng (COD)</span>
+                                <span class="badge bg-success text-white rounded-pill" style="font-size: 0.65rem;">Thu tiền tận nơi</span>
+                            </label>
+                            <div class="hue-payment-desc p-3 mt-2 rounded bg-light small text-muted lh-base">
+                                Quý khách kiểm tra hàng và thanh toán tiền mặt trực tiếp cho nhân viên giao hàng (Shipper GHN) khi nhận đặc sản Huế. Vui lòng chuẩn bị sẵn số tiền thanh toán.
+                            </div>
+                        </div>
+
                     </div>
 
                     <!-- ĐIỀU KHOẢN & ĐIỀU KIỆN -->
@@ -924,9 +940,11 @@
                         return;
                     }
 
-                    // KHI THÀNH CÔNG: Chuyển hướng sang giao diện thanh toán payOS
+                    // KHI THÀNH CÔNG: Chuyển hướng sang giao diện thanh toán payOS hoặc OrderSuccess (COD)
                     if (result.checkoutUrl) {
                         window.location.href = result.checkoutUrl;
+                    } else if (result.orderSuccessUrl) {
+                        window.location.href = result.orderSuccessUrl;
                     } else {
                         window.location.href = '/Cart/OrderSuccess';
                     }

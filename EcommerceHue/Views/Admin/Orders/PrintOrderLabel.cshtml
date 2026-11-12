@@ -282,23 +282,27 @@
             </div>
 
             <!-- KHỐI TIỀN THU HỘ (COD) -->
+            @{
+                var isCodOrder = (Model.PaymentMethod != null && Model.PaymentMethod.Contains("COD"))
+                              || (Model.Note != null && Model.Note.Contains("COD"));
+            }
             <div class="cod-badge">
-                @if ((int)Model.Status == 1 || Model.Status == EcommerceHue.Models.OrderStatus.Paid || Model.Status == EcommerceHue.Models.OrderStatus.Shipping || Model.Status == EcommerceHue.Models.OrderStatus.Confirmed)
+                @if (isCodOrder)
                 {
-                    <div style="font-size: 15px; font-weight: bold; color: #15803d;">
-                        TIỀN THU HỘ (COD): 0 VNĐ
+                    <div style="font-size: 14px; font-weight: bold; color: #dc2626;">
+                        THANH TOÁN KHI NHẬN HÀNG (COD) - TIỀN THU HỘ: @Model.TotalAmount.ToString("#,##0") VNĐ
                     </div>
-                    <div style="font-size: 11px; font-weight: bold; color: #475569; margin-top: 3px; background-color: #f1f5f9; padding: 2px 6px; border-radius: 4px; display: inline-block;">
-                        [ĐÃ THANH TOÁN] Không thu thêm tiền của khách hàng.
+                    <div style="font-size: 11px; font-weight: normal; color: #475569; margin-top: 3px;">
+                        Shipper GHN thu đúng số tiền mặt trên trước khi giao hàng cho khách.
                     </div>
                 }
                 else
                 {
-                    <div style="font-size: 15px; font-weight: bold; color: #dc2626;">
-                        TIỀN THU HỘ (COD): @Model.TotalAmount.ToString("#,##0") VNĐ
+                    <div style="font-size: 15px; font-weight: bold; color: #15803d;">
+                        ĐÃ THANH TOÁN ONLINE - TIỀN THU HỘ (COD): 0 VNĐ
                     </div>
-                    <div style="font-size: 11px; font-weight: normal; color: #475569; margin-top: 3px;">
-                        Shipper thu đúng số tiền trên trước khi giao hàng.
+                    <div style="font-size: 11px; font-weight: bold; color: #475569; margin-top: 3px; background-color: #f1f5f9; padding: 2px 6px; border-radius: 4px; display: inline-block;">
+                        [ĐÃ THANH TOÁN] Không thu thêm tiền của khách hàng.
                     </div>
                 }
             </div>

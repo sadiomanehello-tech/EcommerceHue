@@ -395,8 +395,8 @@
                             </div>
                             <div class="d-flex justify-content-between align-items-center pt-2 border-top">
                                 <span class="text-muted">Tiền cần thu (COD):</span>
-                                <strong class="text-success" style="font-size: 13px;">
-                                    0đ (Hàng đã thanh toán trước qua payOS)
+                                <strong id="resDeliveryCodAmount" class="text-success" style="font-size: 13px;">
+                                    0đ (Hàng đã thanh toán trước qua payOS/VietQR)
                                 </strong>
                             </div>
                         </div>
@@ -595,7 +595,28 @@
             if (shippingAddressEl) shippingAddressEl.innerText = data.shippingAddress || 'Phường Mỹ Thường';
 
             const totalAmountEl = document.getElementById('resTotalAmount');
-            if (totalAmountEl) totalAmountEl.innerText = '0đ (Hàng đã thanh toán trước qua payOS)';
+            const deliveryCodEl = document.getElementById('resDeliveryCodAmount');
+            if (data.isCod) {
+                const codDisplay = data.codNotice || `${data.totalAmount} (Tiền mặt thu hộ COD)`;
+                if (totalAmountEl) {
+                    totalAmountEl.className = 'text-danger fw-bold';
+                    totalAmountEl.innerText = codDisplay;
+                }
+                if (deliveryCodEl) {
+                    deliveryCodEl.className = 'text-danger fw-bold fs-6';
+                    deliveryCodEl.innerText = codDisplay;
+                }
+            } else {
+                const prepaidDisplay = '0đ (Hàng đã thanh toán trước qua payOS/VietQR)';
+                if (totalAmountEl) {
+                    totalAmountEl.className = 'text-success fw-bold';
+                    totalAmountEl.innerText = prepaidDisplay;
+                }
+                if (deliveryCodEl) {
+                    deliveryCodEl.className = 'text-success fw-bold';
+                    deliveryCodEl.innerText = prepaidDisplay;
+                }
+            }
 
             const trackingBtn = document.getElementById('btnOpenTracking');
             if (trackingBtn && data.trackingUrl) {
