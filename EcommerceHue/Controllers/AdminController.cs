@@ -714,6 +714,45 @@ namespace EcommerceHue.Controllers
             }
         }
 
+        /// <summary>
+        /// Chuẩn hóa đường dẫn ảnh: Chuyển đổi link trang web Unsplash dạng /photos/...
+        /// thành link tải ảnh trực tiếp chuẩn hiển thị web.
+        /// </summary>
+        public static string? NormalizeImageUrl(string? url)
+        {
+            if (string.IsNullOrWhiteSpace(url)) return url;
+
+            var trimmed = url.Trim();
+            if (trimmed.Contains("unsplash.com", StringComparison.OrdinalIgnoreCase) &&
+                trimmed.Contains("/photos/", StringComparison.OrdinalIgnoreCase))
+            {
+                // Nếu đã là link download trực tiếp thì giữ nguyên
+                if (trimmed.Contains("/download", StringComparison.OrdinalIgnoreCase))
+                {
+                    return trimmed;
+                }
+
+                // Cắt bỏ query parameters (sau ?)
+                var cleanUrl = trimmed.Split('?')[0].TrimEnd('/');
+                var photosKeyword = "/photos/";
+                var photosIndex = cleanUrl.IndexOf(photosKeyword, StringComparison.OrdinalIgnoreCase);
+                if (photosIndex >= 0)
+                {
+                    var afterPhotos = cleanUrl.Substring(photosIndex + photosKeyword.Length);
+                    var lastDash = afterPhotos.LastIndexOf('-');
+                    var photoId = lastDash >= 0 ? afterPhotos.Substring(lastDash + 1) : afterPhotos;
+                    photoId = photoId.Trim();
+
+                    if (!string.IsNullOrWhiteSpace(photoId))
+                    {
+                        return $"https://unsplash.com/photos/{photoId}/download?force=true&w=800";
+                    }
+                }
+            }
+
+            return trimmed;
+        }
+
         [HttpPost("/Admin/Products/Create")]
         [HttpPost("/Admin/CreateProduct")]
         public async Task<IActionResult> CreateProduct(Product product)
@@ -722,6 +761,8 @@ namespace EcommerceHue.Controllers
 
             try
             {
+                // Tự động chuẩn hóa đường dẫn ảnh Unsplash
+                product.ImageUrl = NormalizeImageUrl(product.ImageUrl);
                 product.CreatedAt = DateTime.UtcNow;
                 product.UpdatedAt = DateTime.UtcNow;
                 if (string.IsNullOrWhiteSpace(product.Slug))
@@ -747,31 +788,77 @@ namespace EcommerceHue.Controllers
 
         [HttpPost("/Admin/Products/Edit")]
         [HttpPost("/Admin/EditProduct")]
-        public async Task<IActionResult> EditProduct(Product model)
+        public async Task<IActionResult> EditProduct(
+            int id,
+            string name,
+            int categoryId,
+            decimal price,
+            int stockQuantity,
+            string? expiryDate,
+            string? imageUrl,
+            string? description,
+            bool isAvailable)
         {
             if (!IsAdminAuthorized()) return StatusCode(403);
 
             try
             {
-                var product = await _context.Products.FindAsync(model.Id);
+                var product = await _context.Products.FindAsync(id);
                 if (product == null)
                 {
+                    if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                    {
+                        return Json(new { success = false, message = "Không tìm thấy sản phẩm." });
+                    }
                     TempData["AdminError"] = "Không tìm thấy sản phẩm.";
                     return RedirectToAction(nameof(Products));
                 }
 
-                product.Name = model.Name;
-                product.Description = model.Description;
-                product.Price = model.Price;
-                product.StockQuantity = model.StockQuantity;
-                product.ExpiryDate = model.ExpiryDate;
-                product.CategoryId = model.CategoryId;
-                product.ImageUrl = model.ImageUrl;
-                product.IsAvailable = model.IsAvailable;
+                product.Name = !string.IsNullOrWhiteSpace(name) ? name.Trim() : product.Name;
+                product.Description = description?.Trim();
+                product.Price = price;
+                product.StockQuantity = Math.Max(0, stockQuantity);
+                product.CategoryId = categoryId;
+                // Chuẩn hóa link ảnh Unsplash khi chỉnh sửa
+                product.ImageUrl = NormalizeImageUrl(imageUrl);
+                product.IsAvailable = isAvailable;
                 product.UpdatedAt = DateTime.UtcNow;
+
+                if (!string.IsNullOrWhiteSpace(expiryDate))
+                {
+                    if (DateOnly.TryParse(expiryDate, out var dOnly))
+                    {
+                        product.ExpiryDate = dOnly;
+                    }
+                    else if (DateTime.TryParse(expiryDate, out var dt))
+                    {
+                        product.ExpiryDate = DateOnly.FromDateTime(dt);
+                    }
+                }
 
                 await _context.SaveChangesAsync();
                 await _backupService.UploadDatabaseAsync();
+
+                _logger.LogInformation("[Admin-EditProduct] Đã cập nhật sản phẩm #{Id} ({Name}) thành công.", product.Id, product.Name);
+
+                if (Request.Headers["X-Requested-With"] == "XMLHttpRequest" || Request.Headers.Accept.ToString().Contains("application/json"))
+                {
+                    return Json(new
+                    {
+                        success = true,
+                        message = $"Đã cập nhật sản phẩm '{product.Name}' thành công!",
+                        product = new
+                        {
+                            product.Id,
+                            product.Name,
+                            product.Price,
+                            product.StockQuantity,
+                            ExpiryDate = product.ExpiryDate.ToString("yyyy-MM-dd"),
+                            product.ImageUrl,
+                            product.IsAvailable
+                        }
+                    });
+                }
 
                 TempData["AdminSuccess"] = $"✅ Đã cập nhật sản phẩm '{product.Name}' thành công!";
                 return RedirectToAction(nameof(Products));
@@ -780,13 +867,59 @@ namespace EcommerceHue.Controllers
             {
                 Console.WriteLine("=== [ADMIN PRODUCTS ERROR]: " + ex.ToString());
                 _logger.LogError(ex, "=== [ADMIN PRODUCTS ERROR] Lỗi cập nhật sản phẩm: {Message}", ex.Message);
+                if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                {
+                    return Json(new { success = false, message = "Lỗi khi cập nhật sản phẩm: " + ex.Message });
+                }
                 TempData["AdminError"] = "Lỗi khi cập nhật sản phẩm: " + ex.Message;
                 return RedirectToAction(nameof(Products));
             }
         }
 
+        [HttpPost("/Admin/Products/ToggleVisibility/{id:int}")]
+        [HttpPost("/Admin/Products/ToggleVisibility")]
+        [HttpPost("/Admin/ToggleProductVisibility")]
+        public async Task<IActionResult> ToggleProductVisibility(int id)
+        {
+            if (!IsAdminAuthorized()) return StatusCode(403);
+
+            try
+            {
+                var product = await _context.Products.FindAsync(id);
+                if (product == null)
+                {
+                    return Json(new { success = false, message = "Không tìm thấy sản phẩm." });
+                }
+
+                product.IsAvailable = !product.IsAvailable;
+                product.UpdatedAt = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+                await _backupService.UploadDatabaseAsync();
+
+                var statusText = product.IsAvailable ? "Đang mở bán" : "Đã tạm ẩn";
+                _logger.LogInformation("[Admin-Visibility] Đổi trạng thái sản phẩm #{Id} ({Name}): {Status}", product.Id, product.Name, statusText);
+
+                return Json(new
+                {
+                    success = true,
+                    message = $"Đã chuyển trạng thái sản phẩm '{product.Name}' sang: {statusText}!",
+                    isAvailable = product.IsAvailable,
+                    statusText = statusText
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("=== [ADMIN PRODUCTS ERROR]: " + ex.ToString());
+                _logger.LogError(ex, "=== [ADMIN PRODUCTS ERROR] Lỗi chuyển trạng thái hiển thị: {Message}", ex.Message);
+                return Json(new { success = false, message = "Lỗi khi chuyển trạng thái hiển thị: " + ex.Message });
+            }
+        }
+
         [HttpPost("/Admin/Products/Delete/{id:int}")]
+        [HttpPost("/Admin/Products/Delete")]
         [HttpPost("/Admin/DeleteProduct/{id:int}")]
+        [HttpPost("/Admin/DeleteProduct")]
         public async Task<IActionResult> DeleteProduct(int id)
         {
             if (!IsAdminAuthorized()) return StatusCode(403);
@@ -799,11 +932,39 @@ namespace EcommerceHue.Controllers
                     return Json(new { success = false, message = "Không tìm thấy sản phẩm." });
                 }
 
+                // Kiểm tra xem sản phẩm đã từng phát sinh trong đơn hàng nào chưa
+                var hasOrders = await _context.OrderDetails.AnyAsync(od => od.ProductId == id);
+                if (hasOrders)
+                {
+                    // Nếu đã có trong đơn hàng -> Không xóa cứng mà chuyển sang ẩn bán (Soft-delete)
+                    product.IsAvailable = false;
+                    product.UpdatedAt = DateTime.UtcNow;
+                    await _context.SaveChangesAsync();
+                    await _backupService.UploadDatabaseAsync();
+
+                    _logger.LogWarning("[Admin-Delete] Sản phẩm #{Id} ({Name}) đã có trong đơn hàng. Tự động chuyển sang Đã ẩn bán.", product.Id, product.Name);
+
+                    return Json(new
+                    {
+                        success = true,
+                        isSoftDeleted = true,
+                        message = $"Sản phẩm '{product.Name}' đã có trong lịch sử đơn hàng nên hệ thống đã tự động chuyển sang trạng thái [Đã ẩn bán] để bảo toàn dữ liệu kế toán!"
+                    });
+                }
+
+                // Nếu chưa có đơn hàng nào -> Xóa vĩnh viễn khỏi bảng Products
                 _context.Products.Remove(product);
                 await _context.SaveChangesAsync();
                 await _backupService.UploadDatabaseAsync();
 
-                return Json(new { success = true, message = $"Đã xóa sản phẩm '{product.Name}' thành công!" });
+                _logger.LogInformation("[Admin-Delete] Đã xóa vĩnh viễn sản phẩm #{Id} ({Name}) thành công.", product.Id, product.Name);
+
+                return Json(new
+                {
+                    success = true,
+                    isSoftDeleted = false,
+                    message = $"Đã xóa vĩnh viễn sản phẩm '{product.Name}' thành công!"
+                });
             }
             catch (Exception ex)
             {

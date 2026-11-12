@@ -94,19 +94,20 @@
             <table class="table table-hover table-striped align-middle mb-0">
                 <thead class="table-dark">
                     <tr>
-                        <th style="width: 70px;">ID</th>
-                        <th>Tên Đặc Sản & Danh Mục</th>
-                        <th style="width: 140px;">Giá Bán</th>
-                        <th style="width: 170px;">Hạn Sử Dụng</th>
-                        <th style="width: 180px;">Số Lượng Tồn Kho</th>
-                        <th style="width: 180px;" class="text-center">Thao Tác Nhập Hàng</th>
+                        <th style="width: 60px;" class="text-center">ID</th>
+                        <th>Đặc Sản & Danh Mục</th>
+                        <th style="width: 130px;">Giá Bán</th>
+                        <th style="width: 140px;" class="text-center">Hạn Sử Dụng</th>
+                        <th style="width: 150px;" class="text-center">Tồn Kho</th>
+                        <th style="width: 110px;" class="text-center">Trạng Thái</th>
+                        <th style="width: 280px;" class="text-center">Thao Tác Quản Trị</th>
                     </tr>
                 </thead>
                 <tbody id="productTableBody">
                     @if (!productList.Any())
                     {
                         <tr>
-                            <td colspan="6" class="text-center py-4 text-muted">
+                            <td colspan="7" class="text-center py-4 text-muted">
                                 <i class="bi bi-box-seam fs-2 d-block mb-2"></i>
                                 Chưa có sản phẩm nào trong kho.
                             </td>
@@ -115,17 +116,29 @@
                     else
                     {
                         @foreach (var item in productList) {
-                        <tr id="row-@item.Id" data-stock="@item.StockQuantity">
-                            <td>@item.Id</td>
+                            var imgUrl = !string.IsNullOrWhiteSpace(item.ImageUrl) ? item.ImageUrl : "/images/placeholder.jpg";
+                        <tr id="row-@item.Id" data-stock="@item.StockQuantity" class="@(!item.IsAvailable ? "table-secondary text-muted" : "")">
+                            <td class="text-center fw-bold text-muted">#@item.Id</td>
                             <td>
-                                <strong>@(item.Name ?? "Không tên")</strong>
-                                @if (item.Category != null) {
-                                    <span class="badge bg-secondary ms-1">@(item.Category.Name ?? "")</span>
-                                }
+                                <div class="d-flex align-items-center gap-2">
+                                    <img src="@imgUrl" 
+                                         alt="@item.Name" 
+                                         class="rounded-3 border object-fit-cover shadow-xs" 
+                                         style="width: 48px; height: 48px; flex-shrink: 0;"
+                                         onerror="this.src='/images/placeholder.jpg'" />
+                                    <div>
+                                        <div class="fw-bold text-dark">@(item.Name ?? "Không tên")</div>
+                                        <div class="small">
+                                            @if (item.Category != null) {
+                                                <span class="badge bg-secondary" style="font-size: 0.7rem;">@(item.Category.Name ?? "")</span>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
                             </td>
-                            <td>@item.Price.ToString("#,##0") đ</td>
-                            <td>@item.ExpiryDate.ToString("dd/MM/yyyy")</td>
-                            <td>
+                            <td class="fw-bold text-danger">@item.Price.ToString("#,##0") đ</td>
+                            <td class="text-center font-monospace small">@item.ExpiryDate.ToString("dd/MM/yyyy")</td>
+                            <td class="text-center">
                                 @if (item.StockQuantity == 0) {
                                     <span class="badge bg-danger fs-6" id="stock-@item.Id">Hết hàng (0)</span>
                                 } else if (item.StockQuantity <= 10) {
@@ -134,10 +147,70 @@
                                     <span class="badge bg-success fs-6" id="stock-@item.Id">Còn @item.StockQuantity gói</span>
                                 }
                             </td>
-                            <td class="text-center">
-                                <button class="btn btn-outline-primary btn-sm btn-restock" data-id="@item.Id" data-name="@(item.Name ?? "")" data-stock="@item.StockQuantity">
-                                    <i class="bi bi-plus-circle"></i> Nhập thêm hàng
-                                </button>
+                            <td class="text-center" id="status-col-@item.Id">
+                                @if (item.IsAvailable)
+                                {
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1">
+                                        <i class="bi bi-check-circle me-1"></i>Đang bán
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-2.5 py-1">
+                                        <i class="bi bi-slash-circle me-1"></i>Đã ẩn
+                                    </span>
+                                }
+                            </td>
+                            <td class="text-center text-nowrap">
+                                <div class="btn-group btn-group-sm shadow-xs" role="group">
+                                    <!-- 1. Nút Nhập kho -->
+                                    <button class="btn btn-outline-primary btn-restock" 
+                                            title="Nhập thêm hàng / Điều chỉnh tồn kho"
+                                            data-id="@item.Id" 
+                                            data-name="@(item.Name ?? "")" 
+                                            data-stock="@item.StockQuantity">
+                                        <i class="bi bi-plus-circle"></i> Nhập kho
+                                    </button>
+
+                                    <!-- 2. Nút ✏️ Sửa -->
+                                    <button class="btn btn-outline-secondary btn-edit-product"
+                                            title="Sửa thông tin & Đổi link ảnh"
+                                            data-id="@item.Id"
+                                            data-name="@(item.Name ?? "")"
+                                            data-category-id="@item.CategoryId"
+                                            data-price="@((long)item.Price)"
+                                            data-stock="@item.StockQuantity"
+                                            data-expiry="@item.ExpiryDate.ToString("yyyy-MM-dd")"
+                                            data-image="@(item.ImageUrl ?? "")"
+                                            data-description="@(item.Description ?? "")"
+                                            data-available="@(item.IsAvailable ? "true" : "false")">
+                                        <i class="bi bi-pencil-square"></i> Sửa
+                                    </button>
+
+                                    <!-- 3. Nút 👁️ Đang bán / 🙈 Đã ẩn -->
+                                    <button class="btn @(item.IsAvailable ? "btn-outline-success" : "btn-outline-warning") btn-toggle-visibility"
+                                            id="btn-vis-@item.Id"
+                                            title="@(item.IsAvailable ? "Bấm để ẩn sản phẩm" : "Bấm để mở bán lại")"
+                                            data-id="@item.Id"
+                                            data-available="@(item.IsAvailable ? "true" : "false")">
+                                        @if (item.IsAvailable)
+                                        {
+                                            <span><i class="bi bi-eye"></i> Đang bán</span>
+                                        }
+                                        else
+                                        {
+                                            <span><i class="bi bi-eye-slash"></i> Đã ẩn</span>
+                                        }
+                                    </button>
+
+                                    <!-- 4. Nút 🗑️ Xóa -->
+                                    <button class="btn btn-outline-danger btn-delete-product"
+                                            title="Xóa sản phẩm"
+                                            data-id="@item.Id"
+                                            data-name="@(item.Name ?? "")">
+                                        <i class="bi bi-trash"></i> Xóa
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                         }
@@ -281,9 +354,106 @@
   </div>
 </div>
 
+<!-- ============================================================
+     MODAL CHỈNH SỬA SẢN PHẨM & CẬP NHẬT ẢNH UNSPLASH
+     ============================================================ -->
+<div class="modal fade" id="editProductModal" tabindex="-1" aria-labelledby="editProductModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content shadow border-0 rounded-4 overflow-hidden">
+      <form id="editProductForm" asp-action="EditProduct" method="post">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="id" id="editProductId" />
+        <div class="modal-header bg-dark text-white py-3">
+          <h5 class="modal-title fw-bold" id="editProductModalLabel">
+            <i class="bi bi-pencil-square me-1"></i> Chỉnh Sửa Đặc Sản Huế
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label class="form-label fw-semibold">Tên đặc sản <span class="text-danger">*</span></label>
+              <input type="text" name="name" id="editProductName" class="form-control" required />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Danh mục <span class="text-danger">*</span></label>
+              <select name="categoryId" id="editProductCategory" class="form-select" required>
+                @if (categories != null && categories.Any())
+                {
+                    foreach (var cat in categories)
+                    {
+                        <option value="@cat.Id">@cat.Name</option>
+                    }
+                }
+                else
+                {
+                    <option value="1">Mè xửng</option>
+                    <option value="2">Tôm chua</option>
+                    <option value="3">Trà cung đình Huế</option>
+                }
+              </select>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Giá bán (VNĐ) <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <input type="number" name="price" id="editProductPrice" class="form-control fw-bold text-danger" min="0" step="1000" required />
+                <span class="input-group-text">₫</span>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Số lượng tồn kho <span class="text-danger">*</span></label>
+              <input type="number" name="stockQuantity" id="editProductStock" class="form-control fw-bold" min="0" required />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Hạn sử dụng <span class="text-danger">*</span></label>
+              <input type="date" name="expiryDate" id="editProductExpiry" class="form-control fw-bold" required />
+            </div>
+
+            <div class="col-12">
+              <label class="form-label fw-semibold">Đường dẫn hình ảnh (URL)</label>
+              <div class="input-group">
+                <input type="text" name="imageUrl" id="editProductImage" class="form-control" placeholder="https://unsplash.com/photos/..." />
+                <button type="button" class="btn btn-outline-secondary" id="btnPreviewImage">Xem trước ảnh</button>
+              </div>
+              <div class="form-text small text-muted">
+                💡 Hỗ trợ dán link Unsplash dạng web <code>https://unsplash.com/photos/...</code>, hệ thống sẽ tự động trích xuất mã ID và chuyển thành link tải trực tiếp.
+              </div>
+              <div class="mt-2 text-center" id="imagePreviewContainer" style="display: none;">
+                <img id="imagePreview" src="" alt="Xem trước" class="rounded-3 border shadow-xs" style="max-height: 140px; max-width: 100%; object-fit: contain;" onerror="this.src='/images/placeholder.jpg'" />
+              </div>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label fw-semibold">Mô tả đặc sản</label>
+              <textarea name="description" id="editProductDescription" class="form-control" rows="3"></textarea>
+            </div>
+
+            <div class="col-12">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="isAvailable" value="true" id="editProductAvailable" />
+                <label class="form-check-label fw-semibold" for="editProductAvailable">Mở bán sản phẩm trên gian hàng</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer bg-light py-2">
+          <button type="button" class="btn btn-secondary rounded-pill px-3" data-bs-dismiss="modal">Hủy bỏ</button>
+          <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold">
+            <i class="bi bi-save me-1"></i> Lưu Thay Đổi
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <!-- 4. JAVASCRIPT AJAX ĐIỀU KHIỂN MỞ POP-UP VÀ LƯU NGẦM -->
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        // =========================================================================
+        // 1. POP-UP ĐIỀU CHỈNH TỒN KHO NHANH (QUICK RESTOCK)
+        // =========================================================================
         document.querySelectorAll('.btn-restock').forEach(btn => {
             btn.addEventListener('click', function() {
                 var currentStock = parseInt(this.dataset.stock) || 0;
@@ -378,6 +548,222 @@
             }
         });
 
+        // =========================================================================
+        // 2. MODAL SỬA SẢN PHẨM & CẬP NHẬT ẢNH (EDIT PRODUCT)
+        // =========================================================================
+        let editModalInstance = null;
+        const editModalEl = document.getElementById('editProductModal');
+        if (editModalEl) {
+            editModalInstance = new bootstrap.Modal(editModalEl);
+        }
+
+        document.querySelectorAll('.btn-edit-product').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const id = this.dataset.id;
+                const name = this.dataset.name || '';
+                const categoryId = this.dataset.categoryId || '1';
+                const price = this.dataset.price || '0';
+                const stock = this.dataset.stock || '0';
+                const expiry = this.dataset.expiry || '';
+                const image = this.dataset.image || '';
+                const description = this.dataset.description || '';
+                const isAvailable = this.dataset.available === 'true';
+
+                document.getElementById('editProductId').value = id;
+                document.getElementById('editProductName').value = name;
+                document.getElementById('editProductCategory').value = categoryId;
+                document.getElementById('editProductPrice').value = price;
+                document.getElementById('editProductStock').value = stock;
+                document.getElementById('editProductExpiry').value = expiry;
+                document.getElementById('editProductImage').value = image;
+                document.getElementById('editProductDescription').value = description;
+                document.getElementById('editProductAvailable').checked = isAvailable;
+
+                // Cập nhật ảnh preview nếu có
+                updateImagePreview(image);
+
+                if (editModalInstance) {
+                    editModalInstance.show();
+                }
+            });
+        });
+
+        function updateImagePreview(url) {
+            const container = document.getElementById('imagePreviewContainer');
+            const img = document.getElementById('imagePreview');
+            if (!container || !img) return;
+
+            if (url && url.trim() !== '') {
+                // Tự động chuyển đổi hiển thị nếu là link Unsplash web
+                let directUrl = url.trim();
+                if (directUrl.includes('unsplash.com') && directUrl.includes('/photos/') && !directUrl.includes('/download')) {
+                    const clean = directUrl.split('?')[0].replace(/\/$/, '');
+                    const afterPhotos = clean.substring(clean.indexOf('/photos/') + 8);
+                    const lastDash = afterPhotos.lastIndexOf('-');
+                    const id = lastDash >= 0 ? afterPhotos.substring(lastDash + 1) : afterPhotos;
+                    if (id) directUrl = `https://unsplash.com/photos/${id}/download?force=true&w=800`;
+                }
+                img.src = directUrl;
+                container.style.display = 'block';
+            } else {
+                container.style.display = 'none';
+                img.src = '';
+            }
+        }
+
+        const btnPreview = document.getElementById('btnPreviewImage');
+        if (btnPreview) {
+            btnPreview.addEventListener('click', function() {
+                const input = document.getElementById('editProductImage');
+                if (input) updateImagePreview(input.value);
+            });
+        }
+
+        const editImgInput = document.getElementById('editProductImage');
+        if (editImgInput) {
+            editImgInput.addEventListener('blur', function() {
+                updateImagePreview(this.value);
+            });
+        }
+
+        // =========================================================================
+        // 3. CHUYỂN ĐỔI TRẠNG THÁI ẨN / HIỆN (TOGGLE PRODUCT VISIBILITY)
+        // =========================================================================
+        document.querySelectorAll('.btn-toggle-visibility').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const id = this.dataset.id;
+                const currentAvailable = this.dataset.available === 'true';
+                const actionLabel = currentAvailable ? 'tạm ẩn' : 'mở bán lại';
+
+                if (!confirm(`Bạn có chắc chắn muốn ${actionLabel} sản phẩm này trên gian hàng?`)) {
+                    return;
+                }
+
+                const originalHtml = this.innerHTML;
+                this.disabled = true;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
+
+                try {
+                    const response = await fetch(`/Admin/Products/ToggleVisibility/${id}`, {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        const newAvailable = result.isAvailable;
+                        this.dataset.available = newAvailable ? 'true' : 'false';
+
+                        const tr = document.getElementById(`row-${id}`);
+                        const statusCol = document.getElementById(`status-col-${id}`);
+
+                        if (newAvailable) {
+                            this.className = 'btn btn-outline-success btn-toggle-visibility';
+                            this.innerHTML = '<span><i class="bi bi-eye"></i> Đang bán</span>';
+                            this.title = 'Bấm để ẩn sản phẩm';
+                            if (tr) tr.classList.remove('table-secondary', 'text-muted');
+                            if (statusCol) {
+                                statusCol.innerHTML = '<span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1"><i class="bi bi-check-circle me-1"></i>Đang bán</span>';
+                            }
+                        } else {
+                            this.className = 'btn btn-outline-warning btn-toggle-visibility';
+                            this.innerHTML = '<span><i class="bi bi-eye-slash"></i> Đã ẩn</span>';
+                            this.title = 'Bấm để mở bán lại';
+                            if (tr) tr.classList.add('table-secondary', 'text-muted');
+                            if (statusCol) {
+                                statusCol.innerHTML = '<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-2.5 py-1"><i class="bi bi-slash-circle me-1"></i>Đã ẩn</span>';
+                            }
+                        }
+
+                        // Cập nhật lại nút edit tương ứng
+                        const editBtn = document.querySelector(`.btn-edit-product[data-id="${id}"]`);
+                        if (editBtn) {
+                            editBtn.dataset.available = newAvailable ? 'true' : 'false';
+                        }
+                    } else {
+                        alert(result.message || 'Không thể chuyển trạng thái sản phẩm!');
+                        this.innerHTML = originalHtml;
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert('Lỗi kết nối khi cập nhật trạng thái hiển thị!');
+                    this.innerHTML = originalHtml;
+                } finally {
+                    this.disabled = false;
+                }
+            });
+        });
+
+        // =========================================================================
+        // 4. XÓA SẢN PHẨM (DELETE PRODUCT HOẶC TỰ ĐỘNG SOFT-DELETE)
+        // =========================================================================
+        document.querySelectorAll('.btn-delete-product').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const id = this.dataset.id;
+                const name = this.dataset.name || 'sản phẩm này';
+
+                if (!confirm(`⚠️ CẢNH BÁO: Bạn có chắc chắn muốn xóa sản phẩm "${name}"?\n(Nếu sản phẩm đã từng có trong đơn hàng, hệ thống sẽ tự động chuyển sang trạng thái ẨN để bảo toàn lịch sử hóa đơn).`)) {
+                    return;
+                }
+
+                const originalHtml = this.innerHTML;
+                this.disabled = true;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
+
+                try {
+                    const response = await fetch(`/Admin/Products/Delete/${id}`, {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        alert(result.message);
+
+                        if (result.isSoftDeleted) {
+                            // Chuyển sang hàng ẩn
+                            const tr = document.getElementById(`row-${id}`);
+                            if (tr) tr.classList.add('table-secondary', 'text-muted');
+
+                            const statusCol = document.getElementById(`status-col-${id}`);
+                            if (statusCol) {
+                                statusCol.innerHTML = '<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-2.5 py-1"><i class="bi bi-slash-circle me-1"></i>Đã ẩn</span>';
+                            }
+
+                            const visBtn = document.getElementById(`btn-vis-${id}`);
+                            if (visBtn) {
+                                visBtn.className = 'btn btn-outline-warning btn-toggle-visibility';
+                                visBtn.innerHTML = '<span><i class="bi bi-eye-slash"></i> Đã ẩn</span>';
+                                visBtn.dataset.available = 'false';
+                            }
+                        } else {
+                            // Xóa hẳn dòng khỏi bảng
+                            const tr = document.getElementById(`row-${id}`);
+                            if (tr) {
+                                tr.remove();
+                            }
+                            updateDashboardCards();
+                        }
+                    } else {
+                        alert(result.message || 'Không thể xóa sản phẩm!');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert('Lỗi kết nối khi xóa sản phẩm!');
+                } finally {
+                    this.disabled = false;
+                    this.innerHTML = originalHtml;
+                }
+            });
+        });
+
+        // =========================================================================
+        // HELPER: CẬP NHẬT 4 CARDS THỐNG KÊ DASHBOARD
+        // =========================================================================
         function updateDashboardCards() {
             var rows = document.querySelectorAll('#productTableBody tr[data-stock]');
             var total = rows.length;
