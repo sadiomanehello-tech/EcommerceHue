@@ -302,10 +302,94 @@
                         }
                     </div>
 
+                    <!-- ========================================================
+                         KHU VỰC: GỢI Ý MUA KÈM & DỊCH VỤ QUÀ BIẾU
+                         ======================================================== -->
+                    <div class="my-3 p-3 rounded-3" style="background: #fffdf7; border: 1.5px dashed #f59e0b;">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span class="fw-bold text-dark small">
+                                ✨ Gợi ý mua kèm &amp; Dịch vụ quà biếu
+                            </span>
+                        </div>
+
+                        <!-- LỜI NHẮC GỢI Ý BÁN CHÉO (CROSS-SELL) -->
+                        @if (!string.IsNullOrWhiteSpace(ViewBag.CrossSellMessage as string))
+                        {
+                            <div class="text-secondary small fst-italic mb-2" style="font-size: 0.78rem;">
+                                💡 @ViewBag.CrossSellMessage
+                            </div>
+                        }
+
+                        <!-- DANH SÁCH SẢN PHẨM BÁN KÈM (THẺ NGANG NHỎ GỌN) -->
+                        @if (ViewBag.SuggestedProducts is List<EcommerceHue.Models.Product> suggestedList && suggestedList.Any())
+                        {
+                            <div class="d-flex flex-column gap-2 mb-3">
+                                @foreach (var sp in suggestedList)
+                                {
+                                    <div class="p-2 bg-white rounded-2 border d-flex align-items-center justify-content-between gap-2 shadow-xs">
+                                        <div class="d-flex align-items-center gap-2 overflow-hidden">
+                                            <img src="@(sp.ImageUrl ?? "/images/placeholder.jpg")"
+                                                 alt="@sp.Name"
+                                                 class="rounded-1 flex-shrink-0"
+                                                 style="width: 42px; height: 42px; object-fit: cover;"
+                                                 onerror="this.src='/images/placeholder.jpg'" />
+                                            <div class="overflow-hidden">
+                                                <div class="fw-semibold text-dark text-truncate" style="font-size: 0.82rem;" title="@sp.Name">
+                                                    @sp.Name
+                                                </div>
+                                                <div class="text-danger fw-bold" style="font-size: 0.8rem;">
+                                                    @sp.Price.ToString("N0")₫
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button type="button"
+                                                class="btn btn-outline-danger btn-sm py-1 px-2 fw-semibold btn-quick-add-checkout flex-shrink-0"
+                                                style="font-size: 0.75rem; border-radius: 6px;"
+                                                data-product-id="@sp.Id"
+                                                data-product-name="@sp.Name">
+                                            + Thêm vào đơn
+                                        </button>
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        <!-- KHUNG NỔI BẬT DỊCH VỤ GÓI QUÀ BIẾU (ORDER BUMP BOX) -->
+                        <div class="p-2.5 rounded-2 p-2 border" style="background: #fff8eb; border: 1px solid #f59e0b !important;">
+                            <div class="form-check d-flex align-items-start gap-2 mb-0">
+                                <input class="form-check-input flex-shrink-0 mt-1"
+                                       type="checkbox"
+                                       name="includeGiftWrap"
+                                       id="includeGiftWrapCheck"
+                                       value="true"
+                                       @(Model.IncludeGiftWrap ? "checked" : "")
+                                       style="cursor: pointer; width: 1.15em; height: 1.15em;" />
+                                <label class="form-check-label d-block text-dark small" for="includeGiftWrapCheck" style="cursor: pointer;">
+                                    <div class="fw-bold text-dark" style="font-size: 0.85rem;">
+                                        🎁 Nâng cấp Hộp Quà Biếu Cố Đô sang trọng + Thiệp chúc mừng <span class="text-danger fw-bold">(+15.000 đ)</span>
+                                    </div>
+                                    <div class="text-muted mt-1" style="font-size: 0.74rem; line-height: 1.35;">
+                                        Đóng gói hộp giấy mỹ thuật họa tiết cung đình, thắt nơ lụa tím và tặng kèm thiệp viết tay theo yêu cầu.
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- TẠM TÍNH -->
                     <div class="d-flex justify-content-between py-2 border-bottom small">
                         <span class="fw-bold text-dark">Tạm tính</span>
                         <span id="subtotal-display" class="fw-bold text-danger">@Model.SubTotal.ToString("N0")₫</span>
+                    </div>
+
+                    <!-- PHỤ PHÍ DỊCH VỤ GÓI QUÀ BIẾU -->
+                    <div id="gift-wrap-row" class="d-flex justify-content-between py-2 border-bottom small @(Model.IncludeGiftWrap ? "" : "d-none")">
+                        <span class="text-dark fw-semibold">
+                            🎁 Hộp Quà Biếu Cố Đô + Thiệp
+                        </span>
+                        <span id="gift-wrap-fee-display" class="text-danger fw-bold">
+                            +15.000₫
+                        </span>
                     </div>
 
                     <!-- GIẢM GIÁ (NẾU CÓ) -->
@@ -979,6 +1063,71 @@
         const couponChevron = document.getElementById('couponChevron');
         const couponCollapseArea = document.getElementById('couponCollapseArea');
 
+        // Giá trị cơ bản để tính toán động tức thời
+        let baseSubTotal = @((long)Model.SubTotal);
+        let currentDiscountAmount = @((long)Model.DiscountAmount);
+
+        function updateTotals() {
+            const isGiftWrap = document.getElementById('includeGiftWrapCheck')?.checked || false;
+            const giftWrapRow = document.getElementById('gift-wrap-row');
+            if (giftWrapRow) {
+                if (isGiftWrap) {
+                    giftWrapRow.classList.remove('d-none');
+                } else {
+                    giftWrapRow.classList.add('d-none');
+                }
+            }
+
+            const giftFee = isGiftWrap ? 15000 : 0;
+            const finalTotal = Math.max(0, baseSubTotal + giftFee - currentDiscountAmount);
+            if (totalAmountDisplay) {
+                totalAmountDisplay.textContent = finalTotal.toLocaleString('vi-VN') + '₫';
+            }
+        }
+
+        const includeGiftWrapCheck = document.getElementById('includeGiftWrapCheck');
+        if (includeGiftWrapCheck) {
+            includeGiftWrapCheck.addEventListener('change', function() {
+                updateTotals();
+                if (totalAmountDisplay) {
+                    totalAmountDisplay.classList.add('text-success');
+                    setTimeout(() => totalAmountDisplay.classList.remove('text-success'), 600);
+                }
+            });
+        }
+
+        // Bắt sự kiện thêm nhanh sản phẩm gợi ý bán kèm (Cross-selling)
+        document.querySelectorAll('.btn-quick-add-checkout').forEach(btn => {
+            btn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                const productId = this.dataset.productId;
+                const origHtml = this.innerHTML;
+                this.disabled = true;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Đang thêm...';
+
+                try {
+                    const res = await fetch('/Cart/QuickAddToCheckout', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: 'productId=' + encodeURIComponent(productId)
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        window.location.reload();
+                    } else {
+                        alert(data.message || 'Không thể thêm sản phẩm vào đơn.');
+                        this.disabled = false;
+                        this.innerHTML = origHtml;
+                    }
+                } catch (err) {
+                    window.location.href = '/Cart/QuickAddToCheckout?productId=' + productId;
+                }
+            });
+        });
+
         // Đồng bộ hiệu ứng xoay mũi tên khi đóng/mở Accordion
         if (couponCollapseArea && couponChevron) {
             couponCollapseArea.addEventListener('show.bs.collapse', function () {
@@ -1038,8 +1187,14 @@
                     if (discountRow) discountRow.classList.remove('d-none');
                     if (discountPercentLabel) discountPercentLabel.textContent = data.discountPercentage + '%';
                     if (discountAmountDisplay) discountAmountDisplay.textContent = '-' + data.discountAmountFormatted;
+                    
+                    if (data.discountAmount !== undefined) {
+                        currentDiscountAmount = data.discountAmount;
+                    } else if (data.discountAmountFormatted) {
+                        currentDiscountAmount = parseInt(data.discountAmountFormatted.replace(/[^0-9]/g, '')) || 0;
+                    }
+                    updateTotals();
                     if (totalAmountDisplay) {
-                        totalAmountDisplay.textContent = data.newTotalFormatted;
                         totalAmountDisplay.classList.add('text-success');
                         setTimeout(() => totalAmountDisplay.classList.remove('text-success'), 1200);
                     }
@@ -1089,8 +1244,9 @@
 
                     // 2. Ẩn dòng giảm giá ở tóm tắt đơn hàng
                     if (discountRow) discountRow.classList.add('d-none');
+                    currentDiscountAmount = 0;
+                    updateTotals();
                     if (totalAmountDisplay) {
-                        totalAmountDisplay.textContent = data.newTotalFormatted;
                         totalAmountDisplay.classList.add('text-danger');
                         setTimeout(() => totalAmountDisplay.classList.remove('text-danger'), 1200);
                     }

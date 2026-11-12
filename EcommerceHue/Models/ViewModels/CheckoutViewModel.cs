@@ -58,11 +58,17 @@ public sealed class CheckoutViewModel
     /// <summary>Danh sách mã giảm giá còn hiệu lực để khách chọn áp dụng nhanh (1-Click Apply)</summary>
     public List<Coupon> AvailableCoupons { get; set; } = [];
 
+    /// <summary>Khách có chọn dịch vụ gói quà biếu Cố Đô + thiệp mừng (+15.000đ) không</summary>
+    public bool IncludeGiftWrap { get; set; } = false;
+
+    /// <summary>Phụ phí dịch vụ gói quà biếu (15.000đ)</summary>
+    public decimal GiftWrapFee => IncludeGiftWrap ? 15000m : 0m;
+
     /// <summary>
     /// Phương thức thanh toán: "BankTransfer" (Chuyển khoản), "MoMo" (Quét mã MoMo), "VnPay" (Cổng VnPay)
     /// </summary>
     public string PaymentMethod { get; set; } = "BankTransfer";
 
-    /// <summary>Tổng thanh toán cuối cùng sau khi trừ mã giảm giá</summary>
-    public decimal TotalAmount => Math.Max(0, SubTotal + ShippingFee - DiscountAmount);
+    /// <summary>Tổng thanh toán cuối cùng sau khi cộng phụ phí gói quà và trừ mã giảm giá</summary>
+    public decimal TotalAmount => Math.Max(0, SubTotal + ShippingFee + GiftWrapFee - DiscountAmount);
 }

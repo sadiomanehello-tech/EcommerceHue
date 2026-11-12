@@ -560,6 +560,78 @@ public class CartController(
                 availableCoupons = new List<Coupon>();
             }
 
+            // -----------------------------------------------------------------
+            // THUẬT TOÁN GỢI Ý BÁN CHÉO (CROSS-SELLING) THÔNG MINH
+            // -----------------------------------------------------------------
+            var inCartProductIds = cart.Select(c => c.ProductId).ToHashSet();
+            string crossSellMessage = "Gợi ý đặc sản Cố Đô nổi bật kết hợp hoàn hảo cùng đơn hàng:";
+            List<Product> suggestedProducts = new();
+
+            try
+            {
+                // Lấy thông tin các sản phẩm hiện có trong giỏ hàng để phân tích danh mục
+                var inCartProducts = await context.Products
+                    .Include(p => p.Category)
+                    .AsNoTracking()
+                    .Where(p => inCartProductIds.Contains(p.Id))
+                    .ToListAsync();
+
+                bool hasMeXungOrBanh = inCartProducts.Any(p =>
+                    (p.Category != null && (p.Category.Name.Contains("Mè xửng") || p.Category.Name.Contains("Bánh & Kẹo") || p.Category.Name.Contains("Kẹo"))) ||
+                    p.Name.Contains("Mè xửng", StringComparison.OrdinalIgnoreCase) ||
+                    p.Name.Contains("Bánh", StringComparison.OrdinalIgnoreCase));
+
+                bool hasTomChuaOrNemTre = inCartProducts.Any(p =>
+                    (p.Category != null && (p.Category.Name.Contains("Tôm chua") || p.Category.Name.Contains("Nem & Tré") || p.Category.Name.Contains("Nem") || p.Category.Name.Contains("Tré"))) ||
+                    p.Name.Contains("Tôm chua", StringComparison.OrdinalIgnoreCase) ||
+                    p.Name.Contains("Nem", StringComparison.OrdinalIgnoreCase) ||
+                    p.Name.Contains("Tré", StringComparison.OrdinalIgnoreCase));
+
+                // Lấy toàn bộ sản phẩm đang có sẵn và còn tồn kho chưa có trong giỏ hàng
+                var availableCandidates = await context.Products
+                    .Include(p => p.Category)
+                    .AsNoTracking()
+                    .Where(p => p.IsAvailable && p.StockQuantity > 0 && !inCartProductIds.Contains(p.Id))
+                    .ToListAsync();
+
+                if (hasMeXungOrBanh)
+                {
+                    crossSellMessage = "Thưởng thức Mè xửng trọn vị hơn khi dùng kèm Trà Cung Đình!";
+                    suggestedProducts = availableCandidates
+                        .Where(p => p.Category != null && (p.Category.Name.Contains("Trà") || p.Category.Name.Contains("Combo") || p.Category.Name.Contains("Quà Biếu")))
+                        .Take(3)
+                        .ToList();
+                }
+                else if (hasTomChuaOrNemTre)
+                {
+                    crossSellMessage = "Đặc sản trứ danh – Thêm chút ngọt bùi Mè xửng Cố Đô tráng miệng!";
+                    suggestedProducts = availableCandidates
+                        .Where(p => (p.Category != null && (p.Category.Name.Contains("Mè xửng") || p.Category.Name.Contains("Bánh & Kẹo") || p.Category.Name.Contains("Combo"))) ||
+                                    p.Name.Contains("Mè xửng", StringComparison.OrdinalIgnoreCase))
+                        .Take(3)
+                        .ToList();
+                }
+
+                // Nếu danh sách chưa đủ 2-3 sản phẩm thì lấy ngẫu nhiên/theo tồn kho các đặc sản nổi bật khác
+                if (suggestedProducts.Count < 2)
+                {
+                    var existingIds = suggestedProducts.Select(s => s.Id).ToHashSet();
+                    var extraCandidates = availableCandidates
+                        .Where(p => !existingIds.Contains(p.Id))
+                        .OrderByDescending(p => p.StockQuantity)
+                        .Take(3 - suggestedProducts.Count)
+                        .ToList();
+                    suggestedProducts.AddRange(extraCandidates);
+                }
+            }
+            catch (Exception sEx)
+            {
+                logger.LogWarning(sEx, "[CHECKOUT CROSS-SELL] Lỗi khi tạo danh sách gợi ý bán chéo: {Message}", sEx.Message);
+            }
+
+            ViewBag.SuggestedProducts = suggestedProducts;
+            ViewBag.CrossSellMessage = crossSellMessage;
+
             var model = new CheckoutViewModel
             {
                 // Tự động điền sẵn từ Claims – user có thể sửa trước khi gửi
@@ -587,6 +659,83 @@ public class CartController(
             }
             TempData["CartWarning"] = "Không thể tải trang đặt hàng do lỗi hệ thống: " + ex.Message;
             return RedirectToAction(nameof(Index));
+        }
+    }
+
+    /// <summary>
+    /// Thêm nhanh 1 sản phẩm bán kèm (Cross-sell) vào giỏ hàng Session và chuyển hướng lại trang Checkout ngay lập tức.
+    /// Hỗ trợ cả AJAX POST và GET.
+    /// </summary>
+    [HttpPost("/Cart/QuickAddToCheckout")]
+    [HttpGet("/Cart/QuickAddToCheckout")]
+    [HttpGet("/Cart/QuickAddToCheckout/{productId:int}")]
+    [IgnoreAntiforgeryToken]
+    public async Task<IActionResult> QuickAddToCheckout(int productId)
+    {
+        try
+        {
+            var product = await context.Products
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == productId && p.IsAvailable);
+
+            if (product == null || product.StockQuantity <= 0)
+            {
+                if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                {
+                    return Json(new { success = false, message = "Sản phẩm hiện đang tạm hết hàng hoặc không khả dụng." });
+                }
+                TempData["CartWarning"] = "Sản phẩm hiện đang tạm hết hàng.";
+                return RedirectToAction(nameof(Checkout));
+            }
+
+            var cart = GetCart();
+            var existingItem = cart.Find(c => c.ProductId == productId);
+            if (existingItem != null)
+            {
+                if (existingItem.Quantity + 1 <= product.StockQuantity)
+                {
+                    existingItem.Quantity += 1;
+                }
+            }
+            else
+            {
+                cart.Add(new CartItem
+                {
+                    ProductId = product.Id,
+                    ProductName = product.Name,
+                    Price = product.Price,
+                    Quantity = 1,
+                    ImageUrl = product.ImageUrl
+                });
+            }
+
+            SaveCart(cart);
+            logger.LogInformation("[Cross-Sell] Đã thêm nhanh '{ProductName}' (ID: {ProductId}) vào giỏ hàng tại Checkout",
+                product.Name, product.Id);
+
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+            {
+                return Json(new
+                {
+                    success = true,
+                    message = $"Đã thêm '{product.Name}' vào giỏ hàng thành công!",
+                    productId = product.Id,
+                    productName = product.Name,
+                    cartCount = cart.Sum(i => i.Quantity),
+                    subTotal = cart.Sum(i => i.Total)
+                });
+            }
+
+            return RedirectToAction(nameof(Checkout));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "[Cross-Sell] Lỗi thêm nhanh sản phẩm #{ProductId}: {Message}", productId, ex.Message);
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+            {
+                return Json(new { success = false, message = "Lỗi khi thêm sản phẩm: " + ex.Message });
+            }
+            return RedirectToAction(nameof(Checkout));
         }
     }
 
@@ -767,7 +916,7 @@ public class CartController(
     [Authorize]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> PlaceOrder(CheckoutViewModel model)
+    public async Task<IActionResult> PlaceOrder(CheckoutViewModel model, bool includeGiftWrap = false)
     {
         try
         {
@@ -850,8 +999,12 @@ public class CartController(
         var discountAmountStr = HttpContext.Session.GetString("DiscountAmount");
         decimal.TryParse(discountAmountStr, out var discountAmount);
 
+        // Xử lý phụ phí dịch vụ gói quà biếu Cố Đô + thiệp mừng (Order Bump +15.000đ)
+        bool hasGiftWrap = includeGiftWrap || model.IncludeGiftWrap;
+        decimal giftWrapFee = hasGiftWrap ? 15000m : 0m;
+
         var subTotal = cart.Sum(i => i.Total);
-        var totalAmount = Math.Max(0, subTotal - discountAmount);
+        var totalAmount = Math.Max(0, subTotal + giftWrapFee - discountAmount);
 
         // 4. Sinh mã đơn hàng duy nhất theo định dạng HUE-yyyyMMddHHmmss-XXX
         var orderCode = $"HUE-{DateTime.UtcNow:yyyyMMddHHmmss}-{Random.Shared.Next(100, 999)}";
@@ -864,6 +1017,11 @@ public class CartController(
         bool isCod = string.Equals(model.PaymentMethod, "COD", StringComparison.OrdinalIgnoreCase);
 
         string finalNote = model.Note?.Trim() ?? string.Empty;
+        if (hasGiftWrap)
+        {
+            var giftTag = "[DỊCH VỤ ĐI KÈM: Đóng gói Hộp Quà Biếu Cố Đô + Thiệp (+15.000đ)]";
+            finalNote = string.IsNullOrWhiteSpace(finalNote) ? giftTag : $"{giftTag} {finalNote}";
+        }
         if (isCod)
         {
             var codTag = $"[PTTT: COD | Thu hộ: {totalAmount:N0}đ]";
@@ -1000,6 +1158,11 @@ public class CartController(
             item.Quantity,
             (int)item.Price
         )).ToList();
+
+        if (hasGiftWrap)
+        {
+            items.Add(new ItemData("Hộp Quà Biếu Cố Đô + Thiệp", 1, 15000));
+        }
 
         var baseUrl = $"{Request.Scheme}://{Request.Host}";
         var returnUrl = $"{baseUrl}/Cart/OrderSuccess?orderCode={order.OrderCode}";
