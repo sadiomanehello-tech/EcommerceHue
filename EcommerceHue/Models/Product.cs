@@ -58,6 +58,22 @@ public sealed class Product
     public DateOnly ExpiryDate { get; set; }
 
     // =====================================================================
+    // THÔNG TIN BỔ SUNG TÙY CHỌN CHO TỪNG LOẠI SẢN PHẨM (THỰC PHẨM / THỦ CÔNG)
+    // =====================================================================
+
+    /// <summary>Thành phần nguyên liệu hoặc Chất liệu cấu tạo</summary>
+    [MaxLength(2000)]
+    public string? IngredientsOrMaterials { get; set; }
+
+    /// <summary>Quy cách đóng gói hoặc Thông số kỹ thuật</summary>
+    [MaxLength(1000)]
+    public string? PackagingSpecs { get; set; }
+
+    /// <summary>Hướng dẫn sử dụng & Bảo quản</summary>
+    [MaxLength(2000)]
+    public string? UsageAndStorage { get; set; }
+
+    // =====================================================================
 
     /// <summary>Trạng thái đang bán hay ẩn</summary>
     public bool IsAvailable { get; set; } = true;

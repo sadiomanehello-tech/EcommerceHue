@@ -1,13 +1,18 @@
 @model EcommerceHue.Models.Product
 @{
     ViewData["Title"] = $"{Model.Name} – Đặc Sản Cố Đô Huế";
-    ViewData["Description"] = Model.Description ?? $"Mua {Model.Name} chính gốc Cố Đô Huế, cam kết an toàn thực phẩm, giao hàng toàn quốc nhanh chóng.";
+    ViewData["Description"] = Model.Description ?? $"Mua {Model.Name} chính gốc Cố Đô Huế, cam kết an toàn, giao hàng toàn quốc nhanh chóng.";
 
     // =========================================================================
-    // LOGIC FALLBACK DATA THÔNG MINH THEO TỪNG NHÓM ĐẶC SẢN HUẾ
+    // LOGIC FALLBACK DATA THÔNG MINH THEO TỪNG NHÓM ĐẶC SẢN HUẾ & THỦ CÔNG
     // =========================================================================
     var prodName = (Model.Name ?? "").ToLowerInvariant();
     var catName  = (Model.Category?.Name ?? "").ToLowerInvariant();
+
+    // Nhận diện sản phẩm thủ công mỹ nghệ (Nón lá Huế, đồ thủ công, quà lưu niệm)
+    bool isHandicraft = (Model.Category?.Name ?? "").Contains("Thủ công", StringComparison.OrdinalIgnoreCase)
+                     || (Model.Category?.Name ?? "").Contains("lưu niệm", StringComparison.OrdinalIgnoreCase)
+                     || (Model.Name ?? "").Contains("Nón", StringComparison.OrdinalIgnoreCase);
 
     bool isTomChua = prodName.Contains("tôm chua") || catName.Contains("tôm chua") || prodName.Contains("mắm");
     bool isMeXung  = prodName.Contains("mè xửng") || prodName.Contains("kẹo") || catName.Contains("mè xửng") || catName.Contains("bánh");
@@ -15,21 +20,28 @@
     bool isNemTre  = prodName.Contains("tré") || prodName.Contains("nem") || prodName.Contains("chả");
 
     // 1. Thương hiệu / Nhãn hàng
-    string brandName = isMeXung  ? "Mè Xửng Cung Đình Thiên Hương"
+    string brandName = isHandicraft ? "Làng Nghề Nón Lá Truyền Thống Huế"
+                     : isMeXung  ? "Mè Xửng Cung Đình Thiên Hương"
                      : isTomChua ? "Tôm Chua Cố Đô Trọng Tín"
                      : isTra     ? "Trà Sen Cung Đình Đức Phượng"
                      : isNemTre  ? "Nem Tré Gia Truyền Đông Ba"
                      : "Đặc Sản Cố Đô Huế Chính Gốc";
 
-    // 2. Định lượng tịnh (Net Weight)
-    string netWeight = isTomChua ? "Hũ thủy tinh 500g (Khối lượng cái: 350g)"
+    // 2. Định lượng tịnh / Quy cách (Ưu tiên Admin nhập riêng tại PackagingSpecs)
+    string netWeight = !string.IsNullOrWhiteSpace(Model.PackagingSpecs) ? Model.PackagingSpecs
+                     : isHandicraft ? "Sản phẩm thủ công hoàn thiện 100%"
+                     : isTomChua ? "Hũ thủy tinh 500g (Khối lượng cái: 350g)"
                      : isMeXung  ? "Hộp quà tặng 450g (Đóng gói từng thanh riêng)"
                      : isTra     ? "Hộp giấy hoàng gia 250g (25 túi lọc tiện lợi)"
                      : isNemTre  ? "Gói 400g (10 chiếc bọc lá ổi truyền thống)"
                      : "Đóng gói tiêu chuẩn 500g";
 
-    // 3. Danh sách thành phần cấu tạo
-    string ingredients = isTomChua
+    // 3. Danh sách thành phần cấu tạo / Chất liệu (Ưu tiên Admin nhập riêng tại IngredientsOrMaterials)
+    string ingredients = !string.IsNullOrWhiteSpace(Model.IngredientsOrMaterials)
+        ? Model.IngredientsOrMaterials
+        : isHandicraft
+        ? "Lá nón non phơi sương tự nhiên, vành tre cật chuốt tay, chỉ cước chằm nón bền chắc"
+        : isTomChua
         ? "Tôm đất tươi tự nhiên đầm phá Tam Giang (65%), riềng tươi thái chỉ, tỏi tươi củ trắng, ớt chỉ thiên Huế, nước mắm cá cơm nguyên chất, đường mía phèn, muối hầm sạch, thính nếp cái hoa vàng lên men tự nhiên. Tuyệt đối không hàn the, không chất tạo màu nhân tạo."
         : isMeXung
         ? "Mạch nha nếp Kim Long (45%), hạt mè (vừng) rang vàng thơm, đậu phộng (lạc) bùi béo chọn lọc, đường cát tinh luyện, tinh bột nếp dẻo thơm, dầu cọ thực vật tinh luyện, hương vani tự nhiên."
@@ -39,14 +51,22 @@
         ? "Thịt đầu heo tươi sạch (tai, mũi, bì heo luộc giòn), củ riềng cay nồng, tỏi củ giã nhuyễn, mè rang vàng, thính gạo rang thơm, lá ổi tươi, tiêu sọ Phú Quốc, gia vị truyền thống Cố Đô."
         : "Nguyên liệu đặc sản tự nhiên xứ Huế chọn lọc loại 1, quy trình chế biến khép kín truyền thống đảm bảo giữ trọn dinh dưỡng và phong vị nguyên bản.";
 
-    // 4. Thông số kỹ thuật bao bì
-    string packageSpecs = isTomChua ? "Hũ thủy tinh cao cấp nắp thiếc chuyên dụng, màng seal chống rò rỉ khí (12 x 8.5 x 8.5 cm)"
-                        : isMeXung  ? "Hộp giấy Ivory in ấn phủ màng metalize ánh kim, túi màng nhôm phức hợp PA/PE kín khí (22 x 15 x 4 cm)"
-                        : isTra     ? "Hộp carton cứng hoa văn cung đình, túi zip bạc bảo quản hương thơm tối đa (18 x 12 x 6 cm)"
-                        : "Bao bì thực phẩm đa lớp đạt chuẩn an toàn thực phẩm Quốc gia (PA/PE)";
+    // 4. Thông số kỹ thuật bao bì / Thông số kích thước (Ưu tiên Admin nhập riêng tại PackagingSpecs)
+    string packageSpecs = !string.IsNullOrWhiteSpace(Model.PackagingSpecs)
+        ? Model.PackagingSpecs
+        : isHandicraft
+        ? "Đường kính 40cm - 42cm, 16 vành tre tiêu chuẩn, trọng lượng ~150g"
+        : isTomChua ? "Hũ thủy tinh cao cấp nắp thiếc chuyên dụng, màng seal chống rò rỉ khí (12 x 8.5 x 8.5 cm)"
+        : isMeXung  ? "Hộp giấy Ivory in ấn phủ màng metalize ánh kim, túi màng nhôm phức hợp PA/PE kín khí (22 x 15 x 4 cm)"
+        : isTra     ? "Hộp carton cứng hoa văn cung đình, túi zip bạc bảo quản hương thơm tối đa (18 x 12 x 6 cm)"
+        : "Bao bì thực phẩm đa lớp đạt chuẩn an toàn thực phẩm Quốc gia (PA/PE)";
 
-    // 5. Hướng dẫn sử dụng
-    string usageInstruction = isTomChua
+    // 5. Hướng dẫn sử dụng (Ưu tiên Admin nhập riêng tại UsageAndStorage)
+    string usageInstruction = !string.IsNullOrWhiteSpace(Model.UsageAndStorage)
+        ? Model.UsageAndStorage
+        : isHandicraft
+        ? "Dùng che nắng, làm phụ kiện chụp ảnh hoặc trang trí không gian. Bảo quản nơi khô ráo, treo lên giá hoặc móc treo để giữ phom dáng, tránh vật nặng đè lên và hạn chế ngâm nước mưa quá lâu"
+        : isTomChua
         ? "Sản phẩm dùng ăn liền trực tiếp. Ngon nhất khi dùng kèm thịt ba chỉ (ba rọi) luộc thái mỏng, cuốn bánh tráng rau sống, khế chua, chuối chát, dưa leo và bún tươi. Có thể giã thêm chút tỏi ớt đường tùy khẩu vị của quý khách."
         : isMeXung
         ? "Dùng trực tiếp ngay khi mở bao bì từng thanh. Thưởng thức tuyệt vời và trọn vẹn nhất khi nhâm nhi cùng một tách trà sen hoặc trà Cung Đình Huế ấm nóng trong không gian thư thái."
@@ -57,7 +77,9 @@
         : "Sử dụng trực tiếp hoặc chế biến theo khẩu vị gia đình. Dùng ngay sau khi mở gói bao bì.";
 
     // 6. Hướng dẫn bảo quản
-    string storageInstruction = isTomChua
+    string storageInstruction = isHandicraft
+        ? "Bảo quản nơi khô ráo, thoáng mát. Treo trên móc hoặc giá đỡ để giữ form nón. Khi bị ướt mưa, lau khô bằng khăn mềm và hong khô tự nhiên nơi râm mát."
+        : isTomChua
         ? "Bảo quản nơi khô ráo, tránh ánh nắng trực tiếp. Sau khi mở nắp, bắt buộc đậy kín nắp và bảo quản trong NGĂN MÁT TỦ LẠNH (nhiệt độ từ 4°C - 8°C) để giữ tôm giữ được màu đỏ au đẹp mắt và độ giòn ngọt thơm ngon tự nhiên lên đến 6 tháng."
         : isMeXung
         ? "Bảo quản nơi khô ráo, thoáng mát, sạch sẽ, tránh ánh nắng mặt trời chiếu trực tiếp và tránh nơi có độ ẩm cao hoặc gần côn trùng. Sau khi xé thanh kẹo nên dùng ngay để giữ độ dẻo giòn thơm của mè."
@@ -65,11 +87,13 @@
         ? "Bảo quản trong hộp kín hoặc kéo chặt miệng túi zip sau mỗi lần sử dụng. Đặt nơi khô ráo, thoáng mát, nhiệt độ phòng (dưới 30°C), tránh tiếp xúc với không khí ẩm ướt."
         : "Bảo quản nơi khô mát, sạch sẽ, tránh ánh nắng trực tiếp. Đậy kín sau khi sử dụng.";
 
-    // 7. Cảnh báo an toàn
-    string allergenWarning = isTomChua ? "Lưu ý: Không dùng cho người có tiền sử dị ứng với tôm, hải sản giáp xác. Không dùng sản phẩm khi thấy mốc hỏng hoặc có mùi lạ."
-                           : isMeXung  ? "Lưu ý: Sản phẩm chứa hạt mè (vừng) và đậu phộng (lạc). Người mẫn cảm hoặc dị ứng với các loại hạt trên cần cân nhắc trước khi dùng."
-                           : isTra     ? "Lưu ý: Phụ nữ mang thai trong 3 tháng đầu nên tham khảo ý kiến bác sĩ trước khi sử dụng thảo dược có tính thanh nhiệt mạnh."
-                           : "Không sử dụng sản phẩm khi đã quá hạn sử dụng in trên bao bì hoặc bao bì bị rách, xì hơi.";
+    // 7. Cảnh báo an toàn / Lưu ý sử dụng
+    string allergenWarning = isHandicraft
+        ? "Lưu ý giữ gìn: Tránh đè nén vật nặng lên nón làm gãy nan vành. Khi nón bị ướt mưa, lau khô bằng khăn mềm và treo nơi thoáng mát, tránh phơi trực tiếp dưới nắng gắt quá lâu."
+        : isTomChua ? "Lưu ý: Không dùng cho người có tiền sử dị ứng với tôm, hải sản giáp xác. Không dùng sản phẩm khi thấy mốc hỏng hoặc có mùi lạ."
+        : isMeXung  ? "Lưu ý: Sản phẩm chứa hạt mè (vừng) và đậu phộng (lạc). Người mẫn cảm hoặc dị ứng với các loại hạt trên cần cân nhắc trước khi dùng."
+        : isTra     ? "Lưu ý: Phụ nữ mang thai trong 3 tháng đầu nên tham khảo ý kiến bác sĩ trước khi sử dụng thảo dược có tính thanh nhiệt mạnh."
+        : "Không sử dụng sản phẩm khi đã quá hạn sử dụng in trên bao bì hoặc bao bì bị rách, xì hơi.";
 
     // Tính toán giảm giá và giá gạch ngang
     var hasDiscount = Model.OriginalPrice.HasValue && Model.OriginalPrice.Value > Model.Price;
@@ -137,16 +161,16 @@
                 <div class="row g-2 text-center small text-muted">
                     <div class="col-4">
                         <div class="p-2 border rounded-3 bg-light h-100">
-                            <div class="fs-4">🌿</div>
+                            <div class="fs-4">@(isHandicraft ? "🎋" : "🌿")</div>
                             <div class="fw-semibold text-dark mt-1">100% Tự Nhiên</div>
-                            <div class="text-secondary" style="font-size: 0.72rem;">Không chất độc hại</div>
+                            <div class="text-secondary" style="font-size: 0.72rem;">@(isHandicraft ? "Tre cật & lá phơi sương" : "Không chất độc hại")</div>
                         </div>
                     </div>
                     <div class="col-4">
                         <div class="p-2 border rounded-3 bg-light h-100">
                             <div class="fs-4">🏆</div>
-                            <div class="fw-semibold text-dark mt-1">Chuẩn Vị Cố Đô</div>
-                            <div class="text-secondary" style="font-size: 0.72rem;">Nghệ nhân truyền thống</div>
+                            <div class="fw-semibold text-dark mt-1">@(isHandicraft ? "Nghệ Nhân Huế" : "Chuẩn Vị Cố Đô")</div>
+                            <div class="text-secondary" style="font-size: 0.72rem;">@(isHandicraft ? "Làng nghề truyền thống" : "Nghệ nhân truyền thống")</div>
                         </div>
                     </div>
                     <div class="col-4">
@@ -213,10 +237,10 @@
                 <div class="row g-2 mb-3">
                     <div class="col-sm-6">
                         <div class="d-flex align-items-center gap-2 p-2 border rounded-3 bg-white">
-                            <span class="fs-4">📅</span>
+                            <span class="fs-4">@(isHandicraft ? "🛡️" : "📅")</span>
                             <div>
-                                <div class="text-muted" style="font-size: 0.75rem;">Hạn sử dụng (HSD):</div>
-                                <div class="fw-bold text-success">@Model.ExpiryDate.ToString("dd/MM/yyyy")</div>
+                                <div class="text-muted" style="font-size: 0.75rem;">@(isHandicraft ? "Độ bền / Bảo hành:" : "Hạn sử dụng (HSD):")</div>
+                                <div class="fw-bold text-success">@(isHandicraft ? "Độ bền 3 - 5 năm" : Model.ExpiryDate.ToString("dd/MM/yyyy"))</div>
                             </div>
                         </div>
                     </div>
@@ -411,7 +435,7 @@
                         role="tab"
                         aria-controls="tab-specs"
                         aria-selected="false">
-                    🧪 Thành Phần & Kỹ Thuật
+                    @(isHandicraft ? "🎨 Chất Liệu & Kỹ Thuật" : "🧪 Thành Phần & Kỹ Thuật")
                 </button>
             </li>
 
@@ -479,28 +503,53 @@
                             <tr>
                                 <th class="bg-light text-secondary">Ngày sản xuất (NSX)</th>
                                 <td>
-                                    In trực tiếp trên thân hũ/bao bì sản phẩm (Luôn giao lô sản xuất mới nhất trong vòng 15 ngày)
+                                    @(isHandicraft ? "Chế tác thủ công mới nhất trong tháng" : "In trực tiếp trên thân hũ/bao bì sản phẩm (Luôn giao lô sản xuất mới nhất trong vòng 15 ngày)")
                                 </td>
                             </tr>
-                            <tr>
-                                <th class="bg-light text-secondary">Hạn sử dụng (HSD)</th>
-                                <td>
-                                    <strong class="text-danger">@Model.ExpiryDate.ToString("dd/MM/yyyy")</strong> 
-                                    <em>(Tuân thủ nghiêm ngặt quy định ghi nhãn thực phẩm an toàn)</em>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th class="bg-light text-secondary">Quy cách & Định lượng tịnh</th>
-                                <td class="fw-semibold text-primary">
-                                    @netWeight
-                                </td>
-                            </tr>
-                            <tr>
-                                <th class="bg-light text-secondary">Số tự công bố / Giấy phép ATTP</th>
-                                <td>
-                                    Số TCB: <strong>01/ECOMMERCEHUE/2026</strong> · Giấy chứng nhận cơ sở đủ điều kiện ATTP số: <strong>48/2026/NNPTNT-HUE</strong>
-                                </td>
-                            </tr>
+                            @if (isHandicraft)
+                            {
+                                <tr>
+                                    <th class="bg-light text-secondary">Độ bền sử dụng / Bảo hành</th>
+                                    <td>
+                                        <strong class="text-success">Độ bền 3 - 5 năm</strong> 
+                                        <em>(Bảo hành chất lượng nghệ nhân làng nghề Cố Đô)</em>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th class="bg-light text-secondary">Quy cách</th>
+                                    <td class="fw-semibold text-primary">
+                                        @netWeight
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th class="bg-light text-secondary">Chứng nhận Làng nghề &amp; OCOP</th>
+                                    <td>
+                                        <strong>Chứng nhận Làng nghề truyền thống Huế - Sản phẩm OCOP Thủ công mỹ nghệ</strong>
+                                    </td>
+                                </tr>
+                            }
+                            else
+                            {
+                                <tr>
+                                    <th class="bg-light text-secondary">Hạn sử dụng (HSD)</th>
+                                    <td>
+                                        <strong class="text-danger">@Model.ExpiryDate.ToString("dd/MM/yyyy")</strong> 
+                                        <em>(Tuân thủ nghiêm ngặt quy định ghi nhãn thực phẩm an toàn)</em>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th class="bg-light text-secondary">Quy cách &amp; Định lượng tịnh</th>
+                                    <td class="fw-semibold text-primary">
+                                        @netWeight
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th class="bg-light text-secondary">Số tự công bố / Giấy phép ATTP</th>
+                                    <td>
+                                        Số TCB: <strong>01/ECOMMERCEHUE/2026</strong> · Giấy chứng nhận cơ sở đủ điều kiện ATTP số: <strong>48/2026/NNPTNT-HUE</strong>
+                                    </td>
+                                </tr>
+                            }
                         </tbody>
                     </table>
                 </div>
@@ -509,12 +558,14 @@
             <!-- TAB 2: THÀNH PHẦN & ĐẶC TÍNH KỸ THUẬT -->
             <div class="tab-pane fade p-2 p-md-3" id="tab-specs" role="tabpanel" aria-labelledby="tab-specs-tab">
                 <h4 class="h5 fw-bold text-dark mb-3 border-start border-warning border-4 ps-2">
-                    🧪 Thành Phần Cấu Tạo & Tiêu Chuẩn Kỹ Thuật
+                    @(isHandicraft ? "🎨 Chất Liệu Cấu Tạo & Tiêu Chuẩn Kỹ Thuật" : "🧪 Thành Phần Cấu Tạo & Tiêu Chuẩn Kỹ Thuật")
                 </h4>
 
-                <!-- BẢNG THÀNH PHẦN -->
+                <!-- BẢNG THÀNH PHẦN / CHẤT LIỆU -->
                 <div class="p-3 bg-light rounded-4 border mb-4">
-                    <h5 class="h6 fw-bold text-dark mb-2">🌿 Danh sách nguyên liệu thành phần:</h5>
+                    <h5 class="h6 fw-bold text-dark mb-2">
+                        @(isHandicraft ? "🧵 Danh sách chất liệu cấu tạo:" : "🌿 Danh sách nguyên liệu thành phần:")
+                    </h5>
                     <p class="text-muted small leading-relaxed mb-0">
                         @ingredients
                     </p>
@@ -523,25 +574,49 @@
                 <!-- THÔNG SỐ SPECS & CHỨNG NHẬN -->
                 <div class="row g-4">
                     <div class="col-md-7">
-                        <h5 class="h6 fw-bold text-dark mb-3">📐 Thông số kỹ thuật bao bì đóng gói:</h5>
+                        <h5 class="h6 fw-bold text-dark mb-3">
+                            @(isHandicraft ? "📐 Thông số kỹ thuật sản phẩm thủ công:" : "📐 Thông số kỹ thuật bao bì đóng gói:")
+                        </h5>
                         <table class="table table-bordered table-sm small align-middle">
                             <tbody>
-                                <tr>
-                                    <th class="w-40 bg-light text-secondary">Quy cách đóng gói</th>
-                                    <td>@packageSpecs</td>
-                                </tr>
-                                <tr>
-                                    <th class="bg-light text-secondary">Chất liệu bao bì</th>
-                                    <td>Thủy tinh tinh khiết chịu lực hoặc màng nhôm phức hợp nguyên sinh đạt chuẩn Food-Grade</td>
-                                </tr>
-                                <tr>
-                                    <th class="bg-light text-secondary">Khối lượng tổng (Gross)</th>
-                                    <td>Khoảng 550g - 650g (Đã bao gồm vỏ bảo quản)</td>
-                                </tr>
-                                <tr>
-                                    <th class="bg-light text-secondary">Độ ẩm & Bảo quản</th>
-                                    <td>Độ ẩm dưới 15% đối với đồ khô; Độ pH 3.8 - 4.2 đối với đồ lên men</td>
-                                </tr>
+                                @if (isHandicraft)
+                                {
+                                    <tr>
+                                        <th class="w-40 bg-light text-secondary">Thông số kỹ thuật</th>
+                                        <td class="fw-semibold text-primary">@packageSpecs</td>
+                                    </tr>
+                                    <tr>
+                                        <th class="bg-light text-secondary">Chất liệu chế tác</th>
+                                        <td>Lá nón non phơi sương, vành tre gai cật chuốt tay, chỉ cước chằm bền chắc</td>
+                                    </tr>
+                                    <tr>
+                                        <th class="bg-light text-secondary">Đóng gói vận chuyển</th>
+                                        <td>Hộp carton định hình chuyên dụng chống móp méo, chèn đệm bóng khí bảo vệ form</td>
+                                    </tr>
+                                    <tr>
+                                        <th class="bg-light text-secondary">Tiêu chuẩn bảo quản</th>
+                                        <td>Đã xử lý sấy khô tự nhiên, chống ẩm mốc đạt chuẩn làng nghề truyền thống</td>
+                                    </tr>
+                                }
+                                else
+                                {
+                                    <tr>
+                                        <th class="w-40 bg-light text-secondary">Quy cách đóng gói</th>
+                                        <td>@packageSpecs</td>
+                                    </tr>
+                                    <tr>
+                                        <th class="bg-light text-secondary">Chất liệu bao bì</th>
+                                        <td>Thủy tinh tinh khiết chịu lực hoặc màng nhôm phức hợp nguyên sinh đạt chuẩn Food-Grade</td>
+                                    </tr>
+                                    <tr>
+                                        <th class="bg-light text-secondary">Khối lượng tổng (Gross)</th>
+                                        <td>Khoảng 550g - 650g (Đã bao gồm vỏ bảo quản)</td>
+                                    </tr>
+                                    <tr>
+                                        <th class="bg-light text-secondary">Độ ẩm & Bảo quản</th>
+                                        <td>Độ ẩm dưới 15% đối với đồ khô; Độ pH 3.8 - 4.2 đối với đồ lên men</td>
+                                    </tr>
+                                }
                             </tbody>
                         </table>
                     </div>
@@ -550,39 +625,74 @@
                     <div class="col-md-5">
                         <h5 class="h6 fw-bold text-dark mb-3">🏅 Chứng nhận chất lượng uy tín:</h5>
                         <div class="d-flex flex-column gap-2">
-                            
-                            <div class="p-2 border rounded-3 bg-white d-flex align-items-center gap-3">
-                                <span class="fs-3">🌟</span>
-                                <div>
-                                    <div class="fw-bold text-dark small">Chứng nhận OCOP 4 Sao</div>
-                                    <div class="text-muted" style="font-size: 0.72rem;">Chương trình mỗi xã một sản phẩm tỉnh TT-Huế</div>
+                            @if (isHandicraft)
+                            {
+                                <div class="p-2 border rounded-3 bg-white d-flex align-items-center gap-3">
+                                    <span class="fs-3">🌟</span>
+                                    <div>
+                                        <div class="fw-bold text-dark small">Sản Phẩm OCOP Thủ Công Mỹ Nghệ</div>
+                                        <div class="text-muted" style="font-size: 0.72rem;">Làng nghề truyền thống nón lá Cố Đô Huế</div>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div class="p-2 border rounded-3 bg-white d-flex align-items-center gap-3">
-                                <span class="fs-3">🛡️</span>
-                                <div>
-                                    <div class="fw-bold text-dark small">ISO 22000:2018 & HACCP Codex</div>
-                                    <div class="text-muted" style="font-size: 0.72rem;">Hệ thống quản lý an toàn thực phẩm Quốc tế</div>
+                                <div class="p-2 border rounded-3 bg-white d-flex align-items-center gap-3">
+                                    <span class="fs-3">🛡️</span>
+                                    <div>
+                                        <div class="fw-bold text-dark small">Nghệ Nhân Chằm Tay 100%</div>
+                                        <div class="text-muted" style="font-size: 0.72rem;">Đường kim mũi chỉ tinh xảo, phom dáng chuẩn mực</div>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div class="p-2 border rounded-3 bg-white d-flex align-items-center gap-3">
-                                <span class="fs-3">🇺🇸</span>
-                                <div>
-                                    <div class="fw-bold text-dark small">FDA Standard Compliance</div>
-                                    <div class="text-muted" style="font-size: 0.72rem;">Đạt chuẩn đóng gói xuất khẩu bưu phẩm đi Mỹ/EU</div>
+                                <div class="p-2 border rounded-3 bg-white d-flex align-items-center gap-3">
+                                    <span class="fs-3">🇺🇸</span>
+                                    <div>
+                                        <div class="fw-bold text-dark small">Chuẩn Đóng Gói Xuất Khẩu</div>
+                                        <div class="text-muted" style="font-size: 0.72rem;">Hộp carton bảo vệ form nón đi máy bay và bưu phẩm quốc tế</div>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div class="p-2 border rounded-3 bg-white d-flex align-items-center gap-3">
-                                <span class="fs-3">♻️</span>
-                                <div>
-                                    <div class="fw-bold text-dark small">Bao Bì Thân Thiện Môi Trường</div>
-                                    <div class="text-muted" style="font-size: 0.72rem;">Tái chế 100% bảo vệ cảnh quan Cố Đô</div>
+                                <div class="p-2 border rounded-3 bg-white d-flex align-items-center gap-3">
+                                    <span class="fs-3">🎋</span>
+                                    <div>
+                                        <div class="fw-bold text-dark small">100% Tre & Lá Nón Tự Nhiên</div>
+                                        <div class="text-muted" style="font-size: 0.72rem;">Thân thiện môi trường, đậm đà hồn quê xứ Huế</div>
+                                    </div>
                                 </div>
-                            </div>
+                            }
+                            else
+                            {
+                                <div class="p-2 border rounded-3 bg-white d-flex align-items-center gap-3">
+                                    <span class="fs-3">🌟</span>
+                                    <div>
+                                        <div class="fw-bold text-dark small">Chứng nhận OCOP 4 Sao</div>
+                                        <div class="text-muted" style="font-size: 0.72rem;">Chương trình mỗi xã một sản phẩm tỉnh TT-Huế</div>
+                                    </div>
+                                </div>
 
+                                <div class="p-2 border rounded-3 bg-white d-flex align-items-center gap-3">
+                                    <span class="fs-3">🛡️</span>
+                                    <div>
+                                        <div class="fw-bold text-dark small">ISO 22000:2018 & HACCP Codex</div>
+                                        <div class="text-muted" style="font-size: 0.72rem;">Hệ thống quản lý an toàn thực phẩm Quốc tế</div>
+                                    </div>
+                                </div>
+
+                                <div class="p-2 border rounded-3 bg-white d-flex align-items-center gap-3">
+                                    <span class="fs-3">🇺🇸</span>
+                                    <div>
+                                        <div class="fw-bold text-dark small">FDA Standard Compliance</div>
+                                        <div class="text-muted" style="font-size: 0.72rem;">Đạt chuẩn đóng gói xuất khẩu bưu phẩm đi Mỹ/EU</div>
+                                    </div>
+                                </div>
+
+                                <div class="p-2 border rounded-3 bg-white d-flex align-items-center gap-3">
+                                    <span class="fs-3">♻️</span>
+                                    <div>
+                                        <div class="fw-bold text-dark small">Bao Bì Thân Thiện Môi Trường</div>
+                                        <div class="text-muted" style="font-size: 0.72rem;">Tái chế 100% bảo vệ cảnh quan Cố Đô</div>
+                                    </div>
+                                </div>
+                            }
                         </div>
                     </div>
                 </div>
@@ -600,8 +710,8 @@
                     <div class="col-md-6">
                         <div class="card h-100 rounded-4 border p-3 bg-light">
                             <div class="d-flex align-items-center gap-2 mb-2 text-primary">
-                                <span class="fs-4">🍽️</span>
-                                <h5 class="h6 fw-bold mb-0">Cách sử dụng ngon đúng vị:</h5>
+                                <span class="fs-4">@(isHandicraft ? "👒" : "🍽️")</span>
+                                <h5 class="h6 fw-bold mb-0">@(isHandicraft ? "Mục đích & Hướng dẫn sử dụng:" : "Cách sử dụng ngon đúng vị:")</h5>
                             </div>
                             <p class="text-muted small leading-relaxed mb-0">
                                 @usageInstruction
@@ -613,8 +723,8 @@
                     <div class="col-md-6">
                         <div class="card h-100 rounded-4 border p-3 bg-light">
                             <div class="d-flex align-items-center gap-2 mb-2 text-success">
-                                <span class="fs-4">❄️</span>
-                                <h5 class="h6 fw-bold mb-0">Điều kiện nhiệt độ bảo quản:</h5>
+                                <span class="fs-4">@(isHandicraft ? "🏠" : "❄️")</span>
+                                <h5 class="h6 fw-bold mb-0">@(isHandicraft ? "Bảo quản & Giữ gìn phom dáng:" : "Điều kiện nhiệt độ bảo quản:")</h5>
                             </div>
                             <p class="text-muted small leading-relaxed mb-0">
                                 @storageInstruction
@@ -624,10 +734,10 @@
 
                 </div>
 
-                <!-- CẢNH BÁO AN TOÀN -->
-                <div class="mt-4 p-3 bg-warning-subtle border border-warning rounded-4 text-warning-emphasis small">
+                <!-- CẢNH BÁO / LƯU Ý SỬ DỤNG -->
+                <div class="mt-4 p-3 @(isHandicraft ? "bg-info-subtle border border-info text-info-emphasis" : "bg-warning-subtle border border-warning text-warning-emphasis") rounded-4 small">
                     <div class="fw-bold d-flex align-items-center gap-2 mb-1">
-                        <span>⚠️ Cảnh báo an toàn thực phẩm & dị ứng:</span>
+                        <span>@(isHandicraft ? "💡 Lưu ý giữ gìn & bảo quản đồ thủ công:" : "⚠️ Cảnh báo an toàn thực phẩm & dị ứng:")</span>
                     </div>
                     <div>@allergenWarning</div>
                 </div>
@@ -674,7 +784,14 @@
                 </div>
 
                 <div class="mt-4 p-3 border-start border-primary border-4 bg-light rounded-3 small text-muted">
-                    ℹ️ <em>Lưu ý: Đối với các sản phẩm thực phẩm lên men tươi như tôm chua hay tré, quý khách vui lòng kiểm tra niêm phong bưu phẩm khi đồng kiểm cùng bưu tá giao hàng để được hỗ trợ giải quyết nhanh chóng nhất.</em>
+                    @if (isHandicraft)
+                    {
+                        <span>ℹ️ <em>Lưu ý: Đối với các sản phẩm thủ công mỹ nghệ như nón lá Huế, sản phẩm được chế tác thủ công 100% bởi các nghệ nhân làng nghề Cố Đô. Quý khách vui lòng đồng kiểm cùng bưu tá khi nhận hàng để đảm bảo nón giữ nguyên vẹn phom dáng đẹp mắt nhất.</em></span>
+                    }
+                    else
+                    {
+                        <span>ℹ️ <em>Lưu ý: Đối với các sản phẩm thực phẩm lên men tươi như tôm chua hay tré, quý khách vui lòng kiểm tra niêm phong bưu phẩm khi đồng kiểm cùng bưu tá giao hàng để được hỗ trợ giải quyết nhanh chóng nhất.</em></span>
+                    }
                 </div>
             </div>
 

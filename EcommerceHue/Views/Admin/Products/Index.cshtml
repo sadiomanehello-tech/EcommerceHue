@@ -183,6 +183,9 @@
                                             data-expiry="@item.ExpiryDate.ToString("yyyy-MM-dd")"
                                             data-image="@(item.ImageUrl ?? "")"
                                             data-description="@(item.Description ?? "")"
+                                            data-ingredients="@(item.IngredientsOrMaterials ?? "")"
+                                            data-packaging="@(item.PackagingSpecs ?? "")"
+                                            data-usage="@(item.UsageAndStorage ?? "")"
                                             data-available="@(item.IsAvailable ? "true" : "false")">
                                         <i class="bi bi-pencil-square"></i> Sửa
                                     </button>
@@ -349,6 +352,32 @@
               <textarea name="Description" class="form-control" rows="3" placeholder="Giới thiệu xuất xứ, hương vị, nét văn hóa cung đình Huế..."></textarea>
             </div>
 
+            <!-- THÔNG TIN BỔ SUNG: NGUYÊN LIỆU/CHẤT LIỆU, QUY CÁCH/THÔNG SỐ, HDSD/BẢO QUẢN -->
+            <div class="col-12">
+              <hr class="my-2" />
+              <h6 class="fw-bold text-primary mb-2" style="font-size: 0.9rem;">
+                <i class="bi bi-info-circle me-1"></i> Thông tin bổ sung theo ngành hàng (Tùy chọn - nếu để trống sẽ tự sinh theo danh mục)
+              </h6>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Thành phần / Chất liệu</label>
+              <textarea name="IngredientsOrMaterials" class="form-control form-control-sm" rows="3" placeholder="Ví dụ thực phẩm: Mạch nha nếp, mè rang...&#10;Hoặc nón lá: Lá nón non phơi sương, vành tre cật..."></textarea>
+              <small class="text-muted" style="font-size: 0.72rem;">Thành phần (thực phẩm) hoặc chất liệu cấu tạo (thủ công)</small>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Quy cách / Thông số kỹ thuật</label>
+              <textarea name="PackagingSpecs" class="form-control form-control-sm" rows="3" placeholder="Ví dụ thực phẩm: Hộp 450g (22x15x4 cm)...&#10;Hoặc nón lá: Đường kính 41cm, 16 vành tre..."></textarea>
+              <small class="text-muted" style="font-size: 0.72rem;">Quy cách đóng gói hoặc kích thước, thông số</small>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">HDSD & Bảo quản</label>
+              <textarea name="UsageAndStorage" class="form-control form-control-sm" rows="3" placeholder="Ví dụ thực phẩm: Ăn liền, để ngăn mát...&#10;Hoặc nón lá: Che nắng, treo nơi khô ráo..."></textarea>
+              <small class="text-muted" style="font-size: 0.72rem;">Hướng dẫn cách dùng và bảo quản sản phẩm</small>
+            </div>
+
             <div class="col-12">
               <div class="form-check form-switch">
                 <input class="form-check-input" type="checkbox" name="IsAvailable" value="true" id="switchAvailable" checked />
@@ -455,6 +484,32 @@
             <div class="col-12">
               <label class="form-label fw-semibold">Mô tả đặc sản</label>
               <textarea name="description" id="editProductDescription" class="form-control" rows="3"></textarea>
+            </div>
+
+            <!-- THÔNG TIN BỔ SUNG: NGUYÊN LIỆU/CHẤT LIỆU, QUY CÁCH/THÔNG SỐ, HDSD/BẢO QUẢN -->
+            <div class="col-12">
+              <hr class="my-2" />
+              <h6 class="fw-bold text-primary mb-2" style="font-size: 0.9rem;">
+                <i class="bi bi-info-circle me-1"></i> Thông tin bổ sung theo ngành hàng (Tùy chọn - nếu để trống sẽ tự sinh theo danh mục)
+              </h6>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Thành phần / Chất liệu</label>
+              <textarea name="ingredientsOrMaterials" id="editProductIngredients" class="form-control form-control-sm" rows="3" placeholder="Ví dụ thực phẩm: Mạch nha nếp, mè rang...&#10;Hoặc nón lá: Lá nón non phơi sương, vành tre cật..."></textarea>
+              <small class="text-muted" style="font-size: 0.72rem;">Thành phần (thực phẩm) hoặc chất liệu cấu tạo (thủ công)</small>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Quy cách / Thông số kỹ thuật</label>
+              <textarea name="packagingSpecs" id="editProductPackaging" class="form-control form-control-sm" rows="3" placeholder="Ví dụ thực phẩm: Hộp 450g (22x15x4 cm)...&#10;Hoặc nón lá: Đường kính 41cm, 16 vành tre..."></textarea>
+              <small class="text-muted" style="font-size: 0.72rem;">Quy cách đóng gói hoặc kích thước, thông số</small>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">HDSD & Bảo quản</label>
+              <textarea name="usageAndStorage" id="editProductUsage" class="form-control form-control-sm" rows="3" placeholder="Ví dụ thực phẩm: Ăn liền, để ngăn mát...&#10;Hoặc nón lá: Che nắng, treo nơi khô ráo..."></textarea>
+              <small class="text-muted" style="font-size: 0.72rem;">Hướng dẫn cách dùng và bảo quản sản phẩm</small>
             </div>
 
             <div class="col-12">
@@ -596,6 +651,9 @@
                 const image = this.dataset.image || '';
                 const description = this.dataset.description || '';
                 const isAvailable = this.dataset.available === 'true';
+                const ingredients = this.dataset.ingredients || '';
+                const packaging = this.dataset.packaging || '';
+                const usage = this.dataset.usage || '';
 
                 document.getElementById('editProductId').value = id;
                 document.getElementById('editProductName').value = name;
@@ -606,6 +664,13 @@
                 document.getElementById('editProductImage').value = image;
                 document.getElementById('editProductDescription').value = description;
                 document.getElementById('editProductAvailable').checked = isAvailable;
+
+                const elIng = document.getElementById('editProductIngredients');
+                if (elIng) elIng.value = ingredients;
+                const elPack = document.getElementById('editProductPackaging');
+                if (elPack) elPack.value = packaging;
+                const elUse = document.getElementById('editProductUsage');
+                if (elUse) elUse.value = usage;
 
                 // Cập nhật ảnh preview nếu có
                 updateImagePreview(image);

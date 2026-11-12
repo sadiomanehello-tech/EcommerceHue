@@ -50,6 +50,9 @@ public static class SeedData
         // Đảm bảo bảng Coupons có đầy đủ các cột mới mở rộng (ALTER TABLE cho SQLite cũ tải từ Supabase)
         await EnsureCouponColumnsAsync(context);
 
+        // Đảm bảo bảng Products có đầy đủ 3 cột mới mở rộng cho sản phẩm thực phẩm / thủ công
+        await EnsureProductColumnsAsync(context);
+
         // 2. Khởi tạo danh mục đặc sản Huế nếu chưa có hoặc bổ sung các danh mục mẫu mới
         var defaultCategories = new (string Name, string Description, string ImageUrl, int Order)[]
         {
@@ -340,6 +343,91 @@ public static class SeedData
 
             await context.Posts.AddRangeAsync(posts);
             await context.SaveChangesAsync();
+        }
+    }
+
+    /// <summary>
+    /// Đảm bảo bảng Products chắc chắn có đủ 3 cột mới mở rộng (IngredientsOrMaterials, PackagingSpecs, UsageAndStorage)
+    /// bằng SqliteConnection độc lập và PRAGMA table_info('Products');
+    /// Giúp bảo toàn dữ liệu sản phẩm cũ khi tải file SQLite từ Supabase Storage về.
+    /// </summary>
+    private static async Task EnsureProductColumnsAsync(EcommerceContext context)
+    {
+        var connectionString = context.Database.GetConnectionString();
+        if (string.IsNullOrWhiteSpace(connectionString)) return;
+
+        try
+        {
+            // Giải phóng các pool trước để tránh database is locked
+            SqliteConnection.ClearAllPools();
+
+            await using var connection = new SqliteConnection(connectionString);
+            await connection.OpenAsync();
+
+            // 1. Kiểm tra bảng Products đã tồn tại chưa
+            using (var checkCmd = connection.CreateCommand())
+            {
+                checkCmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='Products';";
+                var tableName = await checkCmd.ExecuteScalarAsync();
+                if (tableName == null)
+                {
+                    Console.WriteLine("=== [SQLITE PRAGMA] Bảng Products chưa tồn tại trong SQLite, bỏ qua ALTER TABLE. ===");
+                    return;
+                }
+            }
+
+            // 2. Lấy danh sách các cột hiện có trong bảng Products bằng PRAGMA
+            var existingColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            using (var cmd = connection.CreateCommand())
+            {
+                cmd.CommandText = "PRAGMA table_info('Products');";
+                using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    var colName = reader.GetString(1);
+                    existingColumns.Add(colName);
+                }
+            }
+
+            Console.WriteLine($"=== [SQLITE PRAGMA] Bảng Products hiện có các cột: {string.Join(", ", existingColumns)} ===");
+
+            // 3. Danh sách các cột cần kiểm tra và bổ sung bằng ALTER TABLE
+            var requiredColumns = new (string Name, string Sql)[]
+            {
+                ("IngredientsOrMaterials", "ALTER TABLE Products ADD COLUMN IngredientsOrMaterials TEXT NULL;"),
+                ("PackagingSpecs", "ALTER TABLE Products ADD COLUMN PackagingSpecs TEXT NULL;"),
+                ("UsageAndStorage", "ALTER TABLE Products ADD COLUMN UsageAndStorage TEXT NULL;")
+            };
+
+            foreach (var col in requiredColumns)
+            {
+                if (!existingColumns.Contains(col.Name))
+                {
+                    try
+                    {
+                        using var alterCmd = connection.CreateCommand();
+                        alterCmd.CommandText = col.Sql;
+                        await alterCmd.ExecuteNonQueryAsync();
+                        Console.WriteLine($"=== [SQLITE MIGRATION SUCCESS] Đã bổ sung thành công cột '{col.Name}' vào bảng Products! ===");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"=== [SQLITE MIGRATION ERROR] Lỗi khi thêm cột '{col.Name}' vào Products: {ex.Message} ===");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"=== [SQLITE CHECK] Cột '{col.Name}' đã tồn tại trong bảng Products. ===");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"=== [SQLITE CONNECTION ERROR] Lỗi khi kiểm tra cấu trúc bảng Products: {ex.Message} ===");
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
         }
     }
 

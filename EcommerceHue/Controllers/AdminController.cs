@@ -844,6 +844,9 @@ namespace EcommerceHue.Controllers
 
                 // Tự động chuẩn hóa đường dẫn ảnh Unsplash
                 product.ImageUrl = NormalizeImageUrl(product.ImageUrl);
+                product.IngredientsOrMaterials = string.IsNullOrWhiteSpace(product.IngredientsOrMaterials) ? null : product.IngredientsOrMaterials.Trim();
+                product.PackagingSpecs = string.IsNullOrWhiteSpace(product.PackagingSpecs) ? null : product.PackagingSpecs.Trim();
+                product.UsageAndStorage = string.IsNullOrWhiteSpace(product.UsageAndStorage) ? null : product.UsageAndStorage.Trim();
                 product.CreatedAt = DateTime.UtcNow;
                 product.UpdatedAt = DateTime.UtcNow;
                 if (string.IsNullOrWhiteSpace(product.Slug))
@@ -879,7 +882,10 @@ namespace EcommerceHue.Controllers
             string? imageUrl,
             string? description,
             bool isAvailable,
-            string? newCategoryName)
+            string? newCategoryName,
+            string? ingredientsOrMaterials,
+            string? packagingSpecs,
+            string? usageAndStorage)
         {
             if (!IsAdminAuthorized()) return StatusCode(403);
 
@@ -930,6 +936,9 @@ namespace EcommerceHue.Controllers
                 product.CategoryId = categoryId;
                 // Chuẩn hóa link ảnh Unsplash khi chỉnh sửa
                 product.ImageUrl = NormalizeImageUrl(imageUrl);
+                product.IngredientsOrMaterials = string.IsNullOrWhiteSpace(ingredientsOrMaterials) ? null : ingredientsOrMaterials.Trim();
+                product.PackagingSpecs = string.IsNullOrWhiteSpace(packagingSpecs) ? null : packagingSpecs.Trim();
+                product.UsageAndStorage = string.IsNullOrWhiteSpace(usageAndStorage) ? null : usageAndStorage.Trim();
                 product.IsAvailable = isAvailable;
                 product.UpdatedAt = DateTime.UtcNow;
 
