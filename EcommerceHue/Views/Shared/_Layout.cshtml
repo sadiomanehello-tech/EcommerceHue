@@ -641,19 +641,30 @@
             scrollToBottom();
         }
 
-        // Gửi câu hỏi lên API server để Trợ lý AI Gemini & SQLite xử lý
+        // Bộ nhớ lưu trữ lịch sử hội thoại (Multi-turn Chat)
+        let chatHistory = [];
+
+        // Gửi câu hỏi lên API server để Trợ lý AI Gemini & SQLite xử lý (kèm lịch sử hội thoại)
         async function fetchAiReply(userText) {
             showTypingIndicator();
             try {
                 const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: userText })
+                    body: JSON.stringify({
+                        message: userText,
+                        history: chatHistory.slice(-8)
+                    })
                 });
 
                 if (response.ok) {
                     const data = await response.json();
-                    appendBotMessage(data.reply || 'Dạ, em chưa nhận diện được câu trả lời. Quý khách vui lòng thử lại nhé!');
+                    const reply = data.reply || 'Dạ, em chưa nhận diện được câu trả lời. Quý khách vui lòng thử lại nhé!';
+                    appendBotMessage(reply);
+
+                    // Lưu vào lịch sử hội thoại để các câu hỏi sau AI nhớ được ngữ cảnh
+                    chatHistory.push({ role: 'user', text: userText });
+                    chatHistory.push({ role: 'model', text: reply });
                 } else {
                     appendBotMessage('Dạ, hệ thống đang bận một chút, Quý khách vui lòng thử lại sau ít giây hoặc liên hệ Hotline 0901 234 567 ạ! 🏮');
                 }

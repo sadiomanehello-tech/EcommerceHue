@@ -34,9 +34,9 @@ public class AiAssistantService
     }
 
     /// <summary>
-    /// Xử lý tin nhắn của người dùng và trả về câu trả lời thông minh
+    /// Xử lý tin nhắn của người dùng (hỗ trợ lịch sử hội thoại Multi-turn Chat) và trả về câu trả lời thông minh
     /// </summary>
-    public async Task<string> GetSmartReplyAsync(string userMessage)
+    public async Task<string> GetSmartReplyAsync(string userMessage, List<ChatMessageItem>? history = null)
     {
         if (string.IsNullOrWhiteSpace(userMessage))
         {
@@ -74,17 +74,16 @@ public class AiAssistantService
                 return await GenerateFallbackReplyAsync(trimmedMessage);
             }
 
-            // 1. Tải danh sách sản phẩm đang bán từ SQLite
+            // 1. Tải TOÀN BỘ danh sách sản phẩm đang bán từ SQLite (kèm thông số chi tiết)
             var products = await _context.Products
                 .Include(p => p.Category)
                 .AsNoTracking()
                 .Where(p => p.IsAvailable)
                 .OrderBy(p => p.CategoryId)
                 .ThenBy(p => p.Name)
-                .Take(40)
                 .ToListAsync();
 
-            // 2. Tải danh sách mã giảm giá đang hoạt động từ SQLite
+            // 2. Tải TOÀN BỘ danh sách mã giảm giá đang hoạt động từ SQLite
             var nowUtc = DateTime.UtcNow;
             var coupons = await _context.Coupons
                 .AsNoTracking()
@@ -94,31 +93,36 @@ public class AiAssistantService
 
             // 3. Xây dựng ngữ cảnh dữ liệu thực tế (Context Data)
             var sbContext = new StringBuilder();
-            sbContext.AppendLine("--- DANH SÁCH SẢN PHẨM & TỒN KHO THỰC TẾ CỬA HÀNG ---");
+            sbContext.AppendLine("--- DANH SÁCH SẢN PHẨM & TỒN KHO THỰC TẾ CỦA CỬA HÀNG ---");
             foreach (var p in products)
             {
-                var catName = p.Category?.Name ?? "Đặc sản";
-                var stockText = p.StockQuantity > 0 ? $"Còn {p.StockQuantity} sp" : "Tạm hết hàng";
+                var catName = p.Category?.Name ?? "Đặc sản Huế";
+                var stockText = p.StockQuantity > 0 ? $"Còn {p.StockQuantity} sản phẩm" : "Tạm hết hàng";
                 var expText = p.ExpiryDate.ToString("dd/MM/yyyy");
                 sbContext.AppendLine($"• [{catName}] {p.Name}: Giá {p.Price:N0}đ | Tồn kho: {stockText} | HSD: {expText}");
+
                 if (!string.IsNullOrWhiteSpace(p.Description))
-                {
                     sbContext.AppendLine($"  Mô tả: {p.Description}");
-                }
+
+                if (!string.IsNullOrWhiteSpace(p.IngredientsOrMaterials))
+                    sbContext.AppendLine($"  Nguyên liệu/Chất liệu: {p.IngredientsOrMaterials}");
+
+                if (!string.IsNullOrWhiteSpace(p.PackagingSpecs))
+                    sbContext.AppendLine($"  Quy cách đóng gói: {p.PackagingSpecs}");
+
                 if (!string.IsNullOrWhiteSpace(p.UsageAndStorage))
-                {
-                    sbContext.AppendLine($"  Bảo quản: {p.UsageAndStorage}");
-                }
+                    sbContext.AppendLine($"  Cách dùng & Bảo quản: {p.UsageAndStorage}");
             }
 
             sbContext.AppendLine();
-            sbContext.AppendLine("--- DANH SÁCH MÃ GIẢM GIÁ ĐANG ÁP DỤNG ---");
+            sbContext.AppendLine("--- DANH SÁCH MÃ GIẢM GIÁ ĐANG ÁP DỤNG TRONG NGÀY ---");
             if (coupons.Any())
             {
                 foreach (var c in coupons)
                 {
                     var minVal = c.MinOrderValue > 0 ? $"đơn từ {c.MinOrderValue:N0}đ" : "mọi đơn hàng";
-                    sbContext.AppendLine($"• Mã '{c.Code}': Giảm {c.DiscountPercentage}% cho {minVal}. {c.Description}");
+                    var maxDiscount = c.MaxDiscountAmount.HasValue ? $" (Tối đa {c.MaxDiscountAmount.Value:N0}đ)" : "";
+                    sbContext.AppendLine($"• Mã '{c.Code}': Giảm {c.DiscountPercentage}%{maxDiscount} cho {minVal}. {c.Description}");
                 }
             }
             else
@@ -126,79 +130,132 @@ public class AiAssistantService
                 sbContext.AppendLine("• Hiện tại chưa có mã giảm giá chung. Khách đăng ký email ở chân trang nhận ngay mã giảm 10%!");
             }
 
-            // 4. Thiết lập Prompt vai trò Trợ Lý Ẩm Thực Cố Đô
-            var systemInstruction = 
-                "Bạn là 'Trợ Lý Ẩm Thực Cố Đô' của cửa hàng trực tuyến Đặc sản Huế (EcommerceHue).\n" +
-                "Nhiệm vụ của bạn:\n" +
-                "1. Trả lời thân thiện, lịch thiệp, mang đậm phong vị xứ Huế, ngắn gọn và súc tích (dưới 200 từ).\n" +
-                "2. Luôn dựa vào dữ liệu sản phẩm, giá bán, số lượng tồn kho và mã giảm giá thực tế được cung cấp bên dưới.\n" +
-                "3. Tuyệt đối không bịa đặt hoặc đề xuất sản phẩm không có trong danh mục của cửa hàng.\n" +
-                "4. Chính sách giao hàng: Nội thành Huế giao nhanh trong 24h; các tỉnh thành khác giao 2-3 ngày qua bưu điện/GHN.\n" +
-                "5. Phương thức thanh toán: Hỗ trợ chuyển khoản VietQR tự động (PayOS/BIDV) và ship COD nhận hàng kiểm tra trả tiền mặt.\n" +
-                "6. Nếu khách hỏi tra cứu đơn hàng nhưng chưa đưa mã, nhắc khách cung cấp mã đơn dạng HUE-...\n" +
-                "7. Hotline hỗ trợ 24/7: 0901 234 567.";
+            // 4. Thiết lập System Instruction tối ưu cho Trợ Lý Ẩm Thực Cố Đô
+            var systemInstruction =
+                "Bạn là 'Trợ Lý Ẩm Thực Cố Đô' của cửa hàng đặc sản Huế EcommerceHue. Hãy cư xử như một chuyên viên tư vấn ẩm thực am hiểu, nhiệt tình và lịch thiệp với phong vị xứ Huế nhẹ nhàng, duyên dáng.\n\n" +
+                "QUY TẮC CỐT LÕI:\n" +
+                "1. Luôn sử dụng số liệu thật từ danh sách sản phẩm và mã giảm giá được cung cấp để trả lời. Tuyệt đối không bịa đặt hoặc đề xuất sản phẩm không có trong cửa hàng.\n" +
+                "2. GỢI Ý BÁN KÈM (CROSS-SELLING) THÔNG MINH:\n" +
+                "   - Khi khách hỏi mua Mè xửng hoặc Bánh kẹo, chủ động gợi ý dùng kèm Trà Cung Đình Nhất Dạ Đế Vương để thưởng thức trọn vị thanh tao.\n" +
+                "   - Khi khách hỏi mua quà biếu, tặng người thân/đối tác, hãy gợi ý Combo Quà Biếu Huế hoặc kèm Dịch vụ Gói quà Cố Đô trang trọng (+15.000đ có thiệp viết tay).\n" +
+                "3. GIẢI ĐÁP VĂN HÓA & MÓN ĂN: Giải thích tự nhiên, giàu cảm xúc về nguồn gốc, hương vị đặc trưng, cách thưởng thức và cách bảo quản chuẩn Huế.\n" +
+                "4. CHÍNH SÁCH GIAO HÀNG & THANH TOÁN:\n" +
+                "   - Nội thành Huế giao nhanh trong 24h bằng shipper riêng.\n" +
+                "   - Toàn quốc giao từ 2-3 ngày, đóng thùng xốp hút chân không bảo quản tiêu chuẩn.\n" +
+                "   - Hỗ trợ Chuyển khoản VietQR tự động (PayOS/BIDV) và Thu hộ tiền mặt khi nhận hàng (COD).\n" +
+                "5. TRA CỨU ĐƠN HÀNG: Nếu khách muốn tra cứu nhưng chưa cung cấp mã, hãy nhắc khách nhập mã đơn dạng HUE-...\n" +
+                "6. Trả lời súc tích, định dạng gạch đầu dòng rõ ràng, tránh dong dài quá 250 từ.\n" +
+                "7. Hotline hỗ trợ CSKH: 0901 234 567.";
 
-            var fullPrompt = $"{systemInstruction}\n\n{sbContext}\n\nKhách hàng hỏi: \"{trimmedMessage}\"\n\nTrợ Lý Ẩm Thực Cố Đô trả lời:";
+            // 5. Chuẩn bị danh sách lượt hội thoại (Multi-turn Chat Contents)
+            var contentsList = new List<object>();
 
-            // 5. Gửi yêu cầu tới Gemini API
-            var endpoint = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={apiKey}";
+            // Nếu có lịch sử hội thoại trước đó, đưa vào mảng contents (lấy tối đa 8 lượt gần nhất)
+            if (history != null && history.Any())
+            {
+                foreach (var item in history.TakeLast(8))
+                {
+                    if (string.IsNullOrWhiteSpace(item.Text)) continue;
+
+                    var role = string.Equals(item.Role, "model", StringComparison.OrdinalIgnoreCase) ||
+                               string.Equals(item.Role, "assistant", StringComparison.OrdinalIgnoreCase)
+                               ? "model" : "user";
+
+                    contentsList.Add(new
+                    {
+                        role = role,
+                        parts = new[] { new { text = item.Text } }
+                    });
+                }
+            }
+
+            // Lượt tin nhắn hiện tại của khách
+            contentsList.Add(new
+            {
+                role = "user",
+                parts = new[] { new { text = trimmedMessage } }
+            });
+
+            // Cấu trúc Payload chuẩn Gemini API v1beta
             var requestPayload = new
             {
-                contents = new[]
+                system_instruction = new
                 {
-                    new
+                    parts = new[]
                     {
-                        role = "user",
-                        parts = new[]
-                        {
-                            new { text = fullPrompt }
-                        }
+                        new { text = $"{systemInstruction}\n\n{sbContext}" }
                     }
                 },
+                contents = contentsList,
                 generationConfig = new
                 {
                     temperature = 0.7,
-                    maxOutputTokens = 800
+                    maxOutputTokens = 1000
                 }
             };
 
             var jsonContent = JsonSerializer.Serialize(requestPayload);
-            var httpContent = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+            // 6. Danh sách Model theo thứ tự ưu tiên: gemini-3.5-flash-lite -> gemini-2.5-flash-lite -> gemini-2.0-flash
+            var modelList = new[] { "gemini-3.5-flash-lite", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.5-flash" };
 
             var client = _httpClientFactory.CreateClient("GeminiApiClient");
             client.Timeout = TimeSpan.FromSeconds(15);
 
-            var response = await client.PostAsync(endpoint, httpContent);
-            if (response.IsSuccessStatusCode)
+            foreach (var modelName in modelList)
             {
-                var responseBody = await response.Content.ReadAsStringAsync();
-                using var doc = JsonDocument.Parse(responseBody);
-                if (doc.RootElement.TryGetProperty("candidates", out var candidates) &&
-                    candidates.GetArrayLength() > 0 &&
-                    candidates[0].TryGetProperty("content", out var content) &&
-                    content.TryGetProperty("parts", out var parts) &&
-                    parts.GetArrayLength() > 0 &&
-                    parts[0].TryGetProperty("text", out var textProp))
+                try
                 {
-                    var geminiText = textProp.GetString();
-                    if (!string.IsNullOrWhiteSpace(geminiText))
+                    var endpoint = $"https://generativelanguage.googleapis.com/v1beta/models/{modelName}:generateContent";
+                    
+                    using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint);
+                    // Truyền khóa API qua HTTP Request Header chuẩn x-goog-api-key (không để lộ trên URL)
+                    httpRequest.Headers.Add("x-goog-api-key", apiKey);
+                    httpRequest.Content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+                    var response = await client.SendAsync(httpRequest);
+
+                    if (response.IsSuccessStatusCode)
                     {
-                        return geminiText.Trim();
+                        var responseBody = await response.Content.ReadAsStringAsync();
+                        using var doc = JsonDocument.Parse(responseBody);
+                        if (doc.RootElement.TryGetProperty("candidates", out var candidates) &&
+                            candidates.GetArrayLength() > 0 &&
+                            candidates[0].TryGetProperty("content", out var content) &&
+                            content.TryGetProperty("parts", out var parts) &&
+                            parts.GetArrayLength() > 0 &&
+                            parts[0].TryGetProperty("text", out var textProp))
+                        {
+                            var geminiText = textProp.GetString();
+                            if (!string.IsNullOrWhiteSpace(geminiText))
+                            {
+                                return geminiText.Trim();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // In rõ ràng ra Console và Logger để tiện theo dõi trên Render Logs
+                        var errBody = await response.Content.ReadAsStringAsync();
+                        Console.WriteLine($"=== [GEMINI API ERROR] Model: {modelName} | Status: {response.StatusCode} | Detail: {errBody}");
+                        _logger.LogWarning("[AiAssistant] Model {Model} trả về HTTP {Status}: {Error}. Chuyển sang model dự phòng tiếp theo...",
+                            modelName, response.StatusCode, errBody);
                     }
                 }
-            }
-            else
-            {
-                var errBody = await response.Content.ReadAsStringAsync();
-                _logger.LogWarning("[AiAssistant] Gemini API trả về mã lỗi HTTP {Status}: {Error}", response.StatusCode, errBody);
+                catch (Exception modelEx)
+                {
+                    Console.WriteLine($"=== [GEMINI API EXCEPTION] Model: {modelName} | Message: {modelEx.Message}");
+                    _logger.LogWarning(modelEx, "[AiAssistant] Ngoại lệ khi gọi model {Model}: {Message}", modelName, modelEx.Message);
+                }
             }
 
-            // Fallback nếu Gemini API không thành công
+            // Fallback nếu tất cả model Gemini đều không phản hồi
             return await GenerateFallbackReplyAsync(trimmedMessage);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[AiAssistant] Ngoại lệ khi gọi Gemini API: {Message}. Chuyển sang fallback.", ex.Message);
+            Console.WriteLine("=== [GEMINI API TOTAL EXCEPTION]: " + ex.Message);
+            _logger.LogError(ex, "[AiAssistant] Ngoại lệ tổng thể khi gọi Gemini API: {Message}. Kích hoạt Fallback FAQ.", ex.Message);
             return await GenerateFallbackReplyAsync(trimmedMessage);
         }
     }
@@ -306,7 +363,8 @@ public class AiAssistantService
                     foreach (var c in coupons)
                     {
                         var minVal = c.MinOrderValue > 0 ? $"đơn từ {c.MinOrderValue:N0}đ" : "mọi đơn hàng";
-                        sb.AppendLine($"• Nhập <code>{c.Code}</code>: Giảm {c.DiscountPercentage}% cho {minVal}.");
+                        var maxVal = c.MaxDiscountAmount.HasValue ? $" (Tối đa {c.MaxDiscountAmount.Value:N0}đ)" : "";
+                        sb.AppendLine($"• Nhập <code>{c.Code}</code>: Giảm {c.DiscountPercentage}%{maxVal} cho {minVal}.");
                     }
                     sb.AppendLine("👉 Quý khách hãy nhập mã ở bước Thanh toán để được giảm giá ngay nhé!");
                     return sb.ToString();
@@ -337,8 +395,16 @@ public class AiAssistantService
                    "2. <b>Thanh toán khi nhận hàng (COD):</b> Khách hàng được kiểm tra đúng đặc sản Huế trước khi thanh toán tiền mặt cho shipper.";
         }
 
-        // 4. Hỏi về đặc sản nổi bật / gợi ý món ngon
-        if (lower.Contains("đặc sản") || lower.Contains("nổi bật") || lower.Contains("gợi ý") || lower.Contains("mua gì") || lower.Contains("quà biếu"))
+        // 4. Hỏi về quà biếu hoặc đặc sản nổi bật
+        if (lower.Contains("quà biếu") || lower.Contains("tặng") || lower.Contains("gói quà"))
+        {
+            return "🎁 <b>Gợi ý quà biếu xứ Huế ý nghĩa:</b>\n" +
+                   "• Quý khách có thể chọn <b>Combo Quà Biếu Cố Đô</b> kết hợp Mè xửng giòn Thuận An và Trà Cung Đình Nhất Dạ Đế Vương thanh tao.\n" +
+                   "• Đặc biệt tại bước Đặt hàng, Quý khách có thể tích chọn <b>Dịch vụ Gói quà Cố Đô (+15.000đ)</b> với hộp thắt nơ sang trọng kèm thiệp viết tay theo yêu cầu nhé! 🎀";
+        }
+
+        // 5. Hỏi về đặc sản nổi bật / gợi ý món ngon
+        if (lower.Contains("đặc sản") || lower.Contains("nổi bật") || lower.Contains("gợi ý") || lower.Contains("mua gì"))
         {
             try
             {
@@ -357,7 +423,7 @@ public class AiAssistantService
                     {
                         sb.AppendLine($"• <b>{p.Name}</b>: {p.Price:N0}đ (Tồn kho: {p.StockQuantity})");
                     }
-                    sb.AppendLine("💡 Tất cả đặc sản đều được chọn lọc từ các làng nghề gia truyền Cố Đô Huế!");
+                    sb.AppendLine("💡 Mè xửng thưởng thức cùng một ấm Trà Cung Đình ấm nóng là chuẩn vị Cố Đô nhất đấy ạ!");
                     return sb.ToString();
                 }
             }
@@ -369,7 +435,7 @@ public class AiAssistantService
             return "🏮 Đặc sản Huế nổi tiếng gồm có: Mè xửng giòn Thuận An, Tôm chua gia truyền, Trà Cung Đình Nhất Dạ Đế Vương, Bánh ép khô giòn rụm và Nem tré Cố Đô. Mời Quý khách dạo xem trên trang chủ để chọn món ưng ý nhé!";
         }
 
-        // 5. Câu trả lời mặc định
+        // 6. Câu trả lời mặc định
         return "Dạ, cảm ơn Quý khách đã nhắn tin! Em là Trợ Lý Ẩm Thực Cố Đô. Quý khách có thể:\n" +
                "• Nhập mã đơn hàng dạng <code>HUE-...</code> để tra cứu lộ trình đơn.\n" +
                "• Hỏi về sản phẩm, giá bán, bảo quản hoặc các mã giảm giá hôm nay.\n" +

@@ -18,14 +18,14 @@ public class HomeController(
     // =========================================================================
 
     /// <summary>
-    /// API xử lý câu hỏi từ khung chat 'Trợ Lý Ẩm Thực Cố Đô' trên Website
+    /// API xử lý câu hỏi từ khung chat 'Trợ Lý Ẩm Thực Cố Đô' trên Website (hỗ trợ lịch sử hội thoại)
     /// </summary>
     [HttpPost("/api/chat")]
     [HttpPost("/Home/Chat")]
     public async Task<IActionResult> Chat([FromBody] ChatRequest? request)
     {
         var userMessage = request?.Message ?? string.Empty;
-        var reply = await aiAssistantService.GetSmartReplyAsync(userMessage);
+        var reply = await aiAssistantService.GetSmartReplyAsync(userMessage, request?.History);
         return Json(new { success = true, reply });
     }
     // =========================================================================
@@ -217,5 +217,6 @@ public class HomeController(
 public class ChatRequest
 {
     public string? Message { get; set; }
+    public List<ChatMessageItem>? History { get; set; }
 }
 
