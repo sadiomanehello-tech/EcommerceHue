@@ -60,6 +60,31 @@ namespace EcommerceHue.Services
 
             try
             {
+                // Đảm bảo nút tra cứu Telegram Bot luôn hiện diện trong email xác nhận đơn hàng
+                var finalHtmlContent = htmlContent;
+                if (!string.IsNullOrWhiteSpace(finalHtmlContent) && !finalHtmlContent.Contains("https://t.me"))
+                {
+                    var telegramButtonHtml = """
+                        <div style="text-align: center; margin: 25px 0;">
+                            <a href="https://t.me" target="_blank" style="display: inline-block; padding: 12px 26px; background-color: #0088cc; color: #ffffff; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 10px rgba(0, 136, 204, 0.25);">
+                                ✈️ Tra cứu hành trình đơn hàng trên Telegram
+                            </a>
+                            <div style="font-size: 12px; color: #666; margin-top: 6px;">
+                                (Nhận cập nhật tiến độ vận chuyển và tư vấn tự động 24/7)
+                            </div>
+                        </div>
+                    """;
+
+                    if (finalHtmlContent.Contains("</body>"))
+                    {
+                        finalHtmlContent = finalHtmlContent.Replace("</body>", telegramButtonHtml + "</body>");
+                    }
+                    else
+                    {
+                        finalHtmlContent += telegramButtonHtml;
+                    }
+                }
+
                 // Địa chỉ API REST chính thức của Brevo v3
                 var url = "https://api.brevo.com/v3/smtp/email";
 
@@ -69,7 +94,7 @@ namespace EcommerceHue.Services
                     sender = new { name = "EcommerceHue - Đặc Sản Huế", email = "sadiomanehello@gmail.com" },
                     to = new[] { new { email = recipientEmail } },
                     subject = subject,
-                    htmlContent = htmlContent
+                    htmlContent = finalHtmlContent
                 };
 
                 var jsonString = JsonSerializer.Serialize(payload);

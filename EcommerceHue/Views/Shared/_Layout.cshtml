@@ -212,6 +212,11 @@
                             <span class="text-warning">🚚</span>
                             <span class="text-muted">Giao hàng toàn quốc - Đóng gói cẩn thận</span>
                         </li>
+                        <li class="mt-2 pt-2 border-top border-light-subtle">
+                            <a href="https://t.me" target="_blank" rel="noopener noreferrer" class="badge rounded-pill px-3 py-2 text-decoration-none text-white d-inline-flex align-items-center gap-1 shadow-xs fw-semibold" style="background-color: #0088cc; font-size: 0.85rem;" title="Mở Telegram Bot tư vấn và tra cứu đơn hàng 24/7">
+                                ✈️ Trợ lý AI &amp; Tra cứu đơn qua Telegram 24/7
+                            </a>
+                        </li>
                     </ul>
                 </div>
 
@@ -989,15 +994,15 @@
             }
         }
 
-        /* --- CỬA SỔ CHATBOT --- */
+        /* --- CỬA SỔ CHATBOT (TỐI ƯU GỌN GÀNG 340px x 460px ĐẶT GÓC DƯỚI) --- */
         .hue-chatbot-window {
             position: fixed;
-            bottom: 86px;
+            bottom: 20px;
             right: 20px;
-            width: 360px;
+            width: 340px;
             max-width: calc(100vw - 32px);
-            height: 500px;
-            max-height: calc(100vh - 110px);
+            height: 460px;
+            max-height: calc(100vh - 40px);
             background: #ffffff;
             border-radius: 16px;
             box-shadow: 0 12px 36px rgba(0,0,0,0.25);
@@ -1253,13 +1258,13 @@
         @@media (max-width: 576px) {
             .chatbot-window,
             .hue-chatbot-window {
-                width: 90% !important;
-                right: 5% !important;
-                bottom: 80px !important;
+                width: calc(100% - 32px) !important;
+                right: 16px !important;
+                bottom: 20px !important;
                 z-index: 9999 !important;
-                max-width: 90vw !important;
+                max-width: 340px !important;
                 height: 460px !important;
-                max-height: 75vh !important;
+                max-height: calc(100vh - 40px) !important;
                 border-radius: 14px !important;
             }
             .zalo-chat-button,

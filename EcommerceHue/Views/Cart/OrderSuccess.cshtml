@@ -169,7 +169,18 @@ else
                                 👤 Thông tin người nhận
                             </h2>
                             <ul class="list-unstyled small text-muted mb-0 lh-lg">
-                                <li>Mã đơn hàng: <strong class="text-dark">@Model.OrderCode</strong></li>
+                                <li>
+                                    Mã đơn hàng: <strong class="text-dark fs-6 font-monospace">@Model.OrderCode</strong>
+                                    <!-- Hộp thông báo theo dõi lộ trình đơn tự động qua Telegram Bot -->
+                                    <div class="p-3 my-2 rounded-3 border" style="background-color: #e8f4fd; border-color: #b6d4fe !important;">
+                                        <div class="text-dark small mb-2 lh-base">
+                                            📲 <b>Theo dõi lộ trình đơn hàng tự động 24/7 qua Telegram:</b> Bấm mở Bot và gửi mã đơn <code>@Model.OrderCode</code> (hoặc cú pháp <code>/tracuu @Model.OrderCode</code>) để nhận cập nhật trạng thái tức thì.
+                                        </div>
+                                        <a href="https://t.me" target="_blank" rel="noopener noreferrer" class="btn btn-sm text-white fw-bold px-3 py-1 rounded-pill shadow-xs d-inline-flex align-items-center gap-1" style="background-color: #0088cc;" title="Mở Telegram Bot">
+                                            ✈️ Mở Telegram Bot Ngay
+                                        </a>
+                                    </div>
+                                </li>
                                 <li>Họ và tên: <strong class="text-dark">@Model.CustomerName</strong></li>
                                 <li>Số điện thoại: <strong class="text-dark">@Model.CustomerPhone</strong></li>
                                 <li>Email: <span class="text-dark">@Model.CustomerEmail</span></li>

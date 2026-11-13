@@ -15,3 +15,4 @@ public class ChatMessageItem
     /// </summary>
     public string Text { get; set; } = string.Empty;
 }
+

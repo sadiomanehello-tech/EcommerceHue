@@ -1642,7 +1642,27 @@ public class CartController(
                 
                 // 4. Kích nổ Email thứ 2 thông báo gạch nợ thành công dạng Fire-and-Forget
                 string subjectPaid = "[EcommerceHue] Xác nhận đã thanh toán thành công đơn hàng #" + order.Id;
-                string htmlPaidContent = "<h3>Cảm ơn bạn đã thanh toán thành công!</h3><p>Đơn hàng mã số #" + order.Id + " đã được chuyển sang trạng thái chờ giao nhận.</p>";
+                string htmlPaidContent = $"""
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 25px; background: #ffffff; border-radius: 10px; border: 1px solid #e0e0e0;">
+                        <div style="text-align: center; background: #2e7d32; color: #ffffff; padding: 20px; border-radius: 8px;">
+                            <h2 style="margin: 0; font-size: 22px;">🎉 THANH TOÁN THÀNH CÔNG!</h2>
+                        </div>
+                        <div style="padding: 20px 10px;">
+                            <p style="font-size: 15px;">Kính chào <strong>{System.Net.WebUtility.HtmlEncode(order.CustomerName)}</strong>,</p>
+                            <p style="font-size: 14px; line-height: 1.6;">Hệ thống EcommerceHue đã ghi nhận thanh toán thành công cho đơn hàng <strong>#{order.OrderCode}</strong>.</p>
+                            <p style="font-size: 14px; line-height: 1.6;">Đơn hàng của bạn hiện đang được đóng gói cẩn thận để chuẩn bị bàn giao cho bưu tá giao hàng.</p>
+                            <div style="text-align: center; margin: 25px 0;">
+                                <a href="https://t.me" target="_blank" style="display: inline-block; padding: 12px 26px; background-color: #0088cc; color: #ffffff; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 10px rgba(0, 136, 204, 0.25);">
+                                    ✈️ Tra cứu hành trình đơn hàng trên Telegram
+                                </a>
+                                <div style="font-size: 12px; color: #666; margin-top: 6px;">
+                                    (Nhắn mã <code>{order.OrderCode}</code> để kiểm tra hành trình đơn hàng bất cứ lúc nào)
+                                </div>
+                            </div>
+                            <p style="font-size: 13px; color: #777; margin-top: 20px;">Hotline hỗ trợ CSKH: <strong>0901 234 567</strong></p>
+                        </div>
+                    </div>
+                """;
                 
                 _ = Task.Run(async () => {
                     try {
@@ -1837,6 +1857,16 @@ public class CartController(
                         </tfoot>
                     </table>
 
+                    <!-- Nút tra cứu Telegram Bot -->
+                    <div style="text-align: center; margin: 22px 0 15px 0;">
+                        <a href="https://t.me" target="_blank" style="display: inline-block; padding: 12px 24px; background-color: #0088cc; color: #ffffff; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 10px rgba(0, 136, 204, 0.25);">
+                            ✈️ Tra cứu hành trình đơn hàng trên Telegram
+                        </a>
+                        <div style="font-size: 12px; color: #666; margin-top: 6px;">
+                            (Nhắn mã <code>{order.OrderCode}</code> tới Bot để nhận cập nhật trạng thái đơn hàng 24/7)
+                        </div>
+                    </div>
+
                     <!-- Thông tin nhận hàng -->
                     <div style="background-color: #f9fafb; border-radius: 8px; padding: 14px; margin-top: 20px; font-size: 13.5px; line-height: 1.6;">
                         <strong style="color: #166534;">📍 Thông tin giao hàng:</strong><br>
@@ -1947,6 +1977,16 @@ public class CartController(
                             </tr>
                         </tfoot>
                     </table>
+
+                    <!-- Nút tra cứu Telegram Bot -->
+                    <div style="text-align: center; margin: 20px 0;">
+                        <a href="https://t.me" target="_blank" style="display: inline-block; padding: 12px 24px; background-color: #0088cc; color: #ffffff; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 10px rgba(0, 136, 204, 0.25);">
+                            ✈️ Tra cứu hành trình đơn hàng trên Telegram
+                        </a>
+                        <div style="font-size: 12px; color: #666; margin-top: 6px;">
+                            (Theo dõi tiến độ đơn hàng và tư vấn tự động qua Telegram 24/7)
+                        </div>
+                    </div>
 
                     <!-- KHỐI HƯỚNG DẪN THANH TOÁN VIETQR -->
                     <div style="background: linear-gradient(180deg, #fffcf5 0%, #fff8eb 100%); border: 2px dashed #e0a96d; border-radius: 10px; padding: 20px; margin-bottom: 25px; text-align: center;">
