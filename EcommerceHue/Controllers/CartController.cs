@@ -1652,7 +1652,7 @@ public class CartController(
                             <p style="font-size: 14px; line-height: 1.6;">Hệ thống EcommerceHue đã ghi nhận thanh toán thành công cho đơn hàng <strong>#{order.OrderCode}</strong>.</p>
                             <p style="font-size: 14px; line-height: 1.6;">Đơn hàng của bạn hiện đang được đóng gói cẩn thận để chuẩn bị bàn giao cho bưu tá giao hàng.</p>
                             <div style="text-align: center; margin: 25px 0;">
-                                <a href="https://t.me" target="_blank" style="display: inline-block; padding: 12px 26px; background-color: #0088cc; color: #ffffff; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 10px rgba(0, 136, 204, 0.25);">
+                                <a href="https://t.me/ecommercehue_bot" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 12px 26px; background-color: #0088cc; color: #ffffff; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 10px rgba(0, 136, 204, 0.25);">
                                     ✈️ Tra cứu hành trình đơn hàng trên Telegram
                                 </a>
                                 <div style="font-size: 12px; color: #666; margin-top: 6px;">
@@ -1859,7 +1859,7 @@ public class CartController(
 
                     <!-- Nút tra cứu Telegram Bot -->
                     <div style="text-align: center; margin: 22px 0 15px 0;">
-                        <a href="https://t.me" target="_blank" style="display: inline-block; padding: 12px 24px; background-color: #0088cc; color: #ffffff; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 10px rgba(0, 136, 204, 0.25);">
+                        <a href="https://t.me/ecommercehue_bot" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 12px 24px; background-color: #0088cc; color: #ffffff; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 10px rgba(0, 136, 204, 0.25);">
                             ✈️ Tra cứu hành trình đơn hàng trên Telegram
                         </a>
                         <div style="font-size: 12px; color: #666; margin-top: 6px;">
@@ -1980,7 +1980,7 @@ public class CartController(
 
                     <!-- Nút tra cứu Telegram Bot -->
                     <div style="text-align: center; margin: 20px 0;">
-                        <a href="https://t.me" target="_blank" style="display: inline-block; padding: 12px 24px; background-color: #0088cc; color: #ffffff; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 10px rgba(0, 136, 204, 0.25);">
+                        <a href="https://t.me/ecommercehue_bot" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 12px 24px; background-color: #0088cc; color: #ffffff; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 10px rgba(0, 136, 204, 0.25);">
                             ✈️ Tra cứu hành trình đơn hàng trên Telegram
                         </a>
                         <div style="font-size: 12px; color: #666; margin-top: 6px;">

@@ -62,11 +62,11 @@ namespace EcommerceHue.Services
             {
                 // Đảm bảo nút tra cứu Telegram Bot luôn hiện diện trong email xác nhận đơn hàng
                 var finalHtmlContent = htmlContent;
-                if (!string.IsNullOrWhiteSpace(finalHtmlContent) && !finalHtmlContent.Contains("https://t.me"))
+                if (!string.IsNullOrWhiteSpace(finalHtmlContent) && !finalHtmlContent.Contains("https://t.me/ecommercehue_bot"))
                 {
                     var telegramButtonHtml = """
                         <div style="text-align: center; margin: 25px 0;">
-                            <a href="https://t.me" target="_blank" style="display: inline-block; padding: 12px 26px; background-color: #0088cc; color: #ffffff; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 10px rgba(0, 136, 204, 0.25);">
+                            <a href="https://t.me/ecommercehue_bot" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 12px 26px; background-color: #0088cc; color: #ffffff; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 10px rgba(0, 136, 204, 0.25);">
                                 ✈️ Tra cứu hành trình đơn hàng trên Telegram
                             </a>
                             <div style="font-size: 12px; color: #666; margin-top: 6px;">

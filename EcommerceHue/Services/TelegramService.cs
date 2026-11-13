@@ -47,6 +47,29 @@ public class TelegramService
     }
 
     /// <summary>
+    /// Lấy Username hoặc liên kết trực tiếp tới Bot Telegram chính thức của cửa hàng.
+    /// Có thể cấu hình qua 'Telegram:BotUsername' hoặc 'Telegram__BotUsername', mặc định là 'ecommercehue_bot'.
+    /// </summary>
+    public string GetBotUsername()
+    {
+        var username = (_configuration["Telegram:BotUsername"]
+                     ?? _configuration["Telegram__BotUsername"]
+                     ?? Environment.GetEnvironmentVariable("Telegram__BotUsername")
+                     ?? Environment.GetEnvironmentVariable("Telegram:BotUsername")
+                     ?? "ecommercehue_bot").Trim().TrimStart('@');
+
+        return string.IsNullOrWhiteSpace(username) ? "ecommercehue_bot" : username;
+    }
+
+    /// <summary>
+    /// Sinh URL mở trực tiếp khung chat với Bot trên Telegram (ví dụ: https://t.me/ecommercehue_bot)
+    /// </summary>
+    public string GetBotLink()
+    {
+        return $"https://t.me/{GetBotUsername()}";
+    }
+
+    /// <summary>
     /// Gửi bất kỳ thông điệp định dạng HTML nào tới ChatId của Quản trị viên
     /// </summary>
     public async Task SendRawMessageAsync(string htmlMessage)
