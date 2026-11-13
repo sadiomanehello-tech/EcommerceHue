@@ -51,12 +51,37 @@ public class TelegramService
     /// </summary>
     public async Task SendRawMessageAsync(string htmlMessage)
     {
-        if (string.IsNullOrWhiteSpace(htmlMessage)) return;
-
-        var (botToken, chatId) = GetCredentials();
-        if (string.IsNullOrWhiteSpace(botToken) || string.IsNullOrWhiteSpace(chatId))
+        var (_, adminChatId) = GetCredentials();
+        if (string.IsNullOrWhiteSpace(adminChatId))
         {
-            var warnMsg = "[Telegram] Cảnh báo: Biến cấu hình 'Telegram__BotToken' hoặc 'Telegram__ChatId' chưa được thiết lập. Bỏ qua gửi thông báo Telegram.";
+            var warnMsg = "[Telegram] Cảnh báo: Biến cấu hình 'Telegram__ChatId' chưa được thiết lập. Bỏ qua gửi thông báo Telegram.";
+            Console.WriteLine(warnMsg);
+            _logger.LogWarning(warnMsg);
+            return;
+        }
+
+        await SendMessageToChatIdAsync(adminChatId, htmlMessage);
+    }
+
+    /// <summary>
+    /// Gửi tin nhắn định dạng HTML tới ChatId cụ thể (long)
+    /// </summary>
+    public async Task SendMessageToChatIdAsync(long chatId, string htmlMessage)
+    {
+        await SendMessageToChatIdAsync(chatId.ToString(), htmlMessage);
+    }
+
+    /// <summary>
+    /// Gửi tin nhắn định dạng HTML tới bất kỳ ChatId cụ thể nào (chuỗi)
+    /// </summary>
+    public async Task SendMessageToChatIdAsync(string targetChatId, string htmlMessage)
+    {
+        if (string.IsNullOrWhiteSpace(htmlMessage) || string.IsNullOrWhiteSpace(targetChatId)) return;
+
+        var (botToken, _) = GetCredentials();
+        if (string.IsNullOrWhiteSpace(botToken))
+        {
+            var warnMsg = "[Telegram] Cảnh báo: Biến cấu hình 'Telegram__BotToken' chưa được thiết lập. Bỏ qua gửi tin nhắn.";
             Console.WriteLine(warnMsg);
             _logger.LogWarning(warnMsg);
             return;
@@ -66,7 +91,7 @@ public class TelegramService
         {
             var payload = new
             {
-                chat_id = chatId,
+                chat_id = targetChatId,
                 text = htmlMessage,
                 parse_mode = "HTML",
                 disable_web_page_preview = true
@@ -76,27 +101,68 @@ public class TelegramService
             var stringContent = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
             var httpClient = _httpClientFactory.CreateClient("TelegramBotClient");
-            httpClient.Timeout = TimeSpan.FromSeconds(10); // Timeout ngắn để không làm chậm luồng giao dịch
+            httpClient.Timeout = TimeSpan.FromSeconds(10);
 
             var endpoint = $"https://api.telegram.org/bot{botToken}/sendMessage";
             var response = await httpClient.PostAsync(endpoint, stringContent);
 
             if (response.IsSuccessStatusCode)
             {
-                _logger.LogInformation("[Telegram] Gửi tin nhắn thành công.");
+                _logger.LogInformation("[Telegram] Gửi tin nhắn thành công tới ChatId: {ChatId}", targetChatId);
             }
             else
             {
                 var responseBody = await response.Content.ReadAsStringAsync();
-                _logger.LogWarning("[Telegram] Gửi tin nhắn thất bại (HTTP {Status}): {Body}",
-                    response.StatusCode, responseBody);
-                Console.WriteLine($"[Telegram] ⚠️ Gửi tin nhắn thất bại (HTTP {response.StatusCode}): {responseBody}");
+                _logger.LogWarning("[Telegram] Gửi tin nhắn tới {ChatId} thất bại (HTTP {Status}): {Body}",
+                    targetChatId, response.StatusCode, responseBody);
+                Console.WriteLine($"[Telegram] ⚠️ Gửi tin nhắn tới {targetChatId} thất bại (HTTP {response.StatusCode}): {responseBody}");
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[Telegram] Ngoại lệ khi gửi tin nhắn: {Message}", ex.Message);
-            Console.WriteLine($"[Telegram] ❌ Ngoại lệ khi gửi tin nhắn Telegram: {ex.Message}");
+            _logger.LogError(ex, "[Telegram] Ngoại lệ khi gửi tin nhắn tới {ChatId}: {Message}", targetChatId, ex.Message);
+            Console.WriteLine($"[Telegram] ❌ Ngoại lệ khi gửi tin nhắn tới {targetChatId}: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Tự động đăng ký Webhook URL với Telegram Bot API
+    /// </summary>
+    public async Task<bool> SetWebhookAsync(string webhookUrl)
+    {
+        var (botToken, _) = GetCredentials();
+        if (string.IsNullOrWhiteSpace(botToken))
+        {
+            _logger.LogWarning("[Telegram] Chưa cấu hình Telegram__BotToken. Bỏ qua đăng ký Webhook.");
+            return false;
+        }
+
+        try
+        {
+            var httpClient = _httpClientFactory.CreateClient("TelegramBotClient");
+            httpClient.Timeout = TimeSpan.FromSeconds(10);
+
+            var endpoint = $"https://api.telegram.org/bot{botToken}/setWebhook?url={Uri.EscapeDataString(webhookUrl)}";
+            var response = await httpClient.GetAsync(endpoint);
+            var body = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation("[Telegram] Đã đăng ký Webhook Telegram thành công: {Url}", webhookUrl);
+                Console.WriteLine($"[Telegram] ✅ Đã đăng ký Webhook Telegram: {webhookUrl}");
+                return true;
+            }
+            else
+            {
+                _logger.LogWarning("[Telegram] Đăng ký Webhook thất bại (HTTP {Status}): {Body}", response.StatusCode, body);
+                Console.WriteLine($"[Telegram] ⚠️ Đăng ký Webhook thất bại: {body}");
+                return false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[Telegram] Ngoại lệ khi đăng ký Webhook Telegram: {Message}", ex.Message);
+            return false;
         }
     }
 

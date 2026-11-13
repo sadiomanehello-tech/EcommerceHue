@@ -10,8 +10,24 @@ namespace EcommerceHue.Controllers;
 
 public class HomeController(
     EcommerceContext context,
-    IOrderExpirationService orderExpirationService) : Controller
+    IOrderExpirationService orderExpirationService,
+    AiAssistantService aiAssistantService) : Controller
 {
+    // =========================================================================
+    // API CHAT TRỢ LÝ ẨM THỰC CỐ ĐÔ (TÍCH HỢP GEMINI API & DỮ LIỆU SQLITE)
+    // =========================================================================
+
+    /// <summary>
+    /// API xử lý câu hỏi từ khung chat 'Trợ Lý Ẩm Thực Cố Đô' trên Website
+    /// </summary>
+    [HttpPost("/api/chat")]
+    [HttpPost("/Home/Chat")]
+    public async Task<IActionResult> Chat([FromBody] ChatRequest? request)
+    {
+        var userMessage = request?.Message ?? string.Empty;
+        var reply = await aiAssistantService.GetSmartReplyAsync(userMessage);
+        return Json(new { success = true, reply });
+    }
     // =========================================================================
     // Action: Trang chủ – danh sách đặc sản Huế có tìm kiếm & lọc danh mục
     // =========================================================================
@@ -193,5 +209,13 @@ public class HomeController(
     {
         return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
     }
+}
+
+/// <summary>
+/// Dữ liệu đầu vào cho API chat Trợ lý Ẩm thực Cố Đô
+/// </summary>
+public class ChatRequest
+{
+    public string? Message { get; set; }
 }
 

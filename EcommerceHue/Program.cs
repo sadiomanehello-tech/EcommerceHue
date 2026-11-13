@@ -72,6 +72,9 @@ builder.Services.AddHttpClient();
 // --- Đăng ký Dịch vụ gửi thông báo Telegram Bot ---
 builder.Services.AddScoped<TelegramService>();
 
+// --- Đăng ký Dịch vụ Trợ lý AI Thông minh (Gemini API + SQLite) ---
+builder.Services.AddScoped<AiAssistantService>();
+
 // --- Đăng ký Dịch vụ gửi Email (MailKit / Gmail SMTP) ---
 builder.Services.AddSingleton<EcommerceHue.Services.IEmailService, EcommerceHue.Services.EmailService>();
 
@@ -157,8 +160,8 @@ app.Use(async (context, next) =>
 {
     string path = context.Request.Path.Value?.ToLower() ?? string.Empty;
 
-    // ĐỤC LỖ NGOẠI LỆ: Cho phép payOS gọi API gạch nợ tự do không bị chặn mật khẩu
-    if (path.Contains("/payos-webhook"))
+    // ĐỤC LỖ NGOẠI LỆ: Cho phép payOS, Telegram Webhook và API Chat hoạt động không bị chặn mật khẩu
+    if (path.Contains("/payos-webhook") || path.Contains("/api/telegram") || path.Contains("/api/chat"))
     {
         await next();
         return;
@@ -219,6 +222,17 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         Console.WriteLine("=== [SYSTEM WARNING] Bỏ qua lỗi ngắt mạch DB: " + ex.Message);
+    }
+
+    // Tự động kết nối Webhook Telegram Bot với website EcommerceHue trên Render
+    try
+    {
+        var telegramService = services.GetRequiredService<TelegramService>();
+        await telegramService.SetWebhookAsync("https://ecommercehue.onrender.com/api/telegram/webhook");
+    }
+    catch (Exception tgEx)
+    {
+        Console.WriteLine("=== [TELEGRAM WEBHOOK WARNING] Bỏ qua lỗi SetWebhook khi khởi động: " + tgEx.Message);
     }
 }
 

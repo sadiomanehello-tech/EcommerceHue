@@ -350,17 +350,17 @@
                 <div class="hue-msg-time">Vừa xong</div>
             </div>
 
-            <!-- 3 Nút gợi ý câu hỏi nhanh -->
+            <!-- Các nút gợi ý câu hỏi nhanh -->
             <div id="hue-quick-questions" class="hue-quick-questions my-2">
                 <div class="hue-quick-title text-muted mb-2 small fw-semibold">💡 Gợi ý câu hỏi nhanh:</div>
-                <button type="button" class="hue-btn-quick" data-question="1">
-                    🚚 Phí vận chuyển và thời gian giao đặc sản Huế là bao lâu?
+                <button type="button" class="hue-btn-quick" data-text="🔍 Tra cứu đơn hàng (Nhập mã HUE-...)">
+                    🔍 Tra cứu đơn hàng (Nhập mã HUE-...)
                 </button>
-                <button type="button" class="hue-btn-quick" data-question="2">
-                    💳 Cách thức thanh toán đơn hàng như thế nào?
+                <button type="button" class="hue-btn-quick" data-text="⭐ Đặc sản nổi bật & Mã giảm giá hôm nay?">
+                    ⭐ Đặc sản nổi bật &amp; Mã giảm giá hôm nay?
                 </button>
-                <button type="button" class="hue-btn-quick" data-question="3">
-                    🎁 Mã giảm giá đơn hàng đầu tiên lấy ở đâu?
+                <button type="button" class="hue-btn-quick" data-text="🚚 Phí vận chuyển và chính sách thanh toán COD thế nào?">
+                    🚚 Phí vận chuyển &amp; Thanh toán COD?
                 </button>
             </div>
         </div>
@@ -557,13 +557,6 @@
         const chatForm = document.getElementById('hue-chatbot-form');
         const quickQuestions = document.querySelectorAll('.hue-btn-quick');
 
-        // Các kịch bản trả lời tự động chuẩn theo yêu cầu
-        const botAnswers = {
-            1: 'Hệ thống áp dụng chính sách giao nhận 2 cấp mới sáp nhập. Thời gian giao nội thành Huế là 24h, các tỉnh thành khác từ 2-3 ngày ạ! 🚚',
-            2: 'Shop hỗ trợ chuyển khoản VietQR gạch nợ tự động qua BIDV và ship COD nhận hàng trả tiền nhé! 💳',
-            3: 'Bạn chỉ cần nhập Email vào ô Đăng ký nhận bản tin ở chân trang, hệ thống sẽ tự động gửi mã HUEDACSAN10 giảm 10% vào Gmail của bạn ngay lập tức! 🎁'
-        };
-
         // Bật / Tắt cửa sổ Chat
         function toggleChatbot() {
             if (!chatWindow) return;
@@ -629,13 +622,18 @@
             if (typing) typing.remove();
         }
 
-        // Thêm tin nhắn trả lời của Bot
-        function appendBotMessage(text) {
+        // Thêm tin nhắn trả lời của Bot (Hỗ trợ định dạng HTML)
+        function appendBotMessage(htmlText) {
             removeTypingIndicator();
             const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            // Thay thế ký tự xuống dòng bằng thẻ <br> nếu chưa có thẻ HTML
+            let formatted = htmlText;
+            if (!formatted.includes('<p>') && !formatted.includes('<div>') && !formatted.includes('<br>')) {
+                formatted = formatted.replace(/\n/g, '<br>');
+            }
             const msgHtml = `
                 <div class="hue-msg hue-msg-bot">
-                    <div class="hue-msg-bubble">${text}</div>
+                    <div class="hue-msg-bubble">${formatted}</div>
                     <div class="hue-msg-time">${timeStr}</div>
                 </div>
             `;
@@ -643,18 +641,46 @@
             scrollToBottom();
         }
 
+        // Gửi câu hỏi lên API server để Trợ lý AI Gemini & SQLite xử lý
+        async function fetchAiReply(userText) {
+            showTypingIndicator();
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: userText })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    appendBotMessage(data.reply || 'Dạ, em chưa nhận diện được câu trả lời. Quý khách vui lòng thử lại nhé!');
+                } else {
+                    appendBotMessage('Dạ, hệ thống đang bận một chút, Quý khách vui lòng thử lại sau ít giây hoặc liên hệ Hotline 0901 234 567 ạ! 🏮');
+                }
+            } catch (err) {
+                console.error('Lỗi gọi API chat:', err);
+                appendBotMessage('Dạ, kết nối bị gián đoạn. Quý khách vui lòng kiểm tra mạng hoặc thử lại nhé! 🏮');
+            }
+        }
+
         // Xử lý khi bấm nút câu hỏi gợi ý nhanh
         quickQuestions.forEach(btn => {
             btn.addEventListener('click', function () {
-                const qId = this.getAttribute('data-question');
-                const userQuestionText = this.innerText.replace(/^[^\s]+\s/, ''); // Bỏ icon đầu
-                appendUserMessage(userQuestionText);
+                const qText = this.getAttribute('data-text') || this.innerText.trim();
 
-                showTypingIndicator();
-                setTimeout(() => {
-                    const answer = botAnswers[qId] || 'Dạ, Quý khách vui lòng để lại số điện thoại hoặc liên hệ Hotline 0901 234 567 để được hỗ trợ chu đáo nhất ạ!';
-                    appendBotMessage(answer);
-                }, 550);
+                // Nếu bấm nút tra cứu đơn hàng, hỗ trợ gợi ý điền mẫu
+                if (qText.includes('Tra cứu đơn hàng')) {
+                    appendUserMessage(qText);
+                    appendBotMessage('Dạ, Quý khách vui lòng nhập mã đơn hàng của mình (ví dụ: <code>HUE-20261113-123</code>) vào ô bên dưới để em kiểm tra tiến độ giao hàng ngay nhé! 📦');
+                    if (chatInput) {
+                        chatInput.value = 'HUE-';
+                        chatInput.focus();
+                    }
+                    return;
+                }
+
+                appendUserMessage(qText);
+                fetchAiReply(qText);
             });
         });
 
@@ -666,23 +692,7 @@
 
             appendUserMessage(text);
             chatInput.value = '';
-
-            // Phân tích từ khóa thông minh
-            showTypingIndicator();
-            setTimeout(() => {
-                const lower = text.toLowerCase();
-                let reply = '';
-                if (lower.includes('vận chuyển') || lower.includes('ship') || lower.includes('giao hàng') || lower.includes('bao lâu') || lower.includes('thời gian')) {
-                    reply = botAnswers[1];
-                } else if (lower.includes('thanh toán') || lower.includes('vietqr') || lower.includes('bidv') || lower.includes('cod') || lower.includes('chuyển khoản')) {
-                    reply = botAnswers[2];
-                } else if (lower.includes('giảm giá') || lower.includes('mã') || lower.includes('coupon') || lower.includes('voucher') || lower.includes('10%')) {
-                    reply = botAnswers[3];
-                } else {
-                    reply = 'Cảm ơn Quý khách đã gửi tin nhắn! Ngoài các câu hỏi thường gặp, Quý khách có thể gọi Hotline <strong>0901 234 567</strong> hoặc bấm nút Zalo bên cạnh để chuyên viên ẩm thực Huế tư vấn trực tiếp 24/7 ạ! 🏮';
-                }
-                appendBotMessage(reply);
-            }, 550);
+            fetchAiReply(text);
         }
 
         if (chatForm) {

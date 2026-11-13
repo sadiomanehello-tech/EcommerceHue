@@ -138,3 +138,4 @@ public class DailyReportBackgroundService : BackgroundService
         _logger.LogInformation("[DailyReportBackgroundService] Đã gửi báo cáo doanh thu ngày {Date:dd/MM/yyyy} thành công tới Telegram Bot.", targetDate);
     }
 }
+
